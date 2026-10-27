@@ -32,7 +32,7 @@
 use data_encoding::{Encoding, Specification, BASE32_NOPAD};
 use once_cell::sync::Lazy;
 use serde_json::{json, Value};
-use totp_rs::{Algorithm, TOTP};
+use totp_rs::{Algorithm, Builder};
 
 use super::{util, ToolError, ToolResult};
 
@@ -332,14 +332,22 @@ fn compute(payload: Value) -> ToolResult {
 /// `generate(counter)` 就等价于拿 `counter` 的大端 8 字节当消息 ——
 /// 正是 RFC 4226 那个「counter 补零到 16 位十六进制」的计数器。
 ///
-/// `new_unchecked` 而不是 `new`：`new` 会按 RFC 6238 拒掉短于 128 位的密钥，
+/// `build_noncompliant` 而不是 `build`：`build` 会按 RFC 6238 拒掉短于 128 位的密钥，
 /// 而参考实现接受任意长度（它自己的测试密钥只有 80 位）。既然要兼容参考实现的
 /// 合法输入，合规性检查就自己来，不依赖这个构造器。
 ///
 /// `digits` 在这里再夹一次：这个函数会被测试直接调用，不能只依赖调用方夹过；
 /// totp-rs 的 `10_u32.pow(digits)` 在 digits ≥ 10 时会溢出。
 fn otp(algorithm: Algorithm, secret: &[u8], counter: u64, digits: usize) -> String {
-    TOTP::new_unchecked(algorithm, digits.clamp(6, 8), 0, 1, secret.to_vec()).generate(counter)
+    Builder::new()
+        .with_algorithm(algorithm)
+        .with_digits(digits.clamp(6, 8) as u8)
+        .with_skew(0)
+        .with_step_duration(1)
+        .with_secret(secret.to_vec())
+        .build_noncompliant()
+        .generate(counter)
+        .to_string()
 }
 
 /// 在 `counter ± WINDOW` 里找 `token` 属于哪个计数器；找不到返回 `None`。
