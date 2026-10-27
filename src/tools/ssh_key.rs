@@ -51,8 +51,7 @@
 use aes::cipher::{BlockCipherEncrypt, KeyInit};
 use base64::engine::general_purpose::{STANDARD as B64, STANDARD_NO_PAD as B64_NO_PAD};
 use base64::Engine as _;
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::Rng;
 use sha2::{Digest, Sha256};
 
 use super::ToolError;
@@ -235,7 +234,7 @@ impl SshKey {
         let (ciphername, kdfname, kdfoptions) = match passphrase {
             Some(pw) => {
                 let mut salt = [0u8; BCRYPT_SALT_LEN];
-                OsRng.fill_bytes(&mut salt);
+                rand::rng().fill_bytes(&mut salt);
 
                 // bcrypt-pbkdf 派生 48 字节：前 32 是 AES-256 密钥，后 16 是 IV
                 let mut derived = [0u8; AES256_KEY_LEN + AES256_IV_LEN];
@@ -304,7 +303,7 @@ fn pad_to_block(buf: &mut Vec<u8>, block: usize) {
 /// 4 字节随机数。
 fn random_u32() -> u32 {
     let mut b = [0u8; 4];
-    OsRng.fill_bytes(&mut b);
+    rand::rng().fill_bytes(&mut b);
     u32::from_be_bytes(b)
 }
 

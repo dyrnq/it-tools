@@ -49,7 +49,7 @@
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
 use md5::{Digest, Md5};
-use rand::Rng;
+use rand::RngExt;
 use sha1::Sha1;
 use serde_json::{json, Value};
 
@@ -143,9 +143,9 @@ fn cost_clamp_warning(requested: Option<u64>) -> Option<String> {
 
 /// apr1 的 8 字符随机盐。字母表与摘要用的 base64 表相同。
 fn random_apr1_salt() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     (0..APR1_SALT_LEN)
-        .map(|_| APR1_ALPHABET[rng.gen_range(0..64)] as char)
+        .map(|_| APR1_ALPHABET[rng.random_range(0..64)] as char)
         .collect()
 }
 
@@ -669,14 +669,14 @@ mod tests {
 
         let mut rng = StdRng::seed_from_u64(20261027);
         for i in 0..40 {
-            let len = rng.gen_range(0..40);
+            let len = rng.random_range(0..40);
             let mut password = String::with_capacity(len);
             for j in 0..len {
                 let set = if j == 0 { FIRST } else { ALPHABET };
-                password.push(set[rng.gen_range(0..set.len())] as char);
+                password.push(set[rng.random_range(0..set.len())] as char);
             }
             let salt: String = (0..8)
-                .map(|_| APR1_ALPHABET[rng.gen_range(0..64)] as char)
+                .map(|_| APR1_ALPHABET[rng.random_range(0..64)] as char)
                 .collect();
             assert_eq!(
                 apr1_hash(&password, Some(&salt)),

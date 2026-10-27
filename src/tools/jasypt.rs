@@ -54,7 +54,7 @@ use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
 use hmac::{Hmac, Mac};
 use md5::{Digest, Md5};
-use rand::RngCore;
+use rand::Rng;
 use serde_json::{json, Map, Value};
 use sha2::Sha512;
 
@@ -238,7 +238,7 @@ fn encrypt(
 /// 密文，CBC 的第一块就退化成了 ECB。Jasypt 的 `RandomIvGenerator` 也是这么做的。
 fn random_iv() -> [u8; AES_IV_LEN] {
     let mut iv = [0u8; AES_IV_LEN];
-    rand::thread_rng().fill_bytes(&mut iv);
+    rand::rng().fill_bytes(&mut iv);
     iv
 }
 
@@ -426,7 +426,7 @@ fn run_encrypt(alg: Algorithm, password: &str, plaintext: &str, payload: &Value)
     let iterations = iterations_of(payload);
     let salt_len = salt_len_for(alg, util::opt_u64(payload, "salt_size"));
     let mut salt = vec![0u8; salt_len];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
 
     let b64 = encrypt(alg, password, plaintext, &salt, iterations);
     // 主结果是机器可读的密文（带 `ENC(...)` 包装），原样输出。

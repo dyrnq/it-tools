@@ -87,8 +87,7 @@
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::Rng;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding};
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
@@ -254,7 +253,7 @@ fn encode_private(
 fn encrypt_pem_traditional(der: &[u8], passphrase: &str) -> Result<String, ToolError> {
     // 16 字节 IV：OpenSSL 读的时候不校验来源，只当随机数用
     let mut iv = [0u8; PEM_AES128_IV_LEN];
-    OsRng.fill_bytes(&mut iv);
+    rand::rng().fill_bytes(&mut iv);
 
     let (key, _) = super::encryption::evp_bytes_to_key(
         passphrase.as_bytes(),
@@ -354,7 +353,7 @@ mod tests {
     const TEST_BITS: usize = 512;
 
     fn key() -> RsaPrivateKey {
-        let mut rng = OsRng;
+        let mut rng = rand_core::OsRng;
         RsaPrivateKey::new(&mut rng, TEST_BITS).expect("密钥生成不该失败")
     }
 

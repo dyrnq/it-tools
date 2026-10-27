@@ -118,12 +118,13 @@ macro_rules! rsa_pkcs1_sign {
 /// RSASSA-PSS 签名。盐长由 `SigningKey::new` 定成摘要长度 —— 这正是 JWA 的要求。
 ///
 /// PSS 的盐是随机的，而 `rsa` 的 `Signer` 实现要开 `getrandom` 特性才有；
-/// 这里直接用 `RandomizedSigner` 配自己的 `OsRng`，不用为一个功能去改依赖的
+/// 这里直接用 `RandomizedSigner` 配自己的 `OsRng`（`rand_core 0.6` 的那个 ——
+/// `rsa 0.9.10` 要的就是这一版的 trait），不用为一个功能去改依赖的
 /// 特性开关（那会让 `rsa` 的 `getrandom` 影响到全项目）。
 macro_rules! rsa_pss_sign {
     ($digest:ty, $key:expr, $data:expr) => {
         rsa::pss::SigningKey::<$digest>::new($key)
-            .try_sign_with_rng(&mut rand::rngs::OsRng, $data)
+            .try_sign_with_rng(&mut rand_core::OsRng, $data)
             .map(|s| s.to_bytes().to_vec())
             .map_err(|e| ToolError::invalid("out.jwt.err.sign_failed", &[("detail", &e.to_string())]))
     };
@@ -1034,7 +1035,7 @@ pub fn generate(alg: Alg, bits: u64) -> Result<Generated, ToolError> {
 
 /// 生成 RSA 密钥对。
 fn generate_rsa(bits: u64) -> Result<Generated, ToolError> {
-    use rand::rngs::OsRng;
+    use rand_core::OsRng;
     let bits = bits.clamp(1024, MAX_RSA_BITS) as usize;
     let key = RsaPrivateKey::new(&mut OsRng, bits)
         .map_err(|e| ToolError::Internal(format!("RSA 密钥生成失败: {e}")))?;
@@ -1106,12 +1107,12 @@ fn rsa_public_pem(key: &RsaPublicKey) -> Result<String, ToolError> {
 
 /// 生成 EC 密钥对。
 fn generate_ec(alg: Alg) -> Result<Generated, ToolError> {
-    use rand::RngCore;
+    use rand::Rng;
 
     // 私钥是域里的一个标量：随机取域长个字节，若不合法（0 或 ≥ n）就重取。
     // P-521 的 n 略小于 2^521，所以 66 字节随机数大约有 1/128 的概率越界，
     // 重取几次就过去了。
-    let mut rng = rand::rngs::OsRng;
+    let mut rng = rand::rng();
     let (private_pem, public_pem, private_jwk, public_jwk) = match alg {
         Alg::Es256 => {
             let mut bytes = [0u8; 32];
@@ -1665,7 +1666,7 @@ mod tests {
         .unwrap();
         let data = signing_input("PS256");
         let bad = rsa::pss::SigningKey::<Sha256>::new_with_salt_len(private, 0)
-            .try_sign_with_rng(&mut rand::rngs::OsRng, data.as_bytes())
+            .try_sign_with_rng(&mut rand_core::OsRng, data.as_bytes())
             .unwrap()
             .to_bytes()
             .to_vec();

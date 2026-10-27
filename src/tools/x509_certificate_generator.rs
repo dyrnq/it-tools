@@ -318,7 +318,7 @@ fn san_of(name: &str) -> Result<SanType, ToolError> {
 /// 正是为了绕开这一点，这里不需要绕。
 fn random_serial_number() -> SerialNumber {
     let mut bytes = [0u8; 16];
-    rand::thread_rng().fill(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     // 自己再清一次最高位：这样连「补前导 0x00」都不需要，序列号本身就是 16 字节正数。
     bytes[0] &= 0x7f;
     SerialNumber::from(bytes.to_vec())

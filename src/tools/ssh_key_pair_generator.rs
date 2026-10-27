@@ -35,8 +35,7 @@
 use ed25519_dalek::SigningKey;
 use p256::ecdsa::SigningKey as EcdsaSigningKey;
 use p256::FieldBytes;
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::Rng;
 use rsa::pkcs8::EncodePrivateKey;
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use rsa::RsaPrivateKey;
@@ -244,7 +243,7 @@ fn bits_of(alg: Algorithm) -> usize {
 /// 不是公钥重复两遍 —— 写错了 `ssh-keygen -y` 会算出不一样的公钥。
 fn gen_ed25519(alg: Algorithm) -> Result<Generated, ToolError> {
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill_bytes(&mut seed);
     let signing = SigningKey::from_bytes(&seed);
     let pubkey = signing.verifying_key().to_bytes();
 
@@ -275,13 +274,13 @@ fn gen_ed25519(alg: Algorithm) -> Result<Generated, ToolError> {
 /// 写错这一处 `ssh-keygen` 会解不出私钥。
 fn gen_ecdsa_p256(alg: Algorithm) -> Result<Generated, ToolError> {
     // `ecdsa 0.17` 的 `SigningKey::random` 要 `rand_core 0.9` 的 RNG，
-    // 而仓库里用的是 `rand 0.8`（`rand_core 0.6`）——两套 rand_core 对不上。
+    // 而仓库里用的是 `rand 0.10`（`rand_core 0.10`）——两套 rand_core 对不上。
     // 与其引两套随机源，不如自己抽 32 字节再喂给 `from_bytes`：
     // P-256 的阶 n 离 2^256 只差 2^-32，所以抽到非法标量的概率约
     // 4 亿分之一 —— 循环重抽即可，实际上永远一次就成。
     let mut raw = [0u8; 32];
     let signing = loop {
-        OsRng.fill_bytes(&mut raw);
+        rand::rng().fill_bytes(&mut raw);
         if let Ok(sk) = EcdsaSigningKey::from_bytes(&FieldBytes::from(raw)) {
             break sk;
         }
@@ -318,7 +317,7 @@ fn gen_ecdsa_p256(alg: Algorithm) -> Result<Generated, ToolError> {
 /// OpenSSH 的 RSA 私钥段是 `n ‖ e ‖ d ‖ iqmp ‖ p ‖ q` 六个 `mpint`，
 /// 公钥 blob 是 `e ‖ n`（顺序是反的！）。
 fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
-    let mut key = RsaPrivateKey::new(&mut OsRng, bits)
+    let mut key = RsaPrivateKey::new(&mut rand_core::OsRng, bits)
         .map_err(|e| ToolError::Internal(format!("生成 {bits} 位 RSA 密钥失败: {e}")))?;
     // `crt_coefficient()`（iqmp）要 precompute 之后才有值
     key.precompute()

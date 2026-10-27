@@ -31,7 +31,7 @@
 //! 这里的实现见 [`rsa_formats`]：多出来的几档是 OpenSSH 的两种私钥格式与
 //! `ssh-rsa AAAA…` 那种 authorized_keys 用的公钥行。
 
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use rsa::RsaPrivateKey;
 use serde_json::{json, Map, Value};
 
@@ -171,8 +171,10 @@ fn generate(
     // `OsRng` 是零大小类型，每次取随机数都直接落到操作系统熵源（Linux 上是
     // `getrandom(2)`，退化时走 `/dev/urandom`），既不缓存也不播种。它实现的是
     // `rand_core 0.6` 的 `RngCore + CryptoRng`，而 `rsa 0.9.10` 依赖的正是
-    // `rand_core 0.6.4`（`rand 0.8` 也是），三者靠 rand_core 里的 blanket impl
+    // `rand_core 0.6.4` —— 所以这里引的是 `rand_core 0.6` 的 `OsRng`，两者靠
+    // rand_core 里的 blanket impl
     // `impl<T: CryptoRng + RngCore> CryptoRngCore for T` 合流，不需要任何版本桥接。
+    // 仓库里其余地方要的随机数走 `rand 0.10`（另一套 rand_core），两边互不相干。
     //
     // 用 `RsaPrivateKey::new` 而不是任何并行变体：`rsa 0.9` 的
     // `algorithms::generate` 里没有 rayon 分支，它就是这个版本唯一的密钥生成入口。

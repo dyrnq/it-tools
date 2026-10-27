@@ -53,8 +53,7 @@ use aes_gcm::AesGcm;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
 use md5::{Digest, Md5};
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::Rng;
 use serde_json::{json, Value};
 
 use super::util::{lang, opt_str, str_or};
@@ -444,7 +443,7 @@ fn openssl(
         )
     } else {
         let mut salt = [0u8; SALT_LEN];
-        OsRng.fill_bytes(&mut salt);
+        rand::rng().fill_bytes(&mut salt);
         (salt.to_vec(), text.as_bytes().to_vec())
     };
 

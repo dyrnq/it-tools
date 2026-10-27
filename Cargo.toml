@@ -40,8 +40,14 @@ sha1 = "0.10"
 # 钉在 0.10 不是忘了升：rsa 0.9.10 要的是 **digest 0.10** 的 `Digest` trait，
 # sha2 0.11 换成了 digest 0.11 —— 那是两个不同的 trait，rsa 0.9 收不了
 # （`Pkcs1v15Sign::new::<Sha256>` 直接报 trait bound 不满足）。rsa 0.9.10 已经是
-# 最新的一版，所以这行要等 rsa 自己往前走才能动；同理的还有 md-5 / sha1 / sha3 /
-# ripemd / hmac —— 它们得跟 sha2 一起走，单独升只是把版本分裂得更难看。
+# 最新的一版，所以这行要等 rsa 自己往前走才能动。
+#
+# hmac 跟 sha2 是一伙的：hmac 0.13 是 digest 0.11 一代，`Hmac<Sha256>` 要求
+# sha2 也到 0.11，所以它俩只能一起动。
+# md-5 / sha1 / sha3 / ripemd 严格说是被 **hmac_generator** 拖住的 ——
+# 那个工具用 `hmac` crate 给九种算法算 HMAC，而 hmac 0.12 又是 digest 0.10
+# 一代。要让它们单独升，就得并排挂 hmac 0.12 / 0.13 两版，或者自己手写 HMAC ——
+# 为了一个 trait 的版本号去手写密码学，不值。
 sha2 = { version = "0.10", features = ["oid"] }
 sha3 = "0.10"
 ripemd = "0.1"
@@ -63,9 +69,15 @@ rsa = "0.9.10"
 pem = "4.0.0"
 # rand 0.9 起换成了 rand_core 0.9/0.10 的 trait，而 rsa 0.9 / rcgen 0.14 /
 # ed25519-dalek 3 要的是 rand_core 0.6 —— 交给它们的随机源因此不能来自新 rand
-# （编译器会直接说「有多个不同版本的 rand_core」）。rand 0.8 的 `thread_rng`
-# 本来就是 CSPRNG，没有安全上的理由非升不可。
-rand = "0.8"
+# （编译器会直接说「有多个不同版本的 rand_core」）。所以这里把两代拆开：
+# 我们自己要的随机数（盐、IV、序列号、EC 标量）走 rand 0.10，喂给上面三家的
+# 走 rand_core 0.6 的 `OsRng` —— 那正是它们依赖树里的同一个 0.6.4，trait 对得上，
+# 不需要任何桥接。树里因此同时存在 rand_core 0.6 与 0.10，两边互不相干。
+rand = "0.10"
+# rand_core 0.6 是**直接**依赖，不是传递依赖：rsa 0.9.10 的
+# `RsaPrivateKey::new` / `try_sign_with_rng` 要的 `CryptoRngCore` 就是这一版的
+# trait，得由我们自己把它引进来才喂得进去。
+rand_core = "0.6"
 # OpenSSH 私钥加密：bcrypt-pbkdf 派生密钥 + AES-256-CTR 加密（openssh-key-v1 格式）
 bcrypt-pbkdf = "0.11"
 # 0.46 才有 `LoadOptions::max_decompressed_size` —— PDF 签名检查器靠它挡住解压炸弹
