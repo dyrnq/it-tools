@@ -1,5 +1,3 @@
-{% import "macros.html" as m %}
-
 <aside class="sidebar" id="sidebar">
   <a class="brand" href="/">
     <span class="brand-gradient" aria-hidden="true"></span>
@@ -21,14 +19,14 @@
     </select>
     <div class="sidebar-mobile-actions">
       <a class="icon-btn" href="https://github.com/dyrnq/it-tools" target="_blank" rel="noopener"
-         title="{{ base.ui.github }}" aria-label="{{ base.ui.github }}">{{ m::icon(icon_name="brand-github", size="20") }}</a>
+         title="{{ base.ui.github }}" aria-label="{{ base.ui.github }}">{{<icon icon_name="brand-github" size="20" />}}</a>
       <a class="icon-btn" href="/about" title="{{ base.ui.about }}" aria-label="{{ base.ui.about }}">
-        {{ m::icon(icon_name="info-circle", size="20") }}
+        {{<icon icon_name="info-circle" size="20" />}}
       </a>
       <button class="icon-btn theme-toggle" id="toggle-theme-mobile" type="button"
               title="{{ base.toggle_theme_label }}" aria-label="{{ base.toggle_theme_label }}">
-        <span class="theme-icon-moon">{{ m::icon(icon_name="moon", size="20") }}</span>
-        <span class="theme-icon-sun">{{ m::icon(icon_name="sun", size="20") }}</span>
+        <span class="theme-icon-moon">{{<icon icon_name="moon" size="20" />}}</span>
+        <span class="theme-icon-sun">{{<icon icon_name="sun" size="20" />}}</span>
       </button>
     </div>
   </div>
@@ -40,7 +38,7 @@
     {% for cat in base.nav.categories %}
     <section class="nav-group" data-category="{{ cat.id }}">
       <button class="nav-group-head" type="button" aria-expanded="true">
-        {{ m::icon(icon_name="chevron-right", size="16", cls="chev") }}
+        {{<icon icon_name="chevron-right" size="16" cls="chev" />}}
         <span class="nav-group-label">{{ cat.label }}</span>
       </button>
       {# nav-group-body 是折叠动画的载体（grid-template-rows: 1fr ↔ 0fr），
@@ -53,7 +51,7 @@
           <li>
             <a class="nav-item{% if base.current_path == tool.path %} is-active{% endif %}"
                href="{{ tool.path | safe }}" title="{{ tool.name }}">
-              {{ m::icon(icon_name=tool.icon, size="16", cls="nav-icon") }}
+              {{<icon icon_name={tool.icon} size="16" cls="nav-icon" />}}
               <span class="nav-text">{{ tool.name }}</span>
             </a>
           </li>

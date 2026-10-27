@@ -1,16 +1,14 @@
-{% import "macros.html" as m %}
-
 <header class="navbar">
   <div class="nav-left">
     <button class="icon-btn" id="toggle-menu" type="button" title="{{ base.ui.toggle_menu }}"
-            aria-label="{{ base.ui.toggle_menu }}">{{ m::icon(icon_name="menu-2", size="22") }}</button>
+            aria-label="{{ base.ui.toggle_menu }}">{{<icon icon_name="menu-2" size="22" />}}</button>
     <a class="icon-btn" href="/" title="{{ base.ui.home }}" aria-label="{{ base.ui.home }}">
-      {{ m::icon(icon_name="home", size="22") }}
+      {{<icon icon_name="home" size="22" />}}
     </a>
   </div>
 
   <button class="search-trigger" id="search-trigger" type="button">
-    {{ m::icon(icon_name="search", size="16", cls="search-icon") }}
+    {{<icon icon_name="search" size="16" cls="search-icon" />}}
     <span class="search-label">{{ base.ui.search }}</span>
     <kbd class="search-kbd" id="search-kbd">Ctrl K</kbd>
   </button>
@@ -26,9 +24,9 @@
        @media max-width:700px），统一按这个类藏掉 —— 用类而不是
        :nth-child 定位，加一个按钮进来不会把位置数错。 #}
     <a class="icon-btn nav-chrome" href="https://github.com/dyrnq/it-tools" target="_blank" rel="noopener"
-       title="{{ base.ui.github }}" aria-label="{{ base.ui.github }}">{{ m::icon(icon_name="brand-github", size="22") }}</a>
+       title="{{ base.ui.github }}" aria-label="{{ base.ui.github }}">{{<icon icon_name="brand-github" size="22" />}}</a>
     <a class="icon-btn nav-chrome" href="/about" title="{{ base.ui.about }}" aria-label="{{ base.ui.about }}">
-      {{ m::icon(icon_name="info-circle", size="22") }}
+      {{<icon icon_name="info-circle" size="22" />}}
     </a>
     {# 主题按钮的 title 说「点下去会变成什么」：浅色下是「深色模式」，深色下是「浅色模式」。
        服务端只知道默认主题，实际主题由客户端 localStorage 决定，
@@ -37,13 +35,13 @@
        两处共用 .theme-toggle 这个类，app.js 一次把两个都绑上。 #}
     <button class="icon-btn theme-toggle" id="toggle-theme" type="button"
             title="{{ base.toggle_theme_label }}" aria-label="{{ base.toggle_theme_label }}">
-      <span class="theme-icon-moon">{{ m::icon(icon_name="moon", size="22") }}</span>
-      <span class="theme-icon-sun">{{ m::icon(icon_name="sun", size="22") }}</span>
+      <span class="theme-icon-moon">{{<icon icon_name="moon" size="22" />}}</span>
+      <span class="theme-icon-sun">{{<icon icon_name="sun" size="22" />}}</span>
     </button>
 
     <a class="support-btn" href="/about" title="{{ base.ui.support }}">
       {{ base.ui.buy_me_a_coffee }}
-      {{ m::icon(icon_name="heart", size="18") }}
+      {{<icon icon_name="heart" size="18" />}}
     </a>
   </div>
 </header>

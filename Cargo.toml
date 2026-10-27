@@ -12,7 +12,17 @@ build = "build.rs"
 [dependencies]
 # Web 框架 / 模板 / 资源嵌入
 actix-web = "4"
-tera = { version = "1", default-features = false }
+# 模板引擎。tera 2 是一次**从零重写**，不是 1.x 的小版本升级，换了几处用法：
+# 宏（`{% macro %}` / `{% import %}`）整个没了，改成组件（`{% component %}`，
+# 调用写成 `{{<name />}}`）；组件是**全局**的，定义好就能用，不必 import。
+# 要额外依赖的内置过滤器（json_encode 等）搬去了 tera-contrib，我们只用到
+# json_encode 一个，自己在 src/templates.rs 里注册即可，不必多引一个 crate。
+#
+# `preserve_order`：Map 不开这个特性就是 HashMap，键的迭代顺序每个进程都不一样 ——
+# 命令面板那段 JSON 是 `base.nav.search | json_encode` 出来的，顺序会跟着变，
+# 同一份页面两次渲染出来的字节不一样。开这个特性后是 IndexMap，顺序按插入顺序，
+# 稳定可复现（indexmap 本来就在依赖树里，不多编译什么）。
+tera = { version = "2.4.0", default-features = false, features = ["preserve_order"] }
 rust-embed = "8"
 mime_guess = "2"
 

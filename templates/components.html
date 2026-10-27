@@ -1,0 +1,43 @@
+{#
+  通用组件。
+
+  tera 2 把 v1 的「宏」改成了「组件」：宏（`{% macro %}`）和 `{% import %}` 整个
+  没有了，组件是**全局**的 —— 定义好就能在任何模板里用，不必 import。
+
+  三条 Tera 2 的硬性限制决定了这里的写法：
+  1. 参数要么写字面量（size="40"），要么用 {...} 把表达式包起来
+     （`{{<icon icon_name={tool.icon} />}}`）—— 跟 JSX 一个路子；
+  2. 组件的 body **看不见外层的变量** —— v1 的宏能直接读到 base.ui.xxx，
+     组件不行：body 里只能用它自己声明过的参数。界面上要用的文案
+     （new_badge / fav_label / drag_hint）得由调用方传进来；
+  3. 参数名是**封闭**的：多传一个没声明的参数会直接报错。
+#}
+
+{%- component icon(icon_name: string, size: string = "40", cls: string = "") -%}
+<svg class="icon {{ cls }}" width="{{ size }}" height="{{ size }}" aria-hidden="true"><use href="/assets/img/icons.svg#i-{{ icon_name }}"></use></svg>
+{%- endcomponent icon -%}
+
+{# 工具卡片。收藏态由 app.js 客户端补齐 —— 服务端读不到 localStorage #}
+{%- component tool_card(card: map, new_badge: string, fav_label: string) -%}
+<a class="tool-card" href="{{ card.path | safe }}" data-path="{{ card.path | safe }}">
+  <div class="tool-card-head">
+    <svg class="icon tool-card-icon" width="40" height="40" aria-hidden="true"><use href="/assets/img/icons.svg#i-{{ card.icon }}"></use></svg>
+    <span class="tool-card-actions">
+      {# 键名是 is_new（serde 默认的 snake_case），写成 card.isNew 的话 Tera
+         找不到这个键 —— tera 2 这里不再是「静默地不渲染」，而是**直接报错**，
+         整个页面渲染不出来。 #}
+      {% if card.is_new %}<span class="badge-new">{{ new_badge }}</span>{% endif %}
+      <button class="fav-btn" type="button" data-fav="{{ card.path | safe }}" aria-label="{{ fav_label }}"><svg class="icon" width="18" height="18" aria-hidden="true"><use href="/assets/img/icons.svg#i-heart"></use></svg></button>
+    </span>
+  </div>
+  <div class="tool-card-title">{{ card.name }}</div>
+  <div class="tool-card-desc">{{ card.description }}</div>
+</a>
+{%- endcomponent tool_card -%}
+
+{%- component section_head(title: string, drag_hint: string, note: string = "") -%}
+<h3 class="section-head">
+  {{ title }}
+  {% if note != "" %}<span class="section-note" title="{{ drag_hint }}"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrows-shuffle"></use></svg></span>{% endif %}
+</h3>
+{%- endcomponent section_head -%}

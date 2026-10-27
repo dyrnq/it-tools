@@ -108,7 +108,7 @@ pub(crate) fn part_bytes(part: &BoxedUint) -> Vec<u8> {
 }
 
 /// 传统 PEM 加密用的 AES-128-CBC：16 字节密钥 + 16 字节 IV。
-const PEM_AES128_KEY_LEN: usize = 16;
+pub(super) const PEM_AES128_KEY_LEN: usize = 16;
 
 /// 传统 PEM 加密用的 IV 长度（AES 的分组长度）。
 const PEM_AES128_IV_LEN: usize = 16;
@@ -118,7 +118,7 @@ const PEM_AES128_IV_LEN: usize = 16;
 /// OpenSSL 的 `PEM_do_header` 把 `DEK-Info` 里的 IV 的前 8 字节当盐
 /// （`EVP_BytesToKey` 的盐只有 8 字节）；当成整个 16 字节 IV 派生出来的密钥
 /// 是解不开的。
-const PEM_SALT_LEN: usize = 8;
+pub(super) const PEM_SALT_LEN: usize = 8;
 
 /// 输出格式。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "macros.html" as m %}
 
 {% block content %}
 <article class="tool-page" data-slug="{{ tool.slug }}" data-kind="{{ tool.impl_kind }}">
@@ -9,7 +8,7 @@
       {# 原版标题左边没有图标（工具图标只在侧栏里出现），这里也跟着不加。 #}
       <h1 class="tool-title">{{ tool.name }}</h1>
       <button class="fav-btn fav-btn-lg" type="button" data-fav="{{ tool.path | safe }}"
-              aria-label="{{ base.ui.add_favorite }}">{{ m::icon(icon_name="heart", size="22") }}</button>
+              aria-label="{{ base.ui.add_favorite }}">{{<icon icon_name="heart" size="22" />}}</button>
     </div>
     <div class="tool-separator" aria-hidden="true"></div>
     <p class="tool-desc">{{ tool.description }}</p>

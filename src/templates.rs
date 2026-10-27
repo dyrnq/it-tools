@@ -1,54 +1,90 @@
 //! Tera 模板引擎实例。
 //!
 //! 模板在编译期由 rust-embed 打包，启动时一次性注册进 Tera ——
-//! `{% extends %}` / `{% import %}` 需要模板之间互相可见，因此不能用 `Tera::one_off`。
+//! `{% extends %}` / `{% include %}` 需要模板之间互相可见，因此不能用 `Tera::one_off`。
 
 use std::sync::Arc;
 
-use tera::{Context, Tera};
+use tera::{Context, Kwargs, State, Tera, TeraResult, Value};
 
 use crate::embed::Templates;
 
 /// 自动转义的模板（HTML 输出）
 const AUTOESCAPE_SUFFIX: &str = ".html";
 
-/// 必须先于其他模板注册的模板，顺序也有讲究。
-///
-/// `add_raw_template` 在解析阶段就要能看见 `{% extends %}` / `{% import %}` 指向的模板，
-/// 所以先注册没有依赖的 macros.html，再注册 extends 它的 base.html，最后才是各页面。
-const PARENTS: &[&str] = &["macros.html", "base.html"];
-
 pub fn build() -> anyhow::Result<Arc<Tera>> {
     let mut tera = Tera::default();
     tera.autoescape_on(vec![AUTOESCAPE_SUFFIX]);
+    // 转义口径照 tera 1 的来，别用 tera 2 的默认值（见 escape_html 的注释）。
+    tera.set_escape_fn(escape_html);
+    // 过滤器也得在注册模板**之前**装好 —— tera 2 在注册期就检查
+    // 「这个模板用到的过滤器有没有」。
+    tera.register_filter("json_encode", json_encode);
 
-    let mut names: Vec<String> = Vec::new();
-
-    for name in PARENTS {
-        add_one(&mut tera, name, &mut names)?;
-    }
+    // 所有模板**一次性**交给 tera，不能一个一个 add_raw_template。
+    //
+    // tera 2 的 `add_raw_templates` 是「先全部解析，再统一校验」：extends /
+    // include 指向的模板、组件、过滤器、测试都要在这一步能对上。分批加的话，
+    // 第二批里的模板去 include 第一批之外的模板就会报
+    // `Unknown template` —— 组件也一样（组件是全局的，谁先谁后无所谓）。
+    let mut raw: Vec<(String, String)> = Vec::new();
     for file in Templates::iter() {
         let name = file.to_string();
-        if PARENTS.contains(&name.as_str()) {
-            continue;
-        }
-        add_one(&mut tera, &name, &mut names)?;
+        let body = read_template(&name)?;
+        raw.push((name, body));
     }
 
-    log::info!("已加载 {} 个模板", names.len());
+    tera.add_raw_templates(raw)
+        .map_err(|e| anyhow::anyhow!("注册模板失败: {}", cause_chain(&e)))?;
+
+    log::info!("已加载 {} 个模板", tera.get_template_names().count());
     Ok(Arc::new(tera))
 }
 
-fn add_one(tera: &mut Tera, name: &str, names: &mut Vec<String>) -> anyhow::Result<()> {
-    let Some(raw) = Templates::get(name) else {
+/// 读出一个嵌入的模板
+fn read_template(name: &str) -> anyhow::Result<String> {
+    let Some(file) = Templates::get(name) else {
         return Err(anyhow::anyhow!("模板 {name} 未嵌入二进制"));
     };
-    let body = String::from_utf8(raw.data.to_vec())
-        .map_err(|e| anyhow::anyhow!("模板 {name} 不是合法 UTF-8: {e}"))?;
-    tera.add_raw_template(name, &body)
-        .map_err(|e| anyhow::anyhow!("注册模板 {name} 失败: {}", cause_chain(&e)))?;
-    names.push(name.to_string());
+    String::from_utf8(file.data.to_vec())
+        .map_err(|e| anyhow::anyhow!("模板 {name} 不是合法 UTF-8: {e}"))
+}
+
+/// HTML 转义。
+///
+/// tera 1 的默认转义是 `& < > " ' /` 六个字符，其中 `'` → `&#x27;`、
+/// `/` → `&#x2F;`；tera 2 的默认只转 `& < > " '`（`'` → `&#39;`），
+/// `/` 原样输出。
+///
+/// 页面里到处是带斜杠的文案 —— 侧栏的「Encrypt / decrypt text」、
+/// 卡片描述里的「encoder/decoder」—— 转义口径一变，成千上行的 HTML
+/// 就跟着变：看着一样，字节不一样，缓存、快照、E2E 断言全得跟着改。
+/// 这里照 tera 1 的口径自己写一份装到 Tera 上，升级前后页面**逐字节相同**。
+fn escape_html(input: &str, out: &mut dyn std::io::Write) -> std::io::Result<()> {
+    for c in input.as_bytes() {
+        match c {
+            b'&' => out.write_all(b"&amp;")?,
+            b'<' => out.write_all(b"&lt;")?,
+            b'>' => out.write_all(b"&gt;")?,
+            b'"' => out.write_all(b"&quot;")?,
+            b'\'' => out.write_all(b"&#x27;")?,
+            b'/' => out.write_all(b"&#x2F;")?,
+            _ => out.write_all(&[*c])?,
+        }
+    }
     Ok(())
+}
+
+/// 把值编码成 JSON。
+///
+/// tera 1 内置了这个过滤器，tera 2 把它连同别的「需要额外依赖的过滤器」一起
+/// 搬去了 tera-contrib（json_encode 要 serde_json）。我们只用到这一个，
+/// 自己写一份就行，不必为此多引一个 crate —— 逻辑跟 tera-contrib 的那份一样。
+///
+/// 拿到的已经是 tera 自己的 `Value`（不是 serde_json::Value），但 tera::Value
+/// 实现了 Serialize，交给 serde_json 就行。
+fn json_encode(value: &Value, _kwargs: Kwargs, _state: &State) -> TeraResult<String> {
+    serde_json::to_string(value).map_err(|e| tera::Error::message(format!("编码 JSON 失败: {e}")))
 }
 
 /// Tera 的 `Error` 只是顶层摘要，真正的行列信息藏在 `source()` 链里，
@@ -101,12 +137,12 @@ mod tests {
     #[test]
     fn all_templates_register_and_link() {
         let tera = build().expect("模板应能全部加载");
-        // extends / import 关系在注册期就会校验，链接断了这里会报错
+        // extends / include 关系在注册期就会校验，链接断了这里会报错
         assert!(tera.get_template_names().any(|n| n.ends_with("base.html")));
         assert!(tera.get_template_names().any(|n| n.ends_with("index.html")));
         assert!(tera
             .get_template_names()
-            .any(|n| n.ends_with("macros.html")));
+            .any(|n| n.ends_with("components.html")));
     }
 
     /// 表单里的开关字段。

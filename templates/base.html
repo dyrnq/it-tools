@@ -1,8 +1,14 @@
 {#
-  base.html 自己也要 import 一次：Tera 渲染 {% block %} 和 {% include %} 时用的是
-  本模板的作用域，子模板的 import 不会传进来。
-#}
-{% import "macros.html" as m %}
+  base.html 是所有页面的骨架。tera 2 里组件是全局的，定义在 components.html，
+  哪个模板都能直接用，不必 import。
+
+  结尾那个减号是空白控制：把注释后面的换行吃掉，页面开头才是 <!DOCTYPE html>。
+  tera 1 的 `{% import %}` 会顺手吃掉标签周围的空白（它只能出现在模板最前面），
+  tera 2 没有这个标签了，得自己用注释收尾的减号把那一行补回来。
+
+  （注释里不能出现「减号 + 井号 + 花括号」这三个字面字符 —— 那会被当成注释
+  的结束标记，后面的话就全跑到页面上了。）
+-#}
 <!DOCTYPE html>
 <html lang="{{ base.lang }}" data-theme="{% if base.is_dark %}dark{% else %}light{% endif %}">
 <head>

@@ -1,4 +1,3 @@
-{% import "macros.html" as m %}
 {#
   Ctrl/Cmd+K 命令面板。
   条目数据来自 base.nav.search，服务端渲染空壳，app.js 负责过滤与键盘导航。
@@ -6,7 +5,7 @@
 <div class="palette" id="palette" hidden>
   <div class="palette-panel" role="dialog" aria-modal="true" aria-label="{{ base.ui.search }}">
     <div class="palette-input-row">
-      {{ m::icon(icon_name="search", size="20", cls="palette-search-icon") }}
+      {{<icon icon_name="search" size="20" cls="palette-search-icon" />}}
       <input class="palette-input" id="palette-input" type="text" autocomplete="off"
              placeholder="{{ base.ui.search_placeholder }}" aria-label="{{ base.ui.search }}">
     </div>

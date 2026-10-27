@@ -242,6 +242,8 @@ fn compute(payload: Value) -> ToolResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::engine::general_purpose::STANDARD as B64;
+    use base64::Engine as _;
     use rsa::pkcs1::DecodeRsaPrivateKey;
     use rsa::pkcs8::{DecodePublicKey, EncodePublicKey, LineEnding};
     use rsa::traits::PublicKeyParts;
@@ -524,19 +526,54 @@ mod tests {
         );
     }
 
-    /// 口令加密后的私钥不该再是明文：正文里不能直接看到 PKCS#1 的 DER 头。
+    /// 口令加密后的私钥不该再是明文。
+    ///
+    /// 断言两条，都是确定性的：
+    /// 1. 正文解下来是**密文** —— 不能被当成一把 PKCS#1 私钥解析出来
+    ///    （这才是「没有口令就读不出来」的意思）；
+    /// 2. 有口令时能解开，解出来是 DER 的 SEQUENCE 头（0x30 0x82）。
+    ///
+    /// 早先这里查的是「base64 正文里不该出现 `MIG` 三个字母」—— 那是个
+    /// **随机**的检查：密文也是 base64，随机内容本来就有约 1/26000 的概率
+    /// 撞上这三个字母，于是这条测试时不时自己翻脸。改成上面两条之后，
+    /// 结论不再取决于运气。
     #[test]
     fn an_encrypted_private_key_is_not_readable_without_the_passphrase() {
         let out = compute(json!({ "format": "pem", "passphrase": "secret" })).unwrap();
         let private_pem = out["output"].as_str().unwrap();
         assert!(private_pem.contains("Proc-Type: 4,ENCRYPTED"), "{private_pem}");
         assert!(private_pem.contains("DEK-Info: AES-128-CBC,"), "{private_pem}");
-        // 没有口令时解不开：DER 的头几个字节（0x30 0x82）不该出现在明文里
+
         let body: String = private_pem
             .lines()
             .filter(|l| !l.starts_with("-----") && !l.contains(":"))
             .collect();
-        assert!(!body.contains("MIG"), "正文里不该出现明文 DER 的痕迹");
+        let ct = B64.decode(body).expect("正文该是合法的 base64");
+
+        // 密文读不成私钥
+        assert!(
+            RsaPrivateKey::from_pkcs1_der(&ct).is_err(),
+            "密文不该能被当成 PKCS#1 私钥读出来"
+        );
+
+        // 有口令就能解开：密钥派生与加密用的是同一条链
+        // （EVP_BytesToKey，盐是 IV 的前 8 字节）。
+        let dek = private_pem
+            .lines()
+            .find(|l| l.starts_with("DEK-Info:"))
+            .expect("该有 DEK-Info");
+        let iv = hex::decode(dek.split(',').nth(1).expect("该有 IV")).expect("IV 该是十六进制");
+        let (key, _) = super::super::encryption::evp_bytes_to_key(
+            b"secret",
+            &iv[..super::super::rsa_formats::PEM_SALT_LEN],
+            super::super::rsa_formats::PEM_AES128_KEY_LEN,
+            0,
+        );
+        let pt =
+            super::super::encryption::cbc_decrypt::<cbc::Decryptor<aes::Aes128>>(&key, &iv, &ct)
+                .expect("口令是对的，该能解开");
+        assert_eq!(pt[0], 0x30, "解出来应当是 DER 的 SEQUENCE 头");
+        assert_eq!(pt[1], 0x82, "解出来应当是 DER 的长格式长度");
     }
 
     #[test]

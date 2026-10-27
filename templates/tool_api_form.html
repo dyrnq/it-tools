@@ -1,4 +1,3 @@
-{% import "macros.html" as m %}
 {#
   API 工具的通用表单。
   完全由注册表里的 ApiSpec.fields 驱动 —— 新增一个服务端工具不需要改这个模板。
@@ -29,7 +28,7 @@
      label-position="left" / n-form-item 的 label-placement="left"。 #}
   {# 少数工具有两个字段并排占一半（见 Tool::api_half_fields）：原版把它们放在
      一个 `flex gap-2` 的行里，例如 hmac-generator 的两个下拉框。 #}
-  <div class="field{% if field.left_label %} field-left{% endif %}{% if field.inline %} field-inline{% endif %}{% if tool.api_half_fields is containing(field.name) %} field-half{% endif %}"
+  <div class="field{% if field.left_label %} field-left{% endif %}{% if field.inline %} field-inline{% endif %}{% if tool.api_half_fields is containing(pat=field.name) %} field-half{% endif %}"
        {% if field.inline %}style="flex: {{ field.inline_width }}"
        {% elif field.left_label %}style="--field-label-width: {{ tool.api_left_label }}; --field-label-align: {{ tool.api_left_label_align }}"
        {% endif %}>
@@ -105,7 +104,7 @@
   <div class="card api-output">
     <div class="output-body" id="api-output-body"></div>
     <button class="api-copy" type="button" id="api-copy"
-            title="{{ base.ui.copy }}" aria-label="{{ base.ui.copy }}">{{ m::icon(icon_name="copy", size="22") }}</button>
+            title="{{ base.ui.copy }}" aria-label="{{ base.ui.copy }}">{{<icon icon_name="copy" size="22" />}}</button>
   </div>
 </div>
 {% endif %}
