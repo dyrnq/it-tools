@@ -204,7 +204,13 @@
     root.appendChild(D.h('div.card', null,
       D.h('div.option-columns', { style: { columnGap: '0' } },
         D.h('div.option-column', { style: { flex: '0 1 auto' } }, toggles),
-        D.h('div.option-column', { style: { flex: '1 1 0' } },
+        // 右列的 basis 不能是 0：basis 0 的话「假设主尺寸」就是 0，
+        // 排版时这一列会被当成「不占地方」，于是跟左列（内容宽 192px）
+        // 挤在同一行里，右列只剩几十像素 —— 它那几行的标签
+        // （120px，右对齐）就这么顶出卡片，320px 下整页横向溢出 33px。
+        // basis 给成标签的宽度（120 + 12px 内边距），放不下时这一列
+        // 自动换到下一行、自己占满整行，标签就放得下了。
+        D.h('div.option-column', { style: { flex: '1 1 132px' } },
           optionRow(t('sort_list', 'Sort list'), sortSelect, t('sort_hint', 'Sorting has no effect while reverse is on')),
           optionRow(t('separator', 'Separator'), text('separator', ', ')),
           optionRow(t('wrap_item', 'Wrap item'), D.h('div.input-group', null, text('itemPrefix', t('prefix_ph', 'prefix')), text('itemSuffix', t('suffix_ph', 'suffix'))), null, { width: '120px' }),

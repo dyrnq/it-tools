@@ -126,7 +126,13 @@
       // 每栏上面一个普通 div 小标题，下面才是控件；小标题不是 <label>。
       // 我们多一个「替换字符」选项，排在原版那三栏后面，凑成四栏。
       // 上面的 .field 自带 16px 下边距，栏与栏之间再留 10px 缝。
-      D.h('div', { style: { display: 'flex', gap: '10px' } },
+      //
+      // flex-wrap 是必须的：数字框是写死的 150px，四栏并排至少 450px，
+      // 手机上（320px 宽、扣掉卡片内边距只剩 ~280px）装不下，
+      // 整页会横向溢出、底部冒出一条能左右拖的滚动条。
+      // 允许换行之后，每行最多放得下几栏就放几栏，一行的宽度
+      // 由最宽的那栏（150px）决定，剩下的空间不会撑破页面。
+      D.h('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap' } },
         optionColumn(t('keep_first', 'Keep first:'), keepFirst),
         optionColumn(t('keep_last', 'Keep last:'), keepLast),
         optionColumn(t('keep_spaces_label', 'Keep spaces:'), keepSpace, true),

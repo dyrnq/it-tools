@@ -344,6 +344,11 @@ a:hover { color: var(--primary-hover); }
 
 .search-trigger {
   flex: 1 1 auto;
+  /* min-width:0 是必须的：flex item 默认 min-width:auto，会被卡在内容的
+     min-content 上（图标 + "Search" + "Ctrl K" ≈ 158px）。侧栏占掉 240px
+     之后，视口窄一点就装不下整个顶栏，页面底部会冒出一条横向滚动条。
+     放开之后搜索框可以被压到只剩放大镜，文字用省略号收尾。 */
+  min-width: 0;
   display: flex; align-items: center; gap: 8px;
   height: 34px; padding: 0 12px;
   background: var(--bg-card);
@@ -355,7 +360,13 @@ a:hover { color: var(--primary-hover); }
 }
 .search-trigger:hover { border-color: var(--primary); }
 .search-icon { flex: none; }
-.search-label { flex: 1 1 auto; }
+.search-label {
+  flex: 1 1 auto;
+  /* 同上：文字也要能压到 0 宽，否则「Search」两个字（min-content）
+     仍然会把搜索框撑住。压到 0 宽时省略号收尾，窄屏上就只剩放大镜。 */
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .search-kbd {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -401,18 +412,29 @@ a:hover { color: var(--primary-hover); }
 :root[data-theme='dark'] .theme-icon-sun { display: inline-flex; }
 
 /* ---------- 卡片网格 ---------- */
+/* 轨道写 minmax(0, 1fr) 而不是 1fr：1fr 的最小值是 auto（= 卡片内容的
+   min-content）。卡片一多，轨道就被撑到超过容器本身的宽度 ——
+   768px 视口下侧栏常驻，正文只剩 476px，三列各要 200 多，
+   整页横向溢出 184px，页面底部冒出一条能左右拖的滚动条。
+   minmax(0, 1fr) 让轨道严格平分，格子不够宽就由卡片自己截断
+   （标题和描述都带 line-clamp，本来就会截）。
+   格子里的东西也得允许缩到 0（min-width:0），否则卡片自己不肯缩。
+
+   对照参考实现：那边用的是 tailwind 的 grid-cols-3 = repeat(3, minmax(0, 1fr))，
+   768px 下同样是三列 150.66px，而且不溢出。 */
 .grid { display: grid; gap: 12px; }
-.grid-tools { grid-template-columns: 1fr; }
-.grid-banner { grid-template-columns: 1fr; }
+.grid > * { min-width: 0; }
+.grid-tools { grid-template-columns: minmax(0, 1fr); }
+.grid-banner { grid-template-columns: minmax(0, 1fr); }
 
 @media (min-width: 640px) {
-  .grid-tools, .grid-banner { grid-template-columns: repeat(2, 1fr); }
+  .grid-tools, .grid-banner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 768px) {
-  .grid-tools, .grid-banner { grid-template-columns: repeat(3, 1fr); }
+  .grid-tools, .grid-banner { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1280px) {
-  .grid-tools, .grid-banner { grid-template-columns: repeat(4, 1fr); }
+  .grid-tools, .grid-banner { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 .section-head {
@@ -674,6 +696,10 @@ select.layui-select, .api-form select {
   padding-bottom: 0;
   line-height: 1.4;
 }
+/* 文件选择框：<input type="file"> 有一个固有的宽度（"选择文件" 按钮 + 文件名），
+   窄屏上比容器还宽 —— har-sanitizer 在 320px 溢出 24px，就是它顶出去的。
+   max-width:100% 让它缩到容器宽，多出来的文件名由浏览器自己省略。 */
+input[type='file'] { max-width: 100%; }
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--primary);
@@ -1086,6 +1112,16 @@ pre.mono {
   margin: 12px 0;
   border-collapse: collapse;
   font-size: 13px;
+  /* 表格自己横向滚，页面不被撑宽 —— 跟上面的 <pre> 一个办法。
+     速查表里那张「Markdown Syntax」表有一格 719px 宽（整张 851px），
+     手机上放不下。表格不滚的话整页跟着横向溢出，底部会冒出一条
+     能左右拖的滚动条。
+
+     display:block 之后表格内容仍然按表格布局排（浏览器会把它包进一个
+     匿名表格盒），只是外层变成了一个可以横向滚动的块 —— 边框、列宽
+     都不受影响，窄屏上这张表自己出滚动条。 */
+  display: block;
+  overflow-x: auto;
 }
 .memo-body th, .memo-body td {
   border: 1px solid var(--border-input);
@@ -1215,6 +1251,24 @@ pre.mono {
   }
 }
 
+/* ---------- 侧栏已出现、但顶栏放不下的那一段 ----------
+   侧栏在 ≥701px 时是常驻的 240px 宽，顶栏只剩「视口 - 240」那么宽。
+   顶栏自己那些不缩的东西（左边两个圆按钮 76 + 语言下拉 92 + 站外/关于
+   两个圆按钮 68 + 主题按钮 34 + 间隙）加起来 394px，再加左右 padding
+   52 —— 视口不到 ~945px 就装不下，「Buy me a coffee」那个 168px 的
+   胶囊按钮是最后一个被挤出去的：它整个跑到屏幕外，页面底部于是冒出一条
+   能左右拖的横向滚动条（每个页面都这样）。
+
+   这一段把赞助按钮收起来：它的内容在 /about 那一页，入口没丢。
+   搜索框本身是可以缩的（见上面 .search-trigger 的 min-width:0），
+   缩到只剩放大镜时用省略号收尾。 */
+@media (min-width: 701px) and (max-width: 959px) {
+  .support-btn { display: none; }
+  /* 「Ctrl K」这个提示在这一段没有意义（键盘不在触屏上），
+     而且它 nowrap，占着 44px 放不掉。 */
+  .search-kbd { display: none; }
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 700px) {
   .sidebar {
@@ -1331,6 +1385,14 @@ pre.mono {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 16px; margin-bottom: 14px;
 }
+/* 两列里放不下的开关文字要能折行。
+   .switch 的默认样式是 nowrap（挤窄了文字折行，开关看着像坏了两截），
+   而两列网格里每格只有正文的一半宽 —— 768px 视口下侧栏常驻，
+   正文只剩 476px，两列各 230px，「Contain (fit the whole image inside)」
+   这种开关一行放不下。开关是网格项，min-width:auto 不让它缩，
+   整页于是横向溢出 117px。
+   只在这个两列网格里放开折行，其它地方的开关仍然不许折。 */
+.switch-grid > .switch { white-space: normal; min-width: 0; }
 @media (max-width: 560px) { .switch-grid { grid-template-columns: 1fr; } }
 
 /* 滑块 */
@@ -1341,6 +1403,14 @@ pre.mono {
 /* 输入框 + 尾部按钮（眼睛图标等） */
 .input-group { display: flex; align-items: center; gap: 6px; }
 .input-group > .layui-input { flex: 1 1 auto; min-width: 0; }
+/* 窄屏：输入框后面跟着开关的那一组（wifi-qrcode-generator 的 "SSID:" /
+   "Identity:"）放不下。输入框能缩到 0，开关却不肯缩（min-width:auto +
+   文字 nowrap），320px 下开关的文字顶出卡片 4px。
+   让这一组换行：开关落到下一行、自己占满整行 —— 原版就是这样的
+   （原版那个勾选框本来就单独放了一行，不在输入框那一组里）。 */
+@media (max-width: 700px) {
+  .input-group:has(> .switch) { flex-wrap: wrap; }
+}
 
 /* 输入组里的小标签（原版 n-input-group-label，
    例如 base-converter 那行的 "Custom:"）—— 一块灰底，跟输入框拼在一起。
@@ -1368,7 +1438,11 @@ pre.mono {
 }
 
 /* 字段下方的补充说明 */
-.field-hint { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
+/* overflow-wrap: break-word 是必须的：提示里常有一段不带空格的网址
+   （safelink-decoder 的 "https://<region>.safelinks.protection.outlook.com/…"），
+   整个词比容器还宽，浏览器没法在词中间断行 —— 文字就这么顶出卡片 7px，
+   页面底部冒出一条能左右拖的滚动条。 */
+.field-hint { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); overflow-wrap: break-word; }
 
 /* 令牌一类的等宽大文本框 */
 .token-display { text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -1493,8 +1567,12 @@ pre.mono {
   position: absolute; right: 8px; top: 50%;
   transform: translateY(-50%); z-index: 1;
 }
-/* 行首/行中的说明文字（percentage-calculator 的「What is」「% of」）。 */
-.row-lead { flex: 0 0 auto; color: var(--text-muted); white-space: nowrap; }
+/* 行首/行中的说明文字（percentage-calculator 的「What is」「% of」）。
+   允许折行、也允许被挤窄：头一行的说明是
+   "What is the percentage increase/decrease"，一个字都不折的话有 296px，
+   320px 视口下正文只有 238px —— 文字就这么顶出卡片 17px。
+   宽屏上不会有变化：flex-basis 仍是 auto（内容宽度），地方够就不缩不折。 */
+.row-lead { flex: 0 1 auto; color: var(--text-muted); white-space: normal; }
 
 /* ---------- 可复制的输入框（原版的 InputCopyable 组件）----------
    复制图标浮在框的右端，框的右边留出 38px。
@@ -1544,7 +1622,7 @@ pre.mono {
    （date-time-converter 是 150px，hash-text 是 120px）。 */
 .field-row-wide { --field-label-width: 150px; }
 
-/* 窄屏下的结果表：整张表横向滚动，而不是把列宽一路压到 min-content。
+/* 结果表：整张表横向滚动，而不是把列宽一路压到 min-content。
    table 是 auto 布局，列宽会一路收到各自 min-content 为止 —— 390px 下
    crontab-generator 的 12 行表溢出 73px，ipv4-range-expander「数量」那格是
    .input-group（输入框 + 按钮），110px 的格子里输入框只剩 30px。
@@ -1553,10 +1631,19 @@ pre.mono {
    （实测 computed 仍是 visible，页面照样溢出）。改成块级之后表格内容仍排成
    一个匿名 table 盒，列宽照旧对齐，盒子自己变成滚动容器。
    用「表本身就是滚动容器」而不是去父级找包装层，是因为建表的那些工具里
-   有的把表直接挂在 .card 下、有的挂在一个中间 div 下，两种都得管到。 */
+   有的把表直接挂在 .card 下、有的挂在一个中间 div 下，两种都得管到。
+
+   这条**不限视口宽度**：≥701px 时侧栏常驻 240px，正文只有「视口 - 292」
+   那么宽（768px 的视口只剩 476px），一张 560px 的表照样装不下
+   （markdown-table-generator 在 768px 溢出 87px）。
+   表格变成滚动容器以后，装得下的时候不会出滚动条（scrollWidth == clientWidth），
+   装不下的时候表自己滚 —— 实测格子的位置和宽度跟改动前一模一样
+   （crontab-generator / http-status-codes / markdown-table-generator 都试过），
+   变的只是表盒子从「比父容器宽」变成「父容器宽、内容在里面滚」。 */
+.result-table,
+.kv-table { display: block; overflow-x: auto; }
+
 @media (max-width: 700px) {
-  .result-table,
-  .kv-table { display: block; overflow-x: auto; }
   /* 单元格里带输入框时得给个下限：<input> 的 min-content 很小（实测 28px），
      表不会因为它变宽，于是它就被同格的按钮挤成一条缝
      （ipv4-range-expander 的「数量」列：输入框 + 按钮）。 */

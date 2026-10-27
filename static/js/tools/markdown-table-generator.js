@@ -329,8 +329,15 @@
       });
       if (model.headers.length <= 1) del.disabled = true;
 
+      // min-width 是这一列的下限：表头里的输入框在 150px 以下就没法看了。
+      // 但 150px 太大 —— 加上单元格的左右内边距（各 10px），一列就是 170px，
+      // 三列加一列「×」= 564px，比正文卡片的内容宽（550px）还多 14px。
+      // 表是卡片里的滚动容器（.result-table），多出来这 14px 会让表自己
+      // 冒出一条横向滚动条（宽度不够时表内部能滚，整页不会横向溢出）。
+      // 降到 140px：一列 160px，整表 534px < 550px，桌面宽度下不用滚，
+      // 窄屏放不下时再由表内部滚。
       return D.h('th', null,
-        D.h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '150px' } },
+        D.h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '140px' } },
           input,
           D.h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, align, del)
         )
