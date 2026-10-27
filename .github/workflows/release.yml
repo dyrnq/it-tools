@@ -30,6 +30,8 @@ jobs:
   verify:
     name: Verify before shipping
     runs-on: ubuntu-24.04
+    # 发布前的闸门：卡住了要早点失败，不能让打好的 tag 悬在那儿等 6 小时。
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4

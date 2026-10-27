@@ -31,6 +31,9 @@ jobs:
   unit-tests:
     name: Unit tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # 卡住的 job 不能拖到 GitHub 的 6 小时默认超时才罢休 ——
+    # 超时上限一超就砍掉，失败得早一点，早点才有人看得见。
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +67,7 @@ jobs:
   js-tests:
     name: JS tool tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,6 +92,7 @@ jobs:
     name: Integration tests
     runs-on: ubuntu-24.04
     needs: unit-tests
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -121,6 +126,7 @@ jobs:
   build-musl:
     name: Build (static musl, ${{ matrix.target }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -183,6 +189,7 @@ jobs:
   docker:
     name: Docker image (dyrnq/it-tools:main)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     # 测试不过就不出镜像：推上去的镜像是公开的，推坏了再改就晚了。
     needs: [unit-tests, integration-tests, build-musl]
     # success() 得自己写：job 上只要带了 if，GitHub 就**不再**自动加那层
