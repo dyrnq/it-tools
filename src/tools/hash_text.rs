@@ -24,10 +24,6 @@ use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Keccak256, Keccak512, Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 
-// blake2 0.11 用的 `Digest` 是 **digest 0.11** 的，跟上面那批 0.10 的不是同一个 trait。
-// 两个都按名字 import 会撞名，所以这里匿名引入 —— 方法解析按 trait 走，不受名字影响。
-use blake2::Digest as _;
-
 use super::{ToolError, ToolResult};
 
 /// 输入文本

@@ -19,7 +19,7 @@
 //! - **前后空白**：消息和密钥按字节原样参与计算。密钥首尾多敲一个空格就是另一个密钥，
 //!   这里偷偷 `trim` 会算出一个「看起来对但验证不过」的 MAC，比报错更难查。
 
-use hmac::{Hmac, Mac};
+use hmac::{KeyInit, Mac, SimpleHmac};
 use md5::Md5;
 use ripemd::Ripemd160;
 use serde_json::{json, Value};
@@ -47,12 +47,16 @@ const DEFAULT_OUTPUT_ENCODING: &str = "hex";
 
 /// 九种算法全部走 `hmac` crate，没有手写分支。
 ///
-/// `hmac` 0.12 要求摘要类型实现 `EagerHash`（digest 0.10 的 std 特性下才有），
-/// 实测 `Sha3_256` / `Sha3_512` / `Ripemd160` 都满足，九种算法共用同一条代码路径，
-/// 也就没有「哪个算法走了另一套实现、两边可能算出不同结果」的问题。
+/// 用的是 `hmac` 的 `SimpleHmac` 而不是 `Hmac`：两者算出来的东西完全一样
+/// （都是 RFC 2104 那套 `H(K⊕opad ‖ H(K⊕ipad ‖ m))`），但 `Hmac` 要求摘要类型
+/// 实现 `EagerHash` —— 也就是要暴露**分组级**接口。SHA-3 的 sponge 结构没有这个
+/// 接口（`sha3 0.12` 的类型只到 `Digest` + `BlockSizeUser`），所以 `Hmac<Sha3_256>`
+/// 根本编译不过。`SimpleHmac` 只要 `Digest + BlockSizeUser`，九种算法都能用，
+/// 于是共用同一条代码路径，也就没有「哪个算法走了另一套实现、两边可能算出
+/// 不同结果」的问题。
 macro_rules! hmac_of {
     ($digest:ty, $key:expr, $message:expr) => {
-        Hmac::<$digest>::new_from_slice($key).ok().map(|mut mac| {
+        SimpleHmac::<$digest>::new_from_slice($key).ok().map(|mut mac| {
             mac.update($message);
             mac.finalize().into_bytes().to_vec()
         })

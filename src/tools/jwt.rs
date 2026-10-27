@@ -61,10 +61,11 @@
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine as _;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
+use num_bigint::BigUint;
 use rsa::signature::{RandomizedSigner, SignatureEncoding, Signer, Verifier};
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
-use rsa::{BigUint, RsaPrivateKey, RsaPublicKey};
+use rsa::{BoxedUint, RsaPrivateKey, RsaPublicKey};
 use serde_json::{json, Value};
 use sha2::{Sha256, Sha384, Sha512};
 
@@ -118,13 +119,13 @@ macro_rules! rsa_pkcs1_sign {
 /// RSASSA-PSS 签名。盐长由 `SigningKey::new` 定成摘要长度 —— 这正是 JWA 的要求。
 ///
 /// PSS 的盐是随机的，而 `rsa` 的 `Signer` 实现要开 `getrandom` 特性才有；
-/// 这里直接用 `RandomizedSigner` 配自己的 `OsRng`（`rand_core 0.6` 的那个 ——
-/// `rsa 0.9.10` 要的就是这一版的 trait），不用为一个功能去改依赖的
-/// 特性开关（那会让 `rsa` 的 `getrandom` 影响到全项目）。
+/// 这里直接用 `RandomizedSigner` 配自己的随机源（`rand::rng()` —— 它底下是
+/// `rand_core 0.10`，正是 `rsa 0.10` 要的那一版 trait），不用为一个功能去改
+/// 依赖的特性开关（那会让 `rsa` 的 `getrandom` 影响到全项目）。
 macro_rules! rsa_pss_sign {
     ($digest:ty, $key:expr, $data:expr) => {
         rsa::pss::SigningKey::<$digest>::new($key)
-            .try_sign_with_rng(&mut rand_core::OsRng, $data)
+            .try_sign_with_rng(&mut rand::rng(), $data)
             .map(|s| s.to_bytes().to_vec())
             .map_err(|e| ToolError::invalid("out.jwt.err.sign_failed", &[("detail", &e.to_string())]))
     };
@@ -698,7 +699,13 @@ fn rsa_private_key(material: &Material) -> Result<RsaPrivateKey, ToolError> {
             };
             let p = jwk_uint_value(p, "p")?;
             let q = jwk_uint_value(q, "q")?;
-            RsaPrivateKey::from_components(n, e, d, vec![p, q]).map_err(|e| {
+            RsaPrivateKey::from_components(
+                rsa_part(&n),
+                rsa_part(&e),
+                rsa_part(&d),
+                vec![rsa_part(&p), rsa_part(&q)],
+            )
+            .map_err(|e| {
                 ToolError::invalid(
                     "out.jwt.err.invalid_jwk_components",
                     &[("kind", "RSA"), ("detail", &e.to_string())],
@@ -727,7 +734,7 @@ fn rsa_public_key(material: &Material) -> Result<RsaPublicKey, ToolError> {
             }
             let n = jwk_uint(jwk, "n")?;
             let e = jwk_uint(jwk, "e")?;
-            RsaPublicKey::new(n, e).map_err(|e| {
+            RsaPublicKey::new(rsa_part(&n), rsa_part(&e)).map_err(|e| {
                 ToolError::invalid(
                     "out.jwt.err.invalid_jwk_components",
                     &[("kind", "RSA"), ("detail", &e.to_string())],
@@ -757,6 +764,32 @@ fn decode_jwk_uint(text: &str, label: &str) -> Result<BigUint, ToolError> {
         ToolError::invalid("out.jwt.err.jwk_invalid_base64", &[("field", label)])
     })?;
     Ok(BigUint::from_bytes_be(&bytes))
+}
+
+/* ------------------------------------------- RSA 分量：BigUint ⇄ BoxedUint */
+
+/// JWK 的大整数 → rsa 0.10 的密钥分量（`crypto_bigint::BoxedUint`）。
+///
+/// rsa 0.10 把密钥分量从 num-bigint 的 `BigUint` 换成了 `crypto-bigint` 的
+/// `BoxedUint`（固定精度的大整数）。两边都是大端无符号，所以转换就是字节搬运：
+/// `BigUint::to_bytes_be` 去掉前导零，`from_be_slice_vartime` 按字节长度定精度。
+///
+/// 零要单独处理：`BigUint::zero` 的字节是空的，而空切片定不出精度。
+fn rsa_part(value: &BigUint) -> BoxedUint {
+    let bytes = value.to_bytes_be();
+    if bytes.is_empty() {
+        BoxedUint::from(0u32)
+    } else {
+        BoxedUint::from_be_slice_vartime(&bytes)
+    }
+}
+
+/// rsa 0.10 的密钥分量 → JWK 的大整数。
+///
+/// 反方向也是字节搬运。JWK 里的 `dp` / `dq` / `qi` 要做模运算，
+/// num-bigint 写起来比 crypto-bigint 顺手，所以统一在这一层转换。
+fn jwk_part(value: &BoxedUint) -> BigUint {
+    BigUint::from_bytes_be(&value.to_be_bytes_trimmed_vartime())
 }
 
 /* ----------------------------------------------------------------- ECDSA */
@@ -1035,9 +1068,8 @@ pub fn generate(alg: Alg, bits: u64) -> Result<Generated, ToolError> {
 
 /// 生成 RSA 密钥对。
 fn generate_rsa(bits: u64) -> Result<Generated, ToolError> {
-    use rand_core::OsRng;
     let bits = bits.clamp(1024, MAX_RSA_BITS) as usize;
-    let key = RsaPrivateKey::new(&mut OsRng, bits)
+    let key = RsaPrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("RSA 密钥生成失败: {e}")))?;
     let public = key.to_public_key();
 
@@ -1059,12 +1091,12 @@ fn generate_rsa(bits: u64) -> Result<Generated, ToolError> {
 /// RSA 私钥的 JWK。
 fn rsa_private_jwk(key: &RsaPrivateKey) -> Value {
     let primes = key.primes();
-    let (p, q) = (primes[0].clone(), primes[1].clone());
-    let d = key.d().clone();
+    let (p, q) = (jwk_part(&primes[0]), jwk_part(&primes[1]));
+    let d = jwk_part(key.d());
     let mut map = serde_json::Map::new();
     map.insert("kty".into(), Value::String("RSA".into()));
-    map.insert("n".into(), jwk_int(key.n()));
-    map.insert("e".into(), jwk_int(key.e()));
+    map.insert("n".into(), jwk_int(&jwk_part(key.n())));
+    map.insert("e".into(), jwk_int(&jwk_part(key.e())));
     map.insert("d".into(), jwk_int(&d));
     map.insert("p".into(), jwk_int(&p));
     map.insert("q".into(), jwk_int(&q));
@@ -1081,8 +1113,8 @@ fn rsa_private_jwk(key: &RsaPrivateKey) -> Value {
 fn rsa_public_jwk(key: &RsaPublicKey) -> Value {
     let mut map = serde_json::Map::new();
     map.insert("kty".into(), Value::String("RSA".into()));
-    map.insert("n".into(), jwk_int(key.n()));
-    map.insert("e".into(), jwk_int(key.e()));
+    map.insert("n".into(), jwk_int(&jwk_part(key.n())));
+    map.insert("e".into(), jwk_int(&jwk_part(key.e())));
     Value::Object(map)
 }
 
@@ -1666,7 +1698,7 @@ mod tests {
         .unwrap();
         let data = signing_input("PS256");
         let bad = rsa::pss::SigningKey::<Sha256>::new_with_salt_len(private, 0)
-            .try_sign_with_rng(&mut rand_core::OsRng, data.as_bytes())
+            .try_sign_with_rng(&mut rand::rng(), data.as_bytes())
             .unwrap()
             .to_bytes()
             .to_vec();

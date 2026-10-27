@@ -31,7 +31,6 @@
 //! 这里的实现见 [`rsa_formats`]：多出来的几档是 OpenSSH 的两种私钥格式与
 //! `ssh-rsa AAAA…` 那种 authorized_keys 用的公钥行。
 
-use rand_core::OsRng;
 use rsa::RsaPrivateKey;
 use serde_json::{json, Map, Value};
 
@@ -157,8 +156,8 @@ fn build_meta(bits: usize, format: Format, lang: &str) -> Value {
 
 /// 生成并编码一对密钥；入参必须已经过 [`parse_bits`] 与 [`parse_format`]。
 ///
-/// 校验和生成拆成两步而不是一步，是因为单测要跑 512 位（dev profile 未优化，
-/// 2048 位就要 2.6 秒），而 512 不在注册表的选项里 —— 测试直接调这一步。
+/// 校验和生成拆成两步而不是一步，是因为单测要跑 1024 位（dev profile 未优化，
+/// 2048 位就要 2.6 秒），而 1024 不在注册表的选项里 —— 测试直接调这一步。
 ///
 /// `payload` 只用来取当前语言（行标题按语言走语言包），不参与密钥生成。
 fn generate(
@@ -168,18 +167,14 @@ fn generate(
     passphrase: Option<&str>,
     comment: &str,
 ) -> ToolResult {
-    // `OsRng` 是零大小类型，每次取随机数都直接落到操作系统熵源（Linux 上是
-    // `getrandom(2)`，退化时走 `/dev/urandom`），既不缓存也不播种。它实现的是
-    // `rand_core 0.6` 的 `RngCore + CryptoRng`，而 `rsa 0.9.10` 依赖的正是
-    // `rand_core 0.6.4` —— 所以这里引的是 `rand_core 0.6` 的 `OsRng`，两者靠
-    // rand_core 里的 blanket impl
-    // `impl<T: CryptoRng + RngCore> CryptoRngCore for T` 合流，不需要任何版本桥接。
-    // 仓库里其余地方要的随机数走 `rand 0.10`（另一套 rand_core），两边互不相干。
+    // `rand::rng()` 给的是线程本地的那套 CSPRNG（Linux 上落到 `getrandom(2)`，
+    // 退化时走 `/dev/urandom`），每次取随机数都直接问操作系统熵源，不播种。
+    // 它实现的是 `rand_core 0.10` 的 `CryptoRng`，而 `rsa 0.10` 要的正是这一版
+    // —— 同一个 trait，不需要任何版本桥接，仓库里也就只有一套随机源。
     //
-    // 用 `RsaPrivateKey::new` 而不是任何并行变体：`rsa 0.9` 的
+    // 用 `RsaPrivateKey::new` 而不是任何并行变体：`rsa 0.10` 的
     // `algorithms::generate` 里没有 rayon 分支，它就是这个版本唯一的密钥生成入口。
-    let mut rng = OsRng;
-    let private_key = RsaPrivateKey::new(&mut rng, bits)
+    let private_key = RsaPrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("RSA 私钥生成失败: {e}")))?;
 
     // 编码交给 `rsa_formats`：PEM / PKCS#1 / PKCS#8 / OpenSSH 两种，
@@ -252,9 +247,12 @@ mod tests {
     use rsa::traits::PublicKeyParts;
     use rsa::RsaPublicKey;
 
-    /// 单测只生成 512 位：dev profile 未优化时 2048 位就要 2.6 秒，16384 位是
+    /// 单测只生成 1024 位：dev profile 未优化时 2048 位就要 2.6 秒，16384 位是
     /// 分钟级。大位长只测校验与 meta 分支，绝不生成。
-    const TEST_BITS: usize = 512;
+    ///
+    /// 1024 是下限 —— `rsa` 0.10 起的 `RsaPrivateKey::new` 不再接受更小的模数
+    /// （`MIN_SIZE` = 1024），再小就报「modulus too small」。
+    const TEST_BITS: usize = 1024;
 
     /// 结果表的行标题是按语言包取的，断言时按同样的方式取标题 ——
     /// 把标题的字面量抄一遍的话，改一次文案就要改一次断言。
@@ -374,14 +372,16 @@ mod tests {
 
     #[test]
     fn modulus_bit_length_equals_the_request() {
-        for bits in [512usize, 1024] {
+        // 1024 是 `rsa` 0.10 允许的最小位长（`MIN_SIZE`）—— 再小生成时就报
+        // 「modulus too small」，所以单测从这儿起步。
+        for bits in [1024usize] {
             let payload = json!({});
             let out = generate(&payload, bits, Format::Pem, None, "").unwrap();
             let private_pem = out["output"].as_str().unwrap();
             let parsed = RsaPrivateKey::from_pkcs1_pem(private_pem).unwrap();
             assert_eq!(
                 parsed.n().bits(),
-                bits,
+                bits as u32,
                 "{bits} 位密钥的模数应当正好 {bits} 位"
             );
             assert_eq!(out["meta"]["bits"], bits);

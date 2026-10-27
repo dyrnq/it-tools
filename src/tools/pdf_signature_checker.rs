@@ -46,8 +46,8 @@
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId, StringFormat};
-use rsa::traits::SignatureScheme;
-use rsa::{BigUint, Pkcs1v15Sign, Pss, RsaPublicKey};
+use rsa::traits::{PublicKeyParts, SignatureScheme};
+use rsa::{BoxedUint, Pkcs1v15Sign, Pss, RsaPublicKey};
 use serde_json::{json, Map, Value};
 use sha1::Sha1;
 use sha2::{Digest, Sha224, Sha256, Sha384, Sha512};
@@ -1100,13 +1100,22 @@ fn rsa_public_key(cert: &X509Certificate<'_>) -> Option<RsaPublicKey> {
     let x509_parser::public_key::PublicKey::RSA(rsa) = key else {
         return None;
     };
-    // modulus/exponent 是整数的原始内容字节（可能带一个 0x00 符号位，
-    // BigUint 不在乎）。
-    let n = BigUint::from_bytes_be(rsa.modulus);
-    let e = BigUint::from_bytes_be(rsa.exponent);
     // `new` 内部会检查模数位数与指数范围，畸形证书在这里就被挡掉，顺带也限制了
     // 后面 RSA 运算的规模。
-    RsaPublicKey::new(n, e).ok()
+    RsaPublicKey::new(be_uint(rsa.modulus)?, be_uint(rsa.exponent)?).ok()
+}
+
+/// 大端字节 → rsa 0.10 的密钥分量（`crypto_bigint::BoxedUint`）。
+///
+/// **前导零必须去掉**：DER 的 INTEGER 是带符号的，正数最高位是 1 时会补一个
+/// `0x00` 符号位（2048 位的模数因此是 257 字节）。而 `BoxedUint` 的「精度」就是
+/// 喂进去的字节数乘 8 —— 留着那个符号位，精度会凭空多出 8 位，跟签名的精度
+/// 对不上，验签永远失败。
+///
+/// 全零（数值 0）不是合法的密钥分量，返回 None。
+fn be_uint(bytes: &[u8]) -> Option<BoxedUint> {
+    let start = bytes.iter().position(|b| *b != 0)?;
+    Some(BoxedUint::from_be_slice_vartime(&bytes[start..]))
 }
 
 /// 用签发者公钥验一张证书的签名，命中就返回所用的摘要算法。
@@ -1232,16 +1241,24 @@ fn verify_pkcs1v15(
     sig: &[u8],
     lang: &str,
 ) -> Result<bool, String> {
-    // `Pkcs1v15Sign::new::<D>()` 要求 digest crate 带 `oid` feature，而本项目的
-    // sha2 没开那个 feature，所以这里自己拼 DigestInfo 前缀再构造
-    // `Pkcs1v15Sign`（两个字段都是 pub）。前缀 + 摘要正好是 PKCS#1 v1.5 要签的
-    // 那串字节。
-    let padding = Pkcs1v15Sign {
-        hash_len: Some(alg.digest_len()),
-        prefix: der::digest_info(alg).into_boxed_slice(),
+    // DigestInfo 前缀由 rsa 按摘要类型的 OID 生成 —— sha1 / sha2 都带 `oid`
+    // 特性，能给出 `AssociatedOid`。前缀 + 摘要正好是 PKCS#1 v1.5 要签的那串字节。
+    let padding = match alg {
+        DigestAlg::Sha1 => Pkcs1v15Sign::new::<Sha1>(),
+        DigestAlg::Sha224 => Pkcs1v15Sign::new::<Sha224>(),
+        DigestAlg::Sha256 => Pkcs1v15Sign::new::<Sha256>(),
+        DigestAlg::Sha384 => Pkcs1v15Sign::new::<Sha384>(),
+        DigestAlg::Sha512 => Pkcs1v15Sign::new::<Sha512>(),
+    };
+    let Some(sig) = pad_signature(key, sig) else {
+        return Err(tr(
+            lang,
+            "out.pdf-signature-checker.reason_pkcs1_mismatch",
+            &[],
+        ));
     };
     padding
-        .verify(key, hashed, sig)
+        .verify(key, hashed, &sig)
         .map(|_| true)
         .map_err(|_| tr(lang, "out.pdf-signature-checker.reason_pkcs1_mismatch", &[]))
 }
@@ -1257,15 +1274,35 @@ fn verify_pss(
     // `Pss::new_with_salt` 的泛型只用来决定内部摘要器，而 `verify` 收的是已经算好的
     // `hashed` 和原始签名字节，所以按 PSS 参数里声明的摘要算法取类型即可，
     // 不影响验证结果。
+    let Some(sig) = pad_signature(key, sig) else {
+        return Err(tr(lang, "out.pdf-signature-checker.reason_pss_mismatch", &[]));
+    };
     let ok = match alg {
-        DigestAlg::Sha1 => Pss::new_with_salt::<Sha1>(salt_len).verify(key, hashed, sig),
-        DigestAlg::Sha224 => Pss::new_with_salt::<Sha224>(salt_len).verify(key, hashed, sig),
-        DigestAlg::Sha256 => Pss::new_with_salt::<Sha256>(salt_len).verify(key, hashed, sig),
-        DigestAlg::Sha384 => Pss::new_with_salt::<Sha384>(salt_len).verify(key, hashed, sig),
-        DigestAlg::Sha512 => Pss::new_with_salt::<Sha512>(salt_len).verify(key, hashed, sig),
+        DigestAlg::Sha1 => Pss::<Sha1>::new_with_salt(salt_len).verify(key, hashed, &sig),
+        DigestAlg::Sha224 => Pss::<Sha224>::new_with_salt(salt_len).verify(key, hashed, &sig),
+        DigestAlg::Sha256 => Pss::<Sha256>::new_with_salt(salt_len).verify(key, hashed, &sig),
+        DigestAlg::Sha384 => Pss::<Sha384>::new_with_salt(salt_len).verify(key, hashed, &sig),
+        DigestAlg::Sha512 => Pss::<Sha512>::new_with_salt(salt_len).verify(key, hashed, &sig),
     };
     ok.map(|_| true)
         .map_err(|_| tr(lang, "out.pdf-signature-checker.reason_pss_mismatch", &[]))
+}
+
+/// 把签名补齐到模数的长度。
+///
+/// rsa 0.10 的密钥分量是**定精度**的：验签时要求「签名的精度 == 模数的精度」。
+/// CMS 里的签名一般就是模数那么长（2048 位密钥对 256 字节），但有的实现会把
+/// 前导零去掉 —— 补回去，两种写法都能验。
+///
+/// 比模数还长就是坏签名，返回 None。
+fn pad_signature(key: &RsaPublicKey, sig: &[u8]) -> Option<Vec<u8>> {
+    let size = key.size();
+    if sig.len() > size {
+        return None;
+    }
+    let mut out = vec![0u8; size - sig.len()];
+    out.extend_from_slice(sig);
+    Some(out)
 }
 
 // ---------------------------------------------------------------------------
@@ -1303,17 +1340,6 @@ impl DigestAlg {
         .into_iter()
         .find(|(_, known)| *known == oid)
         .map(|(alg, _)| alg)
-    }
-
-    /// 摘要字节数。拼 DigestInfo 时 OCTET STRING 的长度字段要用它。
-    pub fn digest_len(self) -> usize {
-        match self {
-            DigestAlg::Sha1 => 20,
-            DigestAlg::Sha224 => 28,
-            DigestAlg::Sha256 => 32,
-            DigestAlg::Sha384 => 48,
-            DigestAlg::Sha512 => 64,
-        }
     }
 
     /// 全部走一次性的 `digest()` 而不是 `Box<dyn Digest>` —— `Digest::update` 是泛型
@@ -1987,38 +2013,8 @@ mod der {
         children(outer.body).into_iter().next().map(|t| t.full)
     }
 
-    /// `DigestInfo ::= SEQUENCE { digestAlgorithm AlgorithmIdentifier,
-    ///                           digest OCTET STRING }`
-    ///
-    /// 返回的是「摘要之前的那一段」：外层 SEQUENCE 的头、AlgorithmIdentifier、
-    /// 以及 OCTET STRING 的头。摘要本身由调用方紧跟在后面补上 —— 拼起来正好
-    /// 是 RFC 8017 里 PKCS#1 v1.5 要签的那串字节。
-    ///
-    /// 外层 SEQUENCE 的长度必须把摘要算进去（`oid_len + 8 + digest_len`），
-    /// 否则签出来的东西跟标准对不上，验签永远失败。
-    pub fn digest_info(alg: DigestAlg) -> Vec<u8> {
-        let (oid, digest_len) = match alg {
-            DigestAlg::Sha1 => (OID_SHA1, 20),
-            DigestAlg::Sha224 => (OID_SHA224, 28),
-            DigestAlg::Sha256 => (OID_SHA256, 32),
-            DigestAlg::Sha384 => (OID_SHA384, 48),
-            DigestAlg::Sha512 => (OID_SHA512, 64),
-        };
-        let mut out = Vec::with_capacity(oid.len() + 12);
-        out.push(TAG_SEQUENCE);
-        write_len(&mut out, oid.len() + 8 + digest_len);
-        out.push(TAG_SEQUENCE);
-        write_len(&mut out, oid.len() + 4);
-        out.push(TAG_OID);
-        write_len(&mut out, oid.len());
-        out.extend_from_slice(oid);
-        out.extend_from_slice(&[0x05, 0x00]); // NULL parameters
-        out.push(TAG_OCTET_STRING);
-        write_len(&mut out, digest_len);
-        out
-    }
-
     /// DER 长度：短形式能放下就一字节，否则用 `0x80 | 字节数`。
+    #[cfg(test)]
     fn write_len(out: &mut Vec<u8>, len: usize) {
         if len < 0x80 {
             out.push(len as u8);
@@ -2082,36 +2078,32 @@ mod der {
         }
 
         #[test]
-        fn digest_info_prefix_matches_the_published_sha256_prefix() {
-            let mut full = digest_info(DigestAlg::Sha256);
-            full.extend_from_slice(&[0xaa; 32]);
+        fn pkcs1v15_prefix_matches_the_published_sha256_prefix() {
+            // rsa 0.10 按摘要类型的 OID 生成 DigestInfo 前缀：外层 SEQUENCE 的头、
+            // AlgorithmIdentifier、OCTET STRING 的头（摘要本身由调用方紧跟其后
+            // 补上）。这段字节是标准里的公开值，钉死它免得日后换库时悄悄变了。
+            let prefix = Pkcs1v15Sign::new::<Sha256>().prefix;
             // 3031 <len 49> 300d <algid> 0420 <32 字节摘要>
             assert_eq!(
-                hex::encode(&full[..19]),
+                hex::encode(&prefix),
                 "3031300d060960864801650304020105000420"
             );
-            assert_eq!(full.len(), 19 + 32);
-            // 拿自己造的 DigestInfo 走一遍长度自洽检查
-            assert_eq!(read_tlv(&full).map(|t| t.full.len()), Some(full.len()));
         }
 
         #[test]
         fn every_digest_algorithm_gets_a_self_consistent_digest_info() {
-            for (alg, len) in [
-                (DigestAlg::Sha1, 20),
-                (DigestAlg::Sha224, 28),
-                (DigestAlg::Sha256, 32),
-                (DigestAlg::Sha384, 48),
-                (DigestAlg::Sha512, 64),
+            for (label, prefix, len) in [
+                ("SHA-1", Pkcs1v15Sign::new::<Sha1>().prefix, 20usize),
+                ("SHA-224", Pkcs1v15Sign::new::<Sha224>().prefix, 28),
+                ("SHA-256", Pkcs1v15Sign::new::<Sha256>().prefix, 32),
+                ("SHA-384", Pkcs1v15Sign::new::<Sha384>().prefix, 48),
+                ("SHA-512", Pkcs1v15Sign::new::<Sha512>().prefix, 64),
             ] {
-                let mut full = digest_info(alg);
-                let prefix = full.len();
+                let mut full = prefix.to_vec();
+                let prefix_len = full.len();
                 full.extend_from_slice(&vec![0xbb; len]);
                 let tlv = read_tlv(&full).expect("拼出来的 DigestInfo 必须自洽");
-                assert_eq!(tlv.full.len(), prefix + len, "{}", alg.label());
-                // 最后一个元素必须正好是摘要本身
-                assert_eq!(tlv.body.len(), tlv.body.len());
-                let _ = prefix;
+                assert_eq!(tlv.full.len(), prefix_len + len, "{label}");
             }
         }
 

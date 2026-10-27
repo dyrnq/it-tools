@@ -111,8 +111,7 @@ pub fn generate(alg: KeyAlgorithm) -> Result<GeneratedKey, String> {
 /// `rsa` crate 生成的是 PKCS#1 的 `RSAPrivateKey`，`to_pkcs8_pem` 会把它包成
 /// PKCS#8 —— rcgen 与 `openssl` 认的都是后者。
 fn generate_rsa(bits: u32) -> Result<GeneratedKey, String> {
-    let mut rng = rand_core::OsRng;
-    let private_key = rsa::RsaPrivateKey::new(&mut rng, bits as usize)
+    let private_key = rsa::RsaPrivateKey::new(&mut rand::rng(), bits as usize)
         .map_err(|e| format!("生成 {bits} 位 RSA 密钥失败: {e}"))?;
     let pem = private_key
         .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)

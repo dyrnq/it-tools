@@ -32,25 +32,23 @@ log = "0.4"
 env_logger = "0.11"
 
 # S1: hash-text 工具所需的摘要算法
-md-5 = "0.10"
-sha1 = "0.10"
-# sha2 的 "oid" 特性给出各摘要算法的 OID（AssociatedOid）—— rsa 0.9 的
-# PKCS#1 v1.5 / PSS 签名要靠它才知道该往摘要前面拼哪段 DER 前缀。
 #
-# 钉在 0.10 不是忘了升：rsa 0.9.10 要的是 **digest 0.10** 的 `Digest` trait，
-# sha2 0.11 换成了 digest 0.11 —— 那是两个不同的 trait，rsa 0.9 收不了
-# （`Pkcs1v15Sign::new::<Sha256>` 直接报 trait bound 不满足）。rsa 0.9.10 已经是
-# 最新的一版，所以这行要等 rsa 自己往前走才能动。
+# 这一组**整体**是 digest 0.11 一代：rsa 0.10 要的是 digest 0.11 的 `Digest`
+# trait，sha2 0.11 / md-5 0.11 / sha1 0.11 / sha3 0.12 / ripemd 0.2 跟它对齐，
+# hmac 0.13 也是同一代（`Hmac<Sha256>` 要求 sha2 也是 0.11）。
 #
-# hmac 跟 sha2 是一伙的：hmac 0.13 是 digest 0.11 一代，`Hmac<Sha256>` 要求
-# sha2 也到 0.11，所以它俩只能一起动。
-# md-5 / sha1 / sha3 / ripemd 严格说是被 **hmac_generator** 拖住的 ——
-# 那个工具用 `hmac` crate 给九种算法算 HMAC，而 hmac 0.12 又是 digest 0.10
-# 一代。要让它们单独升，就得并排挂 hmac 0.12 / 0.13 两版，或者自己手写 HMAC ——
-# 为了一个 trait 的版本号去手写密码学，不值。
-sha2 = { version = "0.10", features = ["oid"] }
-sha3 = "0.10"
-ripemd = "0.1"
+# 为什么必须六家一起动：本仓库里这几种摘要是**捆在一起用**的 ——
+# hmac_generator 要给九种算法算 HMAC，hash-text 要把九种摘要并排列出来。
+# 只要有一家停在 digest 0.10，同一个文件里就得并排挂两代 `Digest` trait
+# （名字还撞，只能匿名 import，方法解析也就此多一层心照不宣）。
+# 现在六家一起到 0.11，**digest 0.10 从依赖树里整个消失**。
+md-5 = "0.11"
+sha1 = "0.11"
+# sha2 的 "oid" 特性给出各摘要算法的 OID（AssociatedOid）—— rsa 0.10 的
+# PKCS#1 v1.5 签名要靠它才知道该往摘要前面拼哪段 DER 前缀。
+sha2 = { version = "0.11", features = ["oid"] }
+sha3 = "0.12"
+ripemd = "0.2"
 # hash-text 补算法（上游 PR #986）：blake 系列、xx 系列、校验和那一类。
 # 全部是**一次性**摘要算法，无盐无参数 —— 跟 pbkdf2 / argon2 那种
 # 「同一段文本每次结果都不同」的性质不同，所以可以放进 hash-text 的下拉框。
@@ -65,19 +63,13 @@ actix-multipart = "0.8.5"
 base64 = "0.23.1"
 bcrypt = "0.19.3"
 argon2 = "0.6"
-rsa = "0.9.10"
+rsa = "0.10.0-rc.19"
 pem = "4.0.0"
-# rand 0.9 起换成了 rand_core 0.9/0.10 的 trait，而 rsa 0.9 / rcgen 0.14 /
-# ed25519-dalek 3 要的是 rand_core 0.6 —— 交给它们的随机源因此不能来自新 rand
-# （编译器会直接说「有多个不同版本的 rand_core」）。所以这里把两代拆开：
-# 我们自己要的随机数（盐、IV、序列号、EC 标量）走 rand 0.10，喂给上面三家的
-# 走 rand_core 0.6 的 `OsRng` —— 那正是它们依赖树里的同一个 0.6.4，trait 对得上，
-# 不需要任何桥接。树里因此同时存在 rand_core 0.6 与 0.10，两边互不相干。
+# 随机数只有 rand 0.10 一套：它底下是 rand_core 0.10，而 rsa 0.10、ed25519-dalek 3
+# 要的 `CryptoRng` 也正是 rand_core 0.10 那一版 —— 同一个 trait，不需要桥接，
+# 也不必再单独引一个 rand_core。`rand::rng()`（ThreadRng）满足这个 trait，
+# 喂给 `RsaPrivateKey::new` / `try_sign_with_rng` / `SigningKey::generate` 都行。
 rand = "0.10"
-# rand_core 0.6 是**直接**依赖，不是传递依赖：rsa 0.9.10 的
-# `RsaPrivateKey::new` / `try_sign_with_rng` 要的 `CryptoRngCore` 就是这一版的
-# trait，得由我们自己把它引进来才喂得进去。
-rand_core = "0.6"
 # OpenSSH 私钥加密：bcrypt-pbkdf 派生密钥 + AES-256-CTR 加密（openssh-key-v1 格式）
 bcrypt-pbkdf = "0.11"
 # 0.46 才有 `LoadOptions::max_decompressed_size` —— PDF 签名检查器靠它挡住解压炸弹
@@ -91,11 +83,12 @@ x509-parser = { version = "0.18.1", features = ["verify"] }
 totp-rs = "6.0.0"
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
-hmac = "0.12"
+hmac = "0.13"
 # JWT 签名/验签（上游 PR #1453）的三条 ECDSA 曲线。
-# 这三个 crate 各自带一份 ecdsa 实现（0.14 系列的 ecdsa 走 digest 0.11），
+# 这三个 crate 各自带一份 ecdsa 实现（0.14 系列的 elliptic-curve → ecdsa 0.17，
+# 走的正是 digest 0.11 / signature 3，跟上面那组摘要和 rsa 0.10 是同一代）。
 # 摘要类型由曲线自己定（P-256→SHA-256、P-384→SHA-384、P-521→SHA-512），
-# 所以不必把 ecdsa / sha2 0.11 单独引进来。
+# 所以不必把 ecdsa / sha2 单独引进来。
 p256 = "0.14"
 p384 = "0.14"
 p521 = "0.14"

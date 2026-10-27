@@ -41,6 +41,7 @@ use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use rsa::RsaPrivateKey;
 use serde_json::{json, Map, Value};
 
+use super::rsa_formats::part_bytes;
 use super::ssh_key::{SshBuf, SshKey};
 use super::{util, ToolError, ToolResult};
 
@@ -273,10 +274,10 @@ fn gen_ed25519(alg: Algorithm) -> Result<Generated, ToolError> {
 /// 私钥段里的私钥标量按 **`mpint`** 写（RFC 5656 §3.1）——不是定长 32 字节。
 /// 写错这一处 `ssh-keygen` 会解不出私钥。
 fn gen_ecdsa_p256(alg: Algorithm) -> Result<Generated, ToolError> {
-    // `ecdsa 0.17` 的 `SigningKey::random` 要 `rand_core 0.9` 的 RNG，
-    // 而仓库里用的是 `rand 0.10`（`rand_core 0.10`）——两套 rand_core 对不上。
-    // 与其引两套随机源，不如自己抽 32 字节再喂给 `from_bytes`：
-    // P-256 的阶 n 离 2^256 只差 2^-32，所以抽到非法标量的概率约
+    // `ecdsa 0.17` 的 `SigningKey::random` 已经标了 deprecated（它让位给
+    // `elliptic_curve::Generate` trait，而那个 trait 要另开 feature），
+    // 与其为一个弃用 API 去改依赖的特性开关，不如自己抽 32 字节再喂给
+    // `from_bytes`：P-256 的阶 n 离 2^256 只差 2^-32，所以抽到非法标量的概率约
     // 4 亿分之一 —— 循环重抽即可，实际上永远一次就成。
     let mut raw = [0u8; 32];
     let signing = loop {
@@ -317,7 +318,7 @@ fn gen_ecdsa_p256(alg: Algorithm) -> Result<Generated, ToolError> {
 /// OpenSSH 的 RSA 私钥段是 `n ‖ e ‖ d ‖ iqmp ‖ p ‖ q` 六个 `mpint`，
 /// 公钥 blob 是 `e ‖ n`（顺序是反的！）。
 fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
-    let mut key = RsaPrivateKey::new(&mut rand_core::OsRng, bits)
+    let mut key = RsaPrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("生成 {bits} 位 RSA 密钥失败: {e}")))?;
     // `crt_coefficient()`（iqmp）要 precompute 之后才有值
     key.precompute()
@@ -327,16 +328,16 @@ fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
 
     let mut public_blob = SshBuf::new();
     public_blob.put_str(alg.key_type());
-    public_blob.put_mpint(&public.e().to_bytes_be());
-    public_blob.put_mpint(&public.n().to_bytes_be());
+    public_blob.put_mpint(&part_bytes(public.e()));
+    public_blob.put_mpint(&part_bytes(public.n()));
 
     let mut private_fields = SshBuf::new();
-    private_fields.put_mpint(&key.n().to_bytes_be());
-    private_fields.put_mpint(&key.e().to_bytes_be());
-    private_fields.put_mpint(&key.d().to_bytes_be());
-    private_fields.put_mpint(&iqmp(&key).to_bytes_be());
-    private_fields.put_mpint(&key.primes()[0].to_bytes_be());
-    private_fields.put_mpint(&key.primes()[1].to_bytes_be());
+    private_fields.put_mpint(&part_bytes(key.n()));
+    private_fields.put_mpint(&part_bytes(key.e()));
+    private_fields.put_mpint(&part_bytes(key.d()));
+    private_fields.put_mpint(&iqmp(&key));
+    private_fields.put_mpint(&part_bytes(&key.primes()[0]));
+    private_fields.put_mpint(&part_bytes(&key.primes()[1]));
 
     let pkcs8 = key
         .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
@@ -349,10 +350,15 @@ fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
     })
 }
 
-/// `iqmp` = q⁻¹ mod p（CRT 系数）。
-fn iqmp(key: &RsaPrivateKey) -> rsa::BigUint {
-    key.crt_coefficient()
-        .unwrap_or_else(|| rsa::BigUint::from(0u32))
+/// `iqmp` = q⁻¹ mod p（CRT 系数），直接写成 SSH 的 `mpint` 字节。
+///
+/// rsa 0.10 的 `crt_coefficient()` 返回 `Option<BoxedUint>`（值，不是引用）；
+/// 算不出来时给空字节串 —— 0 的 mpint 就是空串。
+fn iqmp(key: &RsaPrivateKey) -> Vec<u8> {
+    match key.crt_coefficient() {
+        Some(c) => part_bytes(&c),
+        None => Vec::new(),
+    }
 }
 
 /// Ed25519 的 PKCS#8 PEM。
@@ -408,6 +414,8 @@ fn ecdsa_p256_pkcs8_pem(scalar: &[u8], q: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // iqmp 的模乘断言用 num-bigint 写起来最顺（密钥分量本身是 crypto-bigint 的）
+    use num_bigint::BigUint;
 
     /// 结果表的行标题是按语言包取的，断言时按同样的方式取标题 ——
     /// 把标题的字面量抄一遍的话，改一次文案就要改一次断言。
@@ -568,10 +576,10 @@ mod tests {
         assert_eq!(n2, n, "私钥段里的 n 必须与公钥 blob 一致");
         assert_eq!(e2, e);
 
-        // iqmp 必须是 q 在模 p 下的逆元
-        let prod = (&rsa::BigUint::from_bytes_be(&iqmp) * &rsa::BigUint::from_bytes_be(&q))
-            % &rsa::BigUint::from_bytes_be(&p);
-        assert_eq!(prod, rsa::BigUint::from(1u32));
+        // iqmp 必须是 q 在模 p 下的逆元（模乘断言用 num-bigint 写最顺）
+        let prod = (&BigUint::from_bytes_be(&iqmp) * &BigUint::from_bytes_be(&q))
+            % &BigUint::from_bytes_be(&p);
+        assert_eq!(prod, BigUint::from(1u32));
         assert!(!d.is_empty());
     }
 

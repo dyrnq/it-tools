@@ -52,7 +52,7 @@
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use md5::{Digest, Md5};
 use rand::Rng;
 use serde_json::{json, Map, Value};

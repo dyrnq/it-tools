@@ -91,10 +91,21 @@ use rand::Rng;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding};
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
-use rsa::{BigUint, RsaPrivateKey, RsaPublicKey};
+use rsa::{BoxedUint, RsaPrivateKey, RsaPublicKey};
 
 use super::ssh_key::{self, pem_block, SshBuf, SshKey, PEM_LINE_OPENSSL};
 use super::ToolError;
+
+/// RSA 密钥分量（`n` / `e` / `d` / `p` / `q`）的大端字节。
+///
+/// rsa 0.10 把密钥分量从 num-bigint 的 `BigUint` 换成了 `crypto-bigint` 的
+/// `BoxedUint`（定精度的大整数），取字节得显式调 `to_be_bytes_trimmed_vartime`
+/// —— 语义跟原来的 `BigUint::to_bytes_be()` 一致：**去掉前导零**的最短表示。
+///
+/// `n` 的类型是 `NonZero<BoxedUint>`，靠 deref 自动转成 `&BoxedUint`。
+pub(crate) fn part_bytes(part: &BoxedUint) -> Vec<u8> {
+    part.to_be_bytes_trimmed_vartime().into_vec()
+}
 
 /// 传统 PEM 加密用的 AES-128-CBC：16 字节密钥 + 16 字节 IV。
 const PEM_AES128_KEY_LEN: usize = 16;
@@ -288,8 +299,8 @@ fn encrypt_pem_traditional(der: &[u8], passphrase: &str) -> Result<String, ToolE
 fn ssh_rsa_public_blob(key: &RsaPublicKey) -> Vec<u8> {
     let mut b = SshBuf::new();
     b.put_str("ssh-rsa");
-    b.put_mpint(&key.e().to_bytes_be());
-    b.put_mpint(&key.n().to_bytes_be());
+    b.put_mpint(&part_bytes(key.e()));
+    b.put_mpint(&part_bytes(key.n()));
     b.into_vec()
 }
 
@@ -312,12 +323,12 @@ fn ssh_rsa_key(key: &RsaPrivateKey) -> SshKey {
     // 私钥段（解密后）是
     // checkint1 ‖ checkint2 ‖ "ssh-rsa" ‖ n ‖ e ‖ d ‖ iqmp ‖ p ‖ q ‖ 注释
     let mut fields = SshBuf::new();
-    fields.put_mpint(&key.n().to_bytes_be());
-    fields.put_mpint(&key.e().to_bytes_be());
-    fields.put_mpint(&key.d().to_bytes_be());
+    fields.put_mpint(&part_bytes(key.n()));
+    fields.put_mpint(&part_bytes(key.e()));
+    fields.put_mpint(&part_bytes(key.d()));
     put_iqmp(&mut fields, key);
-    fields.put_mpint(&key.primes()[0].to_bytes_be());
-    fields.put_mpint(&key.primes()[1].to_bytes_be());
+    fields.put_mpint(&part_bytes(&key.primes()[0]));
+    fields.put_mpint(&part_bytes(&key.primes()[1]));
 
     SshKey::new("ssh-rsa", ssh_rsa_public_blob(&key.to_public_key()), fields.into_vec())
 }
@@ -337,8 +348,9 @@ fn openssh_private_pem(
 /// 拿不到就不写这个分量 —— 宁可少写一个字段，也不能写错。
 fn put_iqmp(b: &mut SshBuf, key: &RsaPrivateKey) {
     match key.crt_coefficient() {
-        Some(c) => b.put_mpint(&c.to_bytes_be()),
-        None => b.put_mpint(&BigUint::from(0u32).to_bytes_be()),
+        Some(c) => b.put_mpint(&part_bytes(&c)),
+        // 0 的 mpint 是空串（`put_mpint` 遇到空字节串就是这么写的）
+        None => b.put_mpint(&[]),
     }
 }
 
@@ -346,15 +358,19 @@ fn put_iqmp(b: &mut SshBuf, key: &RsaPrivateKey) {
 mod tests {
     use super::*;
     use super::ssh_key::{BCRYPT_ROUNDS, BCRYPT_SALT_LEN, OPENSSH_MAGIC};
+    // iqmp 的模乘断言用 num-bigint 写起来最顺（密钥分量本身是 crypto-bigint 的）
+    use num_bigint::BigUint;
     use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
     use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 
-    /// 单测只生成 512 位：dev profile 未优化时 2048 位要 2.6 秒。
-    const TEST_BITS: usize = 512;
+    /// 单测只生成 1024 位：dev profile 未优化时 2048 位要 2.6 秒。
+    ///
+    /// 1024 是下限 —— `rsa` 0.10 起的 `RsaPrivateKey::new` 不再接受更小的模数
+    /// （`MIN_SIZE` = 1024），再小就报「modulus too small」。
+    const TEST_BITS: usize = 1024;
 
     fn key() -> RsaPrivateKey {
-        let mut rng = rand_core::OsRng;
-        RsaPrivateKey::new(&mut rng, TEST_BITS).expect("密钥生成不该失败")
+        RsaPrivateKey::new(&mut rand::rng(), TEST_BITS).expect("密钥生成不该失败")
     }
 
     /// 解开 SSH 线格式的 mpint 序列，返回去掉了前导 0x00 的大端字节串。
@@ -449,8 +465,8 @@ mod tests {
         let e = read_mpint(&blob, &mut pos);
         let n = read_mpint(&blob, &mut pos);
         assert_eq!(pos, blob.len(), "blob 里不该有多余内容");
-        assert_eq!(e, k.e().to_bytes_be());
-        assert_eq!(n, k.n().to_bytes_be());
+        assert_eq!(e, part_bytes(k.e()));
+        assert_eq!(n, part_bytes(k.n()));
     }
 
     #[test]
@@ -492,11 +508,11 @@ mod tests {
         let section = parsed.section.expect("私钥文件该有私钥段");
         let (kind, n, e, d, iqmp, p, q, comment) = parse_private_section(&section);
         assert_eq!(kind, b"ssh-rsa");
-        assert_eq!(n, k.n().to_bytes_be());
-        assert_eq!(e, k.e().to_bytes_be());
-        assert_eq!(d, k.d().to_bytes_be());
-        assert_eq!(p, k.primes()[0].to_bytes_be());
-        assert_eq!(q, k.primes()[1].to_bytes_be());
+        assert_eq!(n, part_bytes(k.n()));
+        assert_eq!(e, part_bytes(k.e()));
+        assert_eq!(d, part_bytes(k.d()));
+        assert_eq!(p, part_bytes(&k.primes()[0]));
+        assert_eq!(q, part_bytes(&k.primes()[1]));
         assert_eq!(comment, b"note");
 
         // iqmp 必须是 q⁻¹ mod p（OpenSSL 的 coefficient、OpenSSH 的 iqmp 都是这个口径）
@@ -626,15 +642,15 @@ mod tests {
                         .unwrap();
                     let mut pos = 0;
                     assert_eq!(read_string(&blob, &mut pos), b"ssh-rsa");
-                    assert_eq!(read_mpint(&blob, &mut pos), k.e().to_bytes_be());
-                    assert_eq!(read_mpint(&blob, &mut pos), k.n().to_bytes_be());
+                    assert_eq!(read_mpint(&blob, &mut pos), part_bytes(k.e()));
+                    assert_eq!(read_mpint(&blob, &mut pos), part_bytes(k.n()));
                 }
                 Format::OpenSsh => {
                     let parsed = parse_openssh(&out.public_key);
                     let mut pos = 0;
                     assert_eq!(read_string(&parsed.public_blob, &mut pos), b"ssh-rsa");
-                    assert_eq!(read_mpint(&parsed.public_blob, &mut pos), k.e().to_bytes_be());
-                    assert_eq!(read_mpint(&parsed.public_blob, &mut pos), k.n().to_bytes_be());
+                    assert_eq!(read_mpint(&parsed.public_blob, &mut pos), part_bytes(k.e()));
+                    assert_eq!(read_mpint(&parsed.public_blob, &mut pos), part_bytes(k.n()));
                 }
                 _ => {
                     let parsed = rsa::RsaPublicKey::from_public_key_pem(&out.public_key).unwrap();
