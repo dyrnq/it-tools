@@ -552,12 +552,14 @@ mod tests {
     ///   → 而 `-in`/`-stdin` 是 OpenSSL 3.x 才有的参数，CI 上装的是哪个版本
     ///     说不准，不能拿它当依赖。
     ///
-    /// 非 ASCII 口令的行为由 [`apr1_for_non_ascii_passwords_is_pinned_to_the_utf8_bytes`]
-    /// 里的定值向量钉住 —— 那些值是按**口令的 UTF-8 字节**算出来的，与平台无关。
+    /// 非 ASCII 的口令、以及以 `-` 开头的口令（openssl 会把那种参数当成选项），
+    /// 走不了这条对拍的路 —— 它们的摘要在
+    /// [`apr1_for_passwords_the_oracle_cannot_carry_is_pinned`] 里钉死。
     fn openssl_apr1(password: &str, salt: &str) -> String {
         assert!(
-            password.is_ascii(),
-            "口令走 argv，Windows 的代码页转换只对 ASCII 恒等：{password:?}"
+            password.is_ascii() && !password.starts_with('-'),
+            "口令走 argv 这条路有两条限制：ASCII 之外的口令会被 Windows 的代码页改写，\
+             以 `-` 开头的会被 openssl 当成选项（{password:?}）"
         );
         let mut child = std::process::Command::new("openssl")
             .args(["passwd", "-apr1", "-salt", salt, password])
@@ -647,15 +649,32 @@ mod tests {
         }
     }
 
+    /// 差分测试的口令集是**定种子**的：每次跑都是同一批。
+    ///
+    /// 为什么不用 `thread_rng`：随机的用例会让 CI 变成「有时绿有时红」——
+    /// 那种红既复现不了，也说不清是谁的锅。定下来之后，坏了就是坏了，
+    /// 拿同一批口令重跑一遍就知道。
+    ///
+    /// 首字符从「不以 `-` 开头」的那一半里取：openssl 把以 `-` 开头的参数当成
+    /// 选项（`passwd: Unknown option: -...`），口令就没了。以 `-` 开头的口令
+    /// 由下面的定值向量管。
     #[test]
     fn apr1_matches_openssl_on_random_input() {
-        // 只用可打印 ASCII：理由同上（argv 只对 ASCII 是字节精确的）。
-        let alphabet = b"abcXYZ019 !@#$%^&*()_-+=[]{}<>?,.;:~";
-        let mut rng = rand::thread_rng();
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+
+        // 可打印 ASCII：argv 这一路上，Windows 的代码页转换只对 ASCII 恒等。
+        const ALPHABET: &[u8] = b"abcXYZ019 !@#$%^&*()_-+=[]{}<>?,.;:~";
+        const FIRST: &[u8] = b"abcXYZ019 !@#$%^&*()_+=[]{}<>?,.;:~";
+
+        let mut rng = StdRng::seed_from_u64(20261027);
         for i in 0..40 {
-            let password: String = (0..rng.gen_range(0..40))
-                .map(|_| alphabet[rng.gen_range(0..alphabet.len())] as char)
-                .collect();
+            let len = rng.gen_range(0..40);
+            let mut password = String::with_capacity(len);
+            for j in 0..len {
+                let set = if j == 0 { FIRST } else { ALPHABET };
+                password.push(set[rng.gen_range(0..set.len())] as char);
+            }
             let salt: String = (0..8)
                 .map(|_| APR1_ALPHABET[rng.gen_range(0..64)] as char)
                 .collect();
@@ -667,11 +686,17 @@ mod tests {
         }
     }
 
-    /// 非 ASCII 口令的**定值**向量。
+    /// 走不了差分测试的口令：**定值**向量。
     ///
-    /// 非 ASCII 走不了差分测试：口令要经过 argv 送到 openssl 那里，Windows 的
-    /// 代码页转换会把它改写（详见 [`openssl_apr1`]）。所以这一段才是非 ASCII 口令
-    /// 的判据 —— 摘要按**口令的 UTF-8 字节**算出来，写死在这里，与平台无关。
+    /// 两类口令没法拿去跟 openssl 当场对拍：
+    ///
+    /// · **非 ASCII**：口令要经过 argv 送到 openssl 那里，Windows 的代码页转换
+    ///   会把它改写（详见 [`openssl_apr1`]）。
+    /// · **以 `-` 开头**：openssl 把以 `-` 开头的参数当成选项，口令就没了。
+    ///
+    /// 所以这两类由这里钉死 —— 摘要按**口令的 UTF-8 字节**算出来，写死在这里，
+    /// 与平台无关。这些值都是拿 `openssl passwd -in <文件>` 算的（文件通道传的是
+    /// 原始字节，不经过代码页转换）。
     ///
     /// 覆盖的是 UTF-8 的各个长度：两字节（café）、三字节（中文、希腊字母）、
     /// 四字节（emoji）。还有一个容易混的地方：U+0080 / U+00FF 各占 UTF-8 两个
@@ -680,7 +705,7 @@ mod tests {
     /// 最后两条是同一个「é」的两种写法（预组合 U+00E9 与 e + 组合重音 U+0301）——
     /// 摘要必须不同，否则就说明有人在偷偷做 Unicode 归一化。
     #[test]
-    fn apr1_for_non_ascii_passwords_is_pinned_to_the_utf8_bytes() {
+    fn apr1_for_passwords_the_oracle_cannot_carry_is_pinned() {
         for (password, salt, expected) in [
             (
                 "口令 with spaces",
@@ -696,6 +721,15 @@ mod tests {
                 "a\u{80}\u{ff}b",
                 "ABCDEFGH",
                 "$apr1$ABCDEFGH$yuk3nJnGA5xutbeoo/oXX.",
+            ),
+            // 以 `-` 开头：openssl 会把这种参数当成选项。
+            ("-dash", "salt1234", "$apr1$salt1234$RmngREkghTpsWO2zAgIxR0"),
+            ("-", "salt1234", "$apr1$salt1234$kU4vYKRT7QMeqpob95Hup/"),
+            ("--", "salt1234", "$apr1$salt1234$OI78hOOp9lWfpQL0.nKJi0"),
+            (
+                "-with spaces",
+                "salt1234",
+                "$apr1$salt1234$eoi2pCOVgpI24zOmMAYj..",
             ),
         ] {
             assert_eq!(
