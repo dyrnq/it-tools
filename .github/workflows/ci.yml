@@ -137,23 +137,27 @@ jobs:
           targets: ${{ matrix.target }}
 
       # 缓存键带上 target：两个架构的编译产物互相不通用，混在一起会来回失效。
-      # ~/.cargo/bin 也缓存：cross 是 `cargo install` 装的，编一次要好几分钟，
-      # 不缓存的话每次跑都得重来一遍。
       - name: Cache cargo artifacts
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            ~/.cargo/bin
             target
           key: ${{ runner.os }}-cargo-musl-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-musl-${{ matrix.target }}-
             ${{ runner.os }}-cargo-
 
+      # cross 有官方发布的二进制，直接下载 —— `cargo install cross` 现场编要好几分钟。
+      # 而且装出来落在 ~/.cargo/bin：那目录要是进了 cargo 缓存，下一次的
+      # `cargo install cross` 会因为「已安装」直接报错（binary already exists）。
+      # 下载发行版就没这回事：解开就是 cross + cross-util 两个文件。
       - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: |
+          curl -fsSL https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
+            | sudo tar xz -C /usr/local/bin
+          cross --version
 
       # 不用装 musl-tools：cross 的镜像里自带工具链（含 musl-gcc）。
       - name: Build (cross)
