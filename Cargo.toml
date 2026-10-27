@@ -68,7 +68,9 @@ pem = "4.0.0"
 rand = "0.8"
 # OpenSSH 私钥加密：bcrypt-pbkdf 派生密钥 + AES-256-CTR 加密（openssh-key-v1 格式）
 bcrypt-pbkdf = "0.11"
-lopdf = "0.42.0"
+# 0.46 才有 `LoadOptions::max_decompressed_size` —— PDF 签名检查器靠它挡住解压炸弹
+# （对象流 / xref 流是加载时急切解压的，几十 KB 的文件能撑爆内存）。
+lopdf = "0.46.0"
 x509-certificate = "0.25.0"
 # `verify` 特性给出 `X509Certificate::verify_signature` —— 自签证书的签名
 # 到底能不能验过，只有真验一遍才知道（x509-certificate-generator 的单测靠它）。

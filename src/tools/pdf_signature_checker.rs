@@ -30,18 +30,22 @@
 //! 上传字节数在进 lopdf 之前就卡死（见 `MAX_PDF_BYTES`），DER 走位器的每一层
 //! 子元素数量也有上限。
 //!
-//! 已知但没解决的：lopdf 0.42 的 `Document::load_mem` 会把文件里所有
-//! `/ObjStm`（对象流）**解压到内存**（`ObjectStream::new` 里直接
-//! `stream.decompress()`，没有上限），而 0.42 的 `LoadOptions` 里也没有
-//! `max_decompressed_size` 这个字段 —— 它是 lopdf 0.46 才加上的。也就是说一个
-//! 几 KB 的 PDF 里塞一个高压缩比的 `/ObjStm`，理论上能把内存打爆。字节上限挡不住
-//! 这一手，因为解压后的体积跟压缩前没关系。要根治得把 lopdf 升到 0.46+
-//! （`LoadOptions::max_decompressed_size`）。
-//! 这里没有加那种「扫字节」的土办法 —— 它太容易被绕过（`/Obj#53tm` 就能躲开），
+//! lopdf 0.46 起，`LoadOptions::max_decompressed_size` 给「单个流解压后能有多大」
+//! 划了上限（超了报 `MemoryLimitExceeded`）。这一条堵的是解压炸弹：`/ObjStm`
+//! （对象流）和 xref 流是**加载时**就急切解压的，一个几 KB 的 PDF 里塞一个
+//! 高压缩比的对象流就能把内存打爆 —— 字节上限挡不住这一手，因为解压后的体积
+//! 跟压缩前没关系。
+//! 上限取 [`MAX_DECOMPRESSED_BYTES`]：普通 PDF 的这两个流都很小（几十 KB 到
+//! 几 MB），16 MB 已经是整份上传的体积了，余量够用；而内存占用从「无上限」变成
+//! 「每个流 16 MB」。
+//! 说清楚这个上限**管到哪儿**：它是**每个流**的额度，不是一份 PDF 的总额 ——
+//! 一份 PDF 里塞多少个流是攻击者说了算，所以它钉住的是放大倍数，不是总量。
+//! 但没有上限时，一个流就能自己撑爆内存，这已经是最要紧的那一半了。
+//! 这里没有另外加那种「扫字节」的土办法 —— 它太容易被绕过（`/Obj#53tm` 就能躲开），
 //! 给你一个假的安全感反而更糟。
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use lopdf::{Dictionary, Document, Object, ObjectId, StringFormat};
+use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId, StringFormat};
 use rsa::traits::SignatureScheme;
 use rsa::{BigUint, Pkcs1v15Sign, Pss, RsaPublicKey};
 use serde_json::{json, Map, Value};
@@ -59,6 +63,18 @@ use super::{ToolError, ToolResult};
 /// 正常的手写签名件在几百 KB 到几 MB —— 16 MB 宽得离谱，再往上只是给解析器白送
 /// CPU。超限直接拒，不进 lopdf。
 const MAX_PDF_BYTES: usize = 16 * 1024 * 1024;
+
+/// 单个流解压后的大小上限（lopdf 的 `LoadOptions::max_decompressed_size`）。
+///
+/// 加载时会被急切解压的是 `/ObjStm`（对象流）和 xref 流 —— 里面装的是字典、
+/// 数组这类**非流对象**，正常 PDF 里这部分很小：几十 KB 到几 MB 封顶。
+/// 16 MB 就是整份上传（`MAX_PDF_BYTES`）的体积，余量够普通签名件通过；
+/// 而内存占用从「无上限」变成「每个流 16 MB」，几 KB 的压缩炸弹再也打不爆内存。
+///
+/// 注意这是**每个流**的额度：一份 PDF 里有多少个流是上传者说了算，所以它限制的
+/// 是放大倍数而不是总量。真要把总量也钉死，得自己数 lopdf 解了多少字节 ——
+/// 那就变成重写它的解析器了，不值当。
+const MAX_DECOMPRESSED_BYTES: usize = 16 * 1024 * 1024;
 
 /// 最多校验多少个签名。构造出来的 PDF 可以往 AcroForm 里塞几十万个签名字段，
 /// 每个都要做一次 RSA 验签；不设上限就是一个几百毫秒到几秒的定时炸弹。
@@ -150,7 +166,11 @@ fn compute(payload: Value) -> ToolResult {
         ));
     }
 
-    let doc = Document::load_mem(&bytes).map_err(|e| {
+    let doc = Document::load_mem_with_options(
+        &bytes,
+        LoadOptions::with_max_decompressed_size(MAX_DECOMPRESSED_BYTES),
+    )
+    .map_err(|e| {
         ToolError::invalid(
             "out.pdf-signature-checker.err.pdf_parse_failed",
             &[("reason", &e.to_string())],
@@ -2430,6 +2450,67 @@ mod tests {
             }
             other => panic!("不应当是 {other:?}"),
         }
+    }
+
+    /// 造一个「解压炸弹」PDF：文件本身只有几十 KB，里面的交叉引用流（/XRef）
+    /// 解压后却有 16 MB 起步。
+    ///
+    /// 上传大小上限（`MAX_PDF_BYTES`）挡不住这种文件 —— 它小得不能再小；
+    /// 挡住它的是 `MAX_DECOMPRESSED_BYTES`：解压到超过上限的那一刻就报错。
+    ///
+    /// 做法跟 lopdf 自己那个 `decompression_bomb` 例子一样：把交叉引用流的内容
+    /// 换成一段 FlateDecode 的压缩炸弹，其余照常。
+    fn decompression_bomb_pdf(target: usize) -> Vec<u8> {
+        let mut stream = lopdf::Stream::new(Dictionary::new(), vec![0u8; target]);
+        stream.compress().expect("压缩炸弹");
+        let bomb = stream.content;
+
+        let mut pdf = Vec::new();
+        pdf.extend_from_slice(b"%PDF-1.5\n");
+        let offset = pdf.len();
+        pdf.extend_from_slice(b"1 0 obj\n");
+        pdf.extend_from_slice(
+            format!(
+                "<< /Type /XRef /Size 1 /W [1 1 1] /Root 1 0 R /Filter /FlateDecode /Length {} >>\n",
+                bomb.len()
+            )
+            .as_bytes(),
+        );
+        pdf.extend_from_slice(b"stream\n");
+        pdf.extend_from_slice(&bomb);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n");
+        pdf.extend_from_slice(format!("startxref\n{offset}\n%%EOF").as_bytes());
+        pdf
+    }
+
+    #[test]
+    fn a_decompression_bomb_is_refused_instead_of_unpacked() {
+        let bomb = decompression_bomb_pdf(MAX_DECOMPRESSED_BYTES + 1024 * 1024);
+        // 炸弹本身小得不像话 —— 挡住它的不可能是上传大小上限。
+        assert!(bomb.len() < 1024 * 1024, "炸弹 PDF 只有 {} 字节", bomb.len());
+
+        // 问 lopdf：错误必须是「解压超限」，不能是别的什么毛病。
+        let err = Document::load_mem_with_options(
+            &bomb,
+            LoadOptions::with_max_decompressed_size(MAX_DECOMPRESSED_BYTES),
+        )
+        .expect_err("有上限时必须加载失败");
+        assert!(
+            matches!(
+                err,
+                lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { limit })
+                    if limit == MAX_DECOMPRESSED_BYTES
+            ),
+            "实际错误：{err:?}"
+        );
+
+        // 走工具自己的那条路：用户看到的是一句「解析失败」，
+        // 而不是整个进程被这一份几十 KB 的文件吃光内存。
+        let err = run(&bomb).expect_err("工具必须拒绝这个文件");
+        assert_eq!(
+            err_key(&err),
+            Some("out.pdf-signature-checker.err.pdf_parse_failed")
+        );
     }
 
     /// 错误信息也按请求语言渲染 —— 语言不是工具决定的，是 API 层调
