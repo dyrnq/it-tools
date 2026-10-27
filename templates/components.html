@@ -23,9 +23,10 @@
   <div class="tool-card-head">
     <svg class="icon tool-card-icon" width="40" height="40" aria-hidden="true"><use href="/assets/img/icons.svg#i-{{ card.icon }}"></use></svg>
     <span class="tool-card-actions">
-      {# 键名是 is_new（serde 默认的 snake_case），写成 card.isNew 的话 Tera
-         找不到这个键 —— tera 2 这里不再是「静默地不渲染」，而是**直接报错**，
-         整个页面渲染不出来。 #}
+      {# 键名是 is_new（serde 默认的 snake_case）。写成 card.isNew 的话，
+         {% if %} 判不出来 —— 值当成「没有」，徽章就这么凭空消失，一个错
+         都不报；只有 {{ }} 直接输出才会报错（tera 2 的新脾气）。
+         键名靠测试钉死（见页面测试里的 new_tools_carry_their_badge）。 #}
       {% if card.is_new %}<span class="badge-new">{{ new_badge }}</span>{% endif %}
       <button class="fav-btn" type="button" data-fav="{{ card.path | safe }}" aria-label="{{ fav_label }}"><svg class="icon" width="18" height="18" aria-hidden="true"><use href="/assets/img/icons.svg#i-heart"></use></svg></button>
     </span>
