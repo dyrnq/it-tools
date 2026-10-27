@@ -1,6 +1,6 @@
 [package]
 name = "it-tools"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 # rcgen 0.14 要求 1.88（它是自签 X.509 / CSR 的主力 crate）。
 rust-version = "1.88"
