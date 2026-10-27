@@ -523,14 +523,52 @@ mod tests {
 
     /* ---- apr1：用 `openssl passwd -apr1` 逐条对拍 ---- */
 
-    /// `openssl passwd -apr1 -salt <salt> <password>` 的实测输出。
+    /// `openssl passwd -apr1 -salt <salt>` 的实测输出。
     /// openssl 与 Apache 用的是同一份 `apr_md5_encode`，是可信的对照实现。
+    ///
+    /// ## 口令为什么走 stdin 而不走 argv
+    ///
+    /// Windows 上 `Command` 传给子进程的是 UTF-16，子进程的 CRT 再按**系统 ANSI
+    /// 代码页**转回字节 —— 中文按 GBK/CP1252 那一套转，字节跟原来的 UTF-8 已经不是
+    /// 同一串了。APR1 是对**字节**做摘要的，所以 openssl 那边算出来的跟我们的
+    /// 差得十万八千里（实测：口令「口令 with spaces」+ 盐 s4lt，Windows 上
+    /// openssl 给的是 `$apr1$s4lt$OLGoCLNbXsC14xPvighNA0`，而按 UTF-8 字节算是
+    /// `$apr1$s4lt$S2XX.Z0/cTwWY3YpkHVHP0` —— 后者跟 Linux 上 argv 的结果一致）。
+    ///
+    /// 走 stdin 就没有这层转换：管道传的是字节，我们写什么它就哈希什么，
+    /// 三个平台结果一致。盐还是走 argv —— 盐只有 ASCII 字符，代码页转不动它。
+    ///
+    /// openssl 从 stdin 读的是**一行**（末尾的换行被吃掉），所以口令里不能带
+    /// `\n`；下面的用例本来也没有。
     fn openssl_apr1(password: &str, salt: &str) -> String {
-        let out = std::process::Command::new("openssl")
-            .args(["passwd", "-apr1", "-salt", salt, password])
-            .output()
+        use std::io::Write;
+        assert!(
+            !password.contains('\n'),
+            "openssl 从 stdin 读的是一行，口令里不能带换行"
+        );
+        let mut child = std::process::Command::new("openssl")
+            .args(["passwd", "-apr1", "-salt", salt])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .expect("本机装了 openssl");
-        String::from_utf8(out.stdout).unwrap().trim().to_string()
+        {
+            // 这一段的作用是「写进去 + 关掉」：管道不关，openssl 那边就等不到
+            // EOF，会一直挂着。
+            let mut stdin = child.stdin.take().expect("stdin 管道");
+            stdin.write_all(password.as_bytes()).expect("写口令");
+            stdin.write_all(b"\n").expect("写换行");
+        }
+        let out = child.wait_with_output().expect("等 openssl 跑完");
+        let stdout = String::from_utf8(out.stdout).expect("openssl 的输出是 ASCII");
+        let hash = stdout.trim().to_string();
+        assert!(
+            !hash.is_empty(),
+            "openssl 没吐出摘要：stdout={stdout:?} stderr={:?}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        hash
     }
 
     #[test]
@@ -571,6 +609,42 @@ mod tests {
                 apr1_hash(&password, Some(&salt)),
                 openssl_apr1(&password, &salt),
                 "第 {i} 条对不上：口令 {password:?} 盐 {salt:?}"
+            );
+        }
+    }
+
+    /// 非 ASCII 口令的**定值**向量。
+    ///
+    /// 上面那两个是差分测试 —— 拿 openssl 当参照物。参照物自己也可能被弄坏
+    /// （Windows 上 argv 的代码页转换就坏过一次），所以这里再钉死几个确定的值：
+    /// 这些摘要都是按**口令的 UTF-8 字节**算出来的，与平台无关。
+    ///
+    /// 最后两条是同一个「é」的两种写法（预组合 U+00E9 与 e + 组合重音 U+0301）——
+    /// 摘要必须不同，否则就说明有人在偷偷做 Unicode 归一化。
+    #[test]
+    fn apr1_for_non_ascii_passwords_is_pinned_to_the_utf8_bytes() {
+        for (password, salt, expected) in [
+            (
+                "口令 with spaces",
+                "s4lt",
+                "$apr1$s4lt$S2XX.Z0/cTwWY3YpkHVHP0",
+            ),
+            ("café", "abcdefgh", "$apr1$abcdefgh$YhhfHYyTkhkw0L/ECHfgR/"),
+            ("Ωμέγα", "12345678", "$apr1$12345678$fE5RBlZhW0WvnBG7UNKg40"),
+            ("e\u{301}", "x", "$apr1$x$mFvOETV6Z4dTdCJfIeNqq0"),
+            ("\u{e9}", "x", "$apr1$x$V4e3WaisxeD6C7C/1FChe."),
+            (
+                // U+0080 / U+00FF 各占 UTF-8 两个字节（c2 80 / c3 bf）——
+                // 别拿 Latin-1 的一个字节去算，那是另一串口令。
+                "a\u{80}\u{ff}b",
+                "ABCDEFGH",
+                "$apr1$ABCDEFGH$yuk3nJnGA5xutbeoo/oXX.",
+            ),
+        ] {
+            assert_eq!(
+                apr1_hash(password, Some(salt)),
+                expected,
+                "口令 {password:?} 盐 {salt:?}"
             );
         }
     }
