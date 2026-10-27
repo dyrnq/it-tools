@@ -28,7 +28,8 @@
 //! 骨架写在 [`apr1_digest`] 的文档注释里。
 //!
 //! Rust 生态没有 apr1 的 crate，参考实现也没有，所以照着手写，
-//! 再用 `openssl passwd -apr1` 逐条对拍（见单测）。
+//! 再用 `openssl passwd -apr1` 逐条对拍（见单测 —— 跑那几条对拍测试，
+//! 本机得装了 openssl 命令行工具）。
 //!
 //! ## 两个方向怎么用只有一张表单的 ApiSpec 表达
 //!
@@ -523,54 +524,106 @@ mod tests {
 
     /* ---- apr1：用 `openssl passwd -apr1` 逐条对拍 ---- */
 
-    /// `openssl passwd -apr1 -salt <salt>` 的实测输出。
+    /// openssl 最多跑多久。
+    ///
+    /// 上限存在的理由：GitHub 的 job 默认要挂满 6 小时才超时，一个卡住的子进程
+    /// 就能把整条流水线停在那儿。宁可这个测试红，也不能让 CI 停着。
+    const OPENSSL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+
+    /// `openssl passwd -apr1 -salt <salt> <password>` 的实测输出。
     /// openssl 与 Apache 用的是同一份 `apr_md5_encode`，是可信的对照实现。
     ///
-    /// ## 口令为什么走 stdin 而不走 argv
+    /// ## 口令为什么走 argv，为什么只喂 ASCII
     ///
-    /// Windows 上 `Command` 传给子进程的是 UTF-16，子进程的 CRT 再按**系统 ANSI
-    /// 代码页**转回字节 —— 中文按 GBK/CP1252 那一套转，字节跟原来的 UTF-8 已经不是
-    /// 同一串了。APR1 是对**字节**做摘要的，所以 openssl 那边算出来的跟我们的
-    /// 差得十万八千里（实测：口令「口令 with spaces」+ 盐 s4lt，Windows 上
-    /// openssl 给的是 `$apr1$s4lt$OLGoCLNbXsC14xPvighNA0`，而按 UTF-8 字节算是
-    /// `$apr1$s4lt$S2XX.Z0/cTwWY3YpkHVHP0` —— 后者跟 Linux 上 argv 的结果一致）。
+    /// 参照物比被测对象还难伺候，两条路各踩一个坑：
     ///
-    /// 走 stdin 就没有这层转换：管道传的是字节，我们写什么它就哈希什么，
-    /// 三个平台结果一致。盐还是走 argv —— 盐只有 ASCII 字符，代码页转不动它。
+    /// · **argv**：Windows 上 `Command` 传给子进程的是 UTF-16，子进程的 CRT 再按
+    ///   **系统 ANSI 代码页**转回字节 —— 中文按 GBK/CP1252 那一套转，转完的字节跟
+    ///   原来的 UTF-8 不是同一串了。APR1 是对**字节**做摘要的，于是两边算的压根
+    ///   不是一个东西（实测：口令「口令 with spaces」+ 盐 s4lt，Windows 上 argv
+    ///   给的是 `$apr1$s4lt$OLGoCLNbXsC14xPvighNA0`，而按 UTF-8 字节算是
+    ///   `$apr1$s4lt$S2XX.Z0/cTwWY3YpkHVHP0`）。
+    ///   → 所以**只拿 ASCII 口令**走 argv：ASCII 在任何代码页里都是同样的字节。
     ///
-    /// openssl 从 stdin 读的是**一行**（末尾的换行被吃掉），所以口令里不能带
-    /// `\n`；下面的用例本来也没有。
+    /// · **stdin**：管道传的是字节，上面那层转换就没了。但 Windows 上的 openssl
+    ///   在没有 `-in`/`-stdin` 参数时**不读 stdin，而是去读控制台**（`CONIN$`）——
+    ///   CI 里那个控制台永远等不到输入，openssl 就一直等下去（实测：Windows CI
+    ///   上这两个对拍测试跑了 40 多分钟没结束，整个 job 挂到超时）。
+    ///   → 而 `-in`/`-stdin` 是 OpenSSL 3.x 才有的参数，CI 上装的是哪个版本
+    ///     说不准，不能拿它当依赖。
+    ///
+    /// 非 ASCII 口令的行为由 [`apr1_for_non_ascii_passwords_is_pinned_to_the_utf8_bytes`]
+    /// 里的定值向量钉住 —— 那些值是按**口令的 UTF-8 字节**算出来的，与平台无关。
     fn openssl_apr1(password: &str, salt: &str) -> String {
-        use std::io::Write;
         assert!(
-            !password.contains('\n'),
-            "openssl 从 stdin 读的是一行，口令里不能带换行"
+            password.is_ascii(),
+            "口令走 argv，Windows 的代码页转换只对 ASCII 恒等：{password:?}"
         );
         let mut child = std::process::Command::new("openssl")
-            .args(["passwd", "-apr1", "-salt", salt])
-            .stdin(std::process::Stdio::piped())
+            .args(["passwd", "-apr1", "-salt", salt, password])
+            // stdin 一根都不给：Windows 上 openssl 找不到别的输入源时会去读控制台，
+            // 而 CI 里那个控制台是没有输入的。
+            .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
             .expect("本机装了 openssl");
-        {
-            // 这一段的作用是「写进去 + 关掉」：管道不关，openssl 那边就等不到
-            // EOF，会一直挂着。
-            let mut stdin = child.stdin.take().expect("stdin 管道");
-            stdin.write_all(password.as_bytes()).expect("写口令");
-            stdin.write_all(b"\n").expect("写换行");
-        }
-        let out = child.wait_with_output().expect("等 openssl 跑完");
-        let stdout = String::from_utf8(out.stdout).expect("openssl 的输出是 ASCII");
-        let hash = stdout.trim().to_string();
-        assert!(
-            !hash.is_empty(),
-            "openssl 没吐出摘要：stdout={stdout:?} stderr={:?}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+
+        // stdout 与 stderr 各开一个线程读：顺序读会死锁 ——
+        // stderr 的管道被写满时 openssl 就在等，而我们在等 stdout 的 EOF。
+        let mut stdout = child.stdout.take().expect("stdout 管道");
+        let mut stderr = child.stderr.take().expect("stderr 管道");
+        let out_reader = std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            std::io::Read::read_to_end(&mut stdout, &mut buf).map(|_| buf)
+        });
+        let err_reader = std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            std::io::Read::read_to_end(&mut stderr, &mut buf).map(|_| buf)
+        });
+
+        // 等它跑完，但最多等 OPENSSL_TIMEOUT：卡住的 openssl 不能把 CI 拖到超时。
+        let deadline = std::time::Instant::now() + OPENSSL_TIMEOUT;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) => {
+                    if std::time::Instant::now() >= deadline {
+                        let _ = child.kill();
+                        break None;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                Err(e) => panic!("等 openssl 出错: {e}"),
+            }
+        };
+
+        let stdout = out_reader
+            .join()
+            .expect("读 stdout 的线程")
+            .expect("读 stdout");
+        let stderr = err_reader
+            .join()
+            .expect("读 stderr 的线程")
+            .expect("读 stderr");
+        let stderr = String::from_utf8_lossy(&stderr).into_owned();
+        let status = status.unwrap_or_else(|| {
+            panic!("openssl {OPENSSL_TIMEOUT:?} 还没退出（多半是卡在读输入上）\nstderr: {stderr}")
+        });
+        assert!(status.success(), "openssl 退出码 {status}\nstderr: {stderr}");
+
+        let hash = String::from_utf8(stdout)
+            .expect("openssl 的输出是 ASCII")
+            .trim()
+            .to_string();
+        assert!(!hash.is_empty(), "openssl 没吐出摘要\nstderr: {stderr}");
         hash
     }
 
+    /// 差分测试的口令**只用 ASCII** —— 原因见 [`openssl_apr1`] 的说明：
+    /// argv 这一路上，Windows 的代码页转换只对 ASCII 恒等。
+    ///
+    /// 非 ASCII 的行为由下面的定值向量负责。
     #[test]
     fn apr1_matches_openssl_on_a_spread_of_passwords_and_salts() {
         let cases = [
@@ -582,7 +635,7 @@ mod tests {
                 "0123456789abcdef0123456789abcdef0123456789abcdef",
                 "abcdefgh",
             ),
-            ("口令 with spaces", "s4lt"),
+            ("with spaces and symbols !@#$%^&*()", "s4lt"),
             ("~!@#$%^&*()", "ABCDEFGH"),
         ];
         for (password, salt) in cases {
@@ -596,7 +649,8 @@ mod tests {
 
     #[test]
     fn apr1_matches_openssl_on_random_input() {
-        let alphabet = b"abcXYZ019 !@#$%^&*()\x80\xff";
+        // 只用可打印 ASCII：理由同上（argv 只对 ASCII 是字节精确的）。
+        let alphabet = b"abcXYZ019 !@#$%^&*()_-+=[]{}<>?,.;:~";
         let mut rng = rand::thread_rng();
         for i in 0..40 {
             let password: String = (0..rng.gen_range(0..40))
@@ -615,9 +669,13 @@ mod tests {
 
     /// 非 ASCII 口令的**定值**向量。
     ///
-    /// 上面那两个是差分测试 —— 拿 openssl 当参照物。参照物自己也可能被弄坏
-    /// （Windows 上 argv 的代码页转换就坏过一次），所以这里再钉死几个确定的值：
-    /// 这些摘要都是按**口令的 UTF-8 字节**算出来的，与平台无关。
+    /// 非 ASCII 走不了差分测试：口令要经过 argv 送到 openssl 那里，Windows 的
+    /// 代码页转换会把它改写（详见 [`openssl_apr1`]）。所以这一段才是非 ASCII 口令
+    /// 的判据 —— 摘要按**口令的 UTF-8 字节**算出来，写死在这里，与平台无关。
+    ///
+    /// 覆盖的是 UTF-8 的各个长度：两字节（café）、三字节（中文、希腊字母）、
+    /// 四字节（emoji）。还有一个容易混的地方：U+0080 / U+00FF 各占 UTF-8 两个
+    /// 字节（c2 80 / c3 bf）—— 别拿 Latin-1 的一个字节去算，那是另一串口令。
     ///
     /// 最后两条是同一个「é」的两种写法（预组合 U+00E9 与 e + 组合重音 U+0301）——
     /// 摘要必须不同，否则就说明有人在偷偷做 Unicode 归一化。
@@ -631,11 +689,10 @@ mod tests {
             ),
             ("café", "abcdefgh", "$apr1$abcdefgh$YhhfHYyTkhkw0L/ECHfgR/"),
             ("Ωμέγα", "12345678", "$apr1$12345678$fE5RBlZhW0WvnBG7UNKg40"),
+            ("🔐", "salt1234", "$apr1$salt1234$O9kd0SZJP5CxNIgqq2zlo."),
             ("e\u{301}", "x", "$apr1$x$mFvOETV6Z4dTdCJfIeNqq0"),
             ("\u{e9}", "x", "$apr1$x$V4e3WaisxeD6C7C/1FChe."),
             (
-                // U+0080 / U+00FF 各占 UTF-8 两个字节（c2 80 / c3 bf）——
-                // 别拿 Latin-1 的一个字节去算，那是另一串口令。
                 "a\u{80}\u{ff}b",
                 "ABCDEFGH",
                 "$apr1$ABCDEFGH$yuk3nJnGA5xutbeoo/oXX.",
