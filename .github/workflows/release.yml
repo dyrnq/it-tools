@@ -1,0 +1,358 @@
+name: Release
+
+# 打 tag（v*）时出多平台二进制 + GitHub Release。
+#
+# 与 CI 的分工：CI 忽略 tag（`tags-ignore: ["v*"]`），所以推 tag 的时候
+# 这里**自己**先把测试跑一遍 —— 打完 tag 才发现二进制是坏的，已经改不回去了。
+#
+# 跟 acme-tiny-rs 的 release.yml 相比有两处不同，都是这个项目特有的：
+#
+#   · 没有 crates.io 发布那一步 —— 这是一个应用（一个二进制），
+#     不是库，发到 crates.io 没人会 `cargo add` 它。
+#   · 交叉编译的目标标了 experimental —— 依赖里有 ring 和 zstd-sys
+#     （C 代码），musl / armv7 上能不能过没法在本机验证。
+#     experimental 的目标构建失败只警告、不挡住发布（continue-on-error），
+#     但产物照样上传 —— 能编出来就发，编不出来也不该拖住其余平台。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Verify before shipping
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check the tag matches Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag 是 ${GITHUB_REF_NAME}，Cargo.toml 的版本是 ${version} —— 对不上"
+            exit 1
+          fi
+
+      - name: Build (release)
+        run: cargo build --release
+
+      - name: Unit + integration tests
+        run: cargo test --release
+
+      - name: End-to-end tests
+        run: bash scripts/test/integration-test.sh
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64 (glibc)
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            cross: false
+            experimental: false
+
+          # Linux x86_64 static (musl)
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            cross: true
+            experimental: false
+
+          # Linux aarch64 static (musl) —— 树莓派 / ARM 服务器
+          - os: ubuntu-24.04
+            target: aarch64-unknown-linux-musl
+            cross: true
+            experimental: false
+
+          # Linux aarch64 (glibc) —— Graviton 之类
+          - os: ubuntu-24.04
+            target: aarch64-unknown-linux-gnu
+            cross: true
+            experimental: true
+
+          # Linux armv7 static (musl) —— 各种路由器 / 盒子
+          - os: ubuntu-24.04
+            target: armv7-unknown-linux-musleabihf
+            cross: true
+            experimental: true
+
+          # macOS x86_64（从 Apple Silicon 上交叉编）
+          - os: macos-14
+            target: x86_64-apple-darwin
+            cross: false
+            experimental: false
+
+          # macOS aarch64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            cross: false
+            experimental: false
+
+          # Windows x86_64
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            cross: false
+            experimental: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (for cross-compilation)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Install musl tools (Linux musl)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Build (native)
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Set binary name
+        id: binary
+        shell: bash
+        run: |
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            echo "name=it-tools.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=it-tools" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rename artifact
+        id: rename
+        shell: bash
+        run: |
+          BIN="target/${{ matrix.target }}/release/${{ steps.binary.outputs.name }}"
+          ARTIFACT="it-tools-${{ github.ref_name }}-${{ matrix.target }}"
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            ARTIFACT="${ARTIFACT}.exe"
+          fi
+          cp "$BIN" "$ARTIFACT"
+          echo "artifact_name=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ steps.rename.outputs.artifact_name }}
+          if-no-files-found: error
+
+  # 多架构镜像。用的就是 build job 里编好的那两个静态 musl 二进制 ——
+  # 不在镜像里编 Rust（arm64 那一层要 QEMU 模拟编译，慢到没法看），
+  # 静态 musl 在 alpine 上直接能跑。
+  docker:
+    name: Docker image
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # git describe --tags 得看得见 tag
+          fetch-depth: 0
+
+      # Dockerfile 里没有 RUN，理论上用不上 QEMU；留着是为了以后加
+      # `RUN apk add` 时不用改流水线。
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download the static x86_64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: x86_64-unknown-linux-musl
+          path: dist/amd64
+
+      - name: Download the static arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: aarch64-unknown-linux-musl
+          path: dist/arm64
+
+      # artifact 里的文件名带版本号，Dockerfile 找的是 dist/<arch>/it-tools。
+      # 顺带一提：upload-artifact 不保留可执行位，所以 Dockerfile 那边
+      # 写的是 COPY --chmod=0755，不是 RUN chmod。
+      - name: Name the binaries the way the Dockerfile expects them
+        run: |
+          for arch in amd64 arm64; do
+            bin=$(find "dist/$arch" -maxdepth 1 -type f -name 'it-tools-*' | head -1)
+            if [ -z "$bin" ]; then
+              echo "::error::dist/$arch 里没有二进制"
+              exit 1
+            fi
+            mv "$bin" "dist/$arch/it-tools"
+          done
+          ls -l dist/amd64 dist/arm64
+
+      - name: Work out the version tag
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 推上去的 latest 是公开的 —— 推坏了再改就晚了。
+      # 所以先在本机把 amd64 的镜像跑起来，/healthz 应答了才算数。
+      - name: Smoke test (the amd64 image has to actually run)
+        run: |
+          ./buildx.sh --load true --platforms linux/amd64 \
+            --version "${{ steps.version.outputs.value }}"
+          docker run -d --name it-tools-smoke -p 18080:8080 \
+            "dyrnq/it-tools:${{ steps.version.outputs.value }}"
+          for i in $(seq 1 30); do
+            if curl -fsS -m 2 http://127.0.0.1:18080/healthz; then
+              echo
+              echo "::notice::镜像起得来"
+              docker rm -f it-tools-smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::镜像没应答 /healthz"
+          docker logs it-tools-smoke || true
+          docker rm -f it-tools-smoke
+          exit 1
+
+      - name: Build the image (without push)
+        run: ./buildx.sh --push false --version "${{ steps.version.outputs.value }}"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build the image (with push)
+        run: ./buildx.sh --push true --version "${{ steps.version.outputs.value }}"
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout (for changelog + tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find artifacts/ -type f | while read f; do
+            cp "$f" release-assets/$(basename "$f")
+          done
+          # 生成校验和
+          cd release-assets
+          sha256sum * > sha256sums.txt
+          ls -la
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ github.ref_name }}" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            echo "## What's Changed (${PREV_TAG} → ${{ github.ref_name }})" > /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            git log --oneline "${PREV_TAG}..HEAD" | sed 's/^/- /' >> /tmp/changelog.md
+          else
+            echo "## Initial Release" > /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            git log --oneline --max-count=30 | sed 's/^/- /' >> /tmp/changelog.md
+          fi
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/changelog.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            ## it-tools ${{ github.ref_name }}
+
+            IT Tools 的 Rust 实现 —— 静态资源全部嵌在二进制里，下载下来直接跑。
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ### 产物
+            - **x86_64-unknown-linux-gnu** — Linux x86_64（glibc）
+            - **x86_64-unknown-linux-musl** — Linux x86_64（静态 musl）
+            - **aarch64-unknown-linux-musl** — Linux ARM64（静态 musl，树莓派 / ARM 服务器）
+            - **aarch64-unknown-linux-gnu** — Linux ARM64（glibc，Graviton 之类）
+            - **armv7-unknown-linux-musleabihf** — Linux ARMv7（静态 musl，路由器 / 盒子）
+            - **x86_64-apple-darwin** — macOS Intel
+            - **aarch64-apple-darwin** — macOS Apple Silicon
+            - **x86_64-pc-windows-msvc** — Windows x86_64
+
+            ### Docker
+            ```sh
+            docker pull dyrnq/it-tools
+            docker run -d -p 8080:8080 dyrnq/it-tools
+            ```
+            同一个二进制，alpine 基础镜像，amd64 + arm64。
+            版本号 tag（`dyrnq/it-tools:<tag>`）跟这个 Release 的 tag 一起推。
+
+            ### 跑起来
+            ```sh
+            ./it-tools --host 0.0.0.0 --port 8080
+            ```
+
+            > 服务本身没有鉴权：RSA 密钥生成、bcrypt、JWT 签名这些接口谁都能调。
+            > 适合放在内网，别直接暴露到公网。
+
+          files: release-assets/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

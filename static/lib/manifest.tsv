@@ -1,0 +1,84 @@
+# JS 工具要加载的第三方库 —— slug <TAB> 产物路径（相对 static/lib/，逗号分隔）
+#
+# 这份清单是 Rust 侧与 node 测试共用的唯一事实来源：
+#   · src/registry/libs.rs 读它渲染工具页的 <script> 标签；
+#   · test/js/harness.js 读它把库灌进 jsdom，否则模块里的 `window.YAML` 全是 undefined。
+# 写错了两边都跑不到「加载页面白屏」这一步，只会在测试里报一个看不懂的错。
+#
+# 产物本身由 scripts/vendor-js-libs.sh 下载，跑 test/js/check-vendor.js 验证。
+#
+# 纯数据的库（json）不写在这里 —— 它们不走 <script> 标签，由工具模块运行时 fetch：
+#   emojilib / unicode-emoji-json → emoji-picker
+#   mime-db                        → mime-types
+# figlet 的 .flf 字体同理（font/<name>.flf）。
+
+# ---- 生成器 / 随机 ----
+uuid-generator	uuid/bundle.js
+ulid-generator	ulid/dist/index.umd.js
+bip39-generator	bip39/bundle.js
+
+# ---- 颜色 ----
+color-converter	colord/bundle.js
+color-contrast-checker	colord/bundle.js
+
+# ---- 数据格式互转 ----
+yaml-to-json-converter	yaml/bundle.js
+yaml-to-toml	yaml/bundle.js,toml/bundle.js
+json-to-yaml-converter	yaml/bundle.js,json5/dist/index.min.js
+json-to-toml	toml/bundle.js,json5/dist/index.min.js
+toml-to-json	toml/bundle.js
+toml-to-yaml	toml/bundle.js,yaml/bundle.js
+xml-to-json	xml-js/dist/xml-js.min.js
+json-to-xml	xml-js/dist/xml-js.min.js,json5/dist/index.min.js
+yaml-viewer	yaml/bundle.js
+json-viewer	json5/dist/index.min.js,jsonrepair/lib/umd/jsonrepair.min.js
+json-minify	json5/dist/index.min.js
+xml-formatter	xml-formatter/bundle.js
+sql-prettify	sql-formatter/dist/sql-formatter.min.js
+markdown-to-html	markdown-it/dist/markdown-it.min.js
+# turndown 本体（MIT，Dom Christie）+ GFM 插件（MIT）。
+# 插件用的是上游 it-tools 那个 fork（@guyplusplus/turndown-plugin-gfm）而不是
+# npm 上的 turndown-plugin-gfm：fork 的表格规则更强（没有表头的表格也转、
+# 支持 colspan、单元格里的竖线会转义）。两个产物都是零 import 的自包含脚本，
+# 挂出全局 TurndownService / TurndownPluginGfmService。
+html-to-markdown	turndown/lib/turndown.browser.umd.js,turndown-plugin-gfm/dist/turndown-plugin-gfm.js
+
+# ---- 代码格式化 ----
+# js-beautify 的产物是 js/lib/beautifier.js（自包含 UMD），不是 js/index.js ——
+# 后者是 Node 入口，会拉 glob / nopt / editorconfig，浏览器里加载不了。
+# 挂出的全局是**对象**：beautifier.js(...) / beautifier.css(...) / beautifier.html(...)。
+css-js-formatter	js-beautify/js/lib/beautifier.js
+
+# ---- 图片元数据 ----
+# exifreader 4.x 的 dist/exif-reader.js 是自包含 UMD（整库打进一个文件），
+# 挂出全局 ExifReader（对象）。传 ArrayBuffer 时 load() 是**同步**返回的。
+exif-reader	exifreader/dist/exif-reader.js
+
+# ---- 元数据 / 二维码 ----
+meta-tag-generator	oggen/bundle.js
+qr-code-generator	qrcode/build/qrcode.js
+wifi-qr-code-generator	qrcode/build/qrcode.js
+
+# ---- 解析 / 校验 ----
+user-agent-parser	ua-parser-js/dist/ua-parser.min.js
+# cronstrue 的语言包是独立文件：dist 里只有英文，别的语言要再喂一个
+# locales/<xx>.js（它自己往 cronstrue 上注册），不加载会静默退回英文
+crontab-generator	cronstrue/dist/cronstrue.min.js,cronstrue/locales/en.js,cronstrue/locales/zh_CN.js,cron-validator/bundle.js
+email-normalizer	email-normalizer/bundle.js
+iban-validator-and-parser	ibantools/bundle.js
+phone-parser-and-formatter	libphonenumber-js/bundle/libphonenumber-max.js,country-code-lookup/bundle.js
+docker-run-to-docker-compose-converter	composerize/bundle.js
+docker-compose-validator	yaml/bundle.js
+
+# ---- 单位换算 ----
+# convert 的 dist/index.js 是 UMD（dist/index.mjs 是纯 ESM，<script> 加载不了）。
+# 挂出全局 convert —— 是**命名空间对象**，换算函数在 .default 上。
+unit-converter	convert/dist/index.js
+
+# ---- 杂项 ----
+# randexp 是给 regex-tester 用的：参考实现有个「按正则生成一条样本串」的功能
+# （把 (?<name>…) 改写成非捕获组后交给 RandExp.gen()）
+regex-tester	regexper-render/dist/regexper.js,randexp/bundle.js
+math-evaluator	mathjs/lib/browser/math.js
+eta-calculator	date-fns/bundle.js
+ascii-text-drawer	figlet/bundle.js

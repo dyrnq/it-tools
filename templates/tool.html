@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+
+{% block content %}
+<article class="tool-page" data-slug="{{ tool.slug }}" data-kind="{{ tool.impl_kind }}">
+
+  <header class="tool-header">
+    <div class="tool-title-row">
+      {# 原版标题左边没有图标（工具图标只在侧栏里出现），这里也跟着不加。 #}
+      <h1 class="tool-title">{{ tool.name }}</h1>
+      <button class="fav-btn fav-btn-lg" type="button" data-fav="{{ tool.path | safe }}"
+              aria-label="{{ base.ui.add_favorite }}">{{ m::icon(icon_name="heart", size="22") }}</button>
+    </div>
+    <div class="tool-separator" aria-hidden="true"></div>
+    <p class="tool-desc">{{ tool.description }}</p>
+  </header>
+
+  {# 工具正文容器。JS 工具接管 #tool-body；API 工具由 app.js 渲染通用表单 #}
+  {# plain-shell：原版这一页没有卡片外壳；plain-input：只有输入区没有。 #}
+  <div class="tool-content{% if tool.plain_shell %} plain-shell{% elif tool.plain_input %} plain-input{% endif %}" id="tool-body"
+       {% if tool.api_url %}data-tool-api="{{ tool.api_url | safe }}"{% endif %}
+       {% if tool.script_url %}data-tool-script="{{ tool.script_url | safe }}"{% endif %}>
+    {% if tool.impl_kind == "api" %}
+      {# 服务端渲染首屏表单，避免等待 JS 才有内容 #}
+      {% include "tool_api_form.html" %}
+    {% elif tool.impl_kind == "static" %}
+      {# 内容是服务端渲染好的 HTML（见 src/markdown.rs）：
+         原始 HTML 已在渲染时转义，危险链接协议也换掉了，这里可以安全地 | safe #}
+      <div class="card memo">
+        <div class="memo-body">{{ tool.content | safe }}</div>
+      </div>
+    {% else %}
+      <div class="card tool-loading" id="tool-loading">
+        <span class="spinner"></span> {{ base.ui.loading }}
+      </div>
+    {% endif %}
+  </div>
+</article>
+{% endblock content %}
+
+{% block scripts %}
+{% if tool.script_url %}
+{# 第三方库必须排在工具模块前面：它们是同步执行的 IIFE，
+   顺序反了模块里读到的就是 undefined，而且只在浏览器里白屏、测试里也可能被漏掉 #}
+{% for lib in tool.lib_urls %}<script src="{{ lib | safe }}"></script>
+{% endfor %}
+<script src="{{ tool.script_url | safe }}"></script>
+<script>window.ItTools.mountAll();</script>
+{% endif %}
+{% endblock scripts %}

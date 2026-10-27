@@ -1,0 +1,9 @@
+# 镜像里只有一样东西：dist/<arch>/it-tools。
+# 别的全是累赘 —— target/ 单独就几个 GB，全仓库传给 daemon 也是白等。
+# 留下 docker/ 是为了让 Dockerfile 模板本身也在上下文里（buildx 传 --file 的
+# 那个文件是单独送的，但白名单留着没坏处）。
+*
+!dist/
+!dist/**
+!docker/
+!docker/**

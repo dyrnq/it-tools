@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+
+{% block content %}
+<div class="home">
+
+  {# 1. 我的收藏 —— 内容由 app.js 从 localStorage 渲染 #}
+  <div id="favorites-section" hidden>
+    {{ m::section_head(title=base.ui.favorites, note="true") }}
+    <div class="grid grid-tools" id="favorites-grid" data-drag="true"></div>
+  </div>
+
+  {# 2. 全部工具 #}
+  {{ m::section_head(title=base.ui.all_tools) }}
+  <div class="grid grid-tools">
+    {% for cat in base.nav.categories %}
+      {% for tool in cat.tools %}{{ m::tool_card(card=tool) }}{% endfor %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock content %}

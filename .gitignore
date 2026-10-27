@@ -1,0 +1,18 @@
+/target
+node_modules
+# test/js/package-lock.json **要入库** —— CI 用 npm ci 装依赖，
+# 没有 lockfile 就只能 npm install，装到什么版本全看当天 registry 的心情。
+# layui 下载脚本留下的离线兜底
+/layui-*.zip
+/new-tool
+# _docs/ 是本地的开发笔记与设计文档（arch.md、UI 对比报告、术语表、
+# 上游 PR 的 ROI 评估……），不进仓库 —— README 不链接它们，
+# 仓库里留着的只是成品与它的规则。
+/_docs
+# Python 脚本跑出来的字节码
+__pycache__/
+*.pyc
+# docker/ 里编好的二进制（镜像里放的就是它们，不是源码）
+/dist
+# buildx.sh 从 docker/Dockerfile 模板生成的临时文件（docker/Dockerfile 本身要入库）
+/docker/Dockerfile.*

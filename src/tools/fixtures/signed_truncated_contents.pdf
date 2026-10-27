@@ -1,0 +1,37 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 120] /Contents 6 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /FT /Sig /T (Signature1) /Ff 0 /Rect [0 0 0 0] /V 7 0 R >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Length 49 >>
+stream
+BT /F1 12 Tf 10 50 Td (SIGNED PAYLOAD TEXT) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /Name (Test Signer) /M (D:20260101000000Z) /ByteRange [0000000000 0000000724 0000004822 0000000235] /Contents <5 f 
+0000000015 00000 n 
+0000000108 00000 n 
+0000000165 00000 n 
+0000000291 00000 n 
+0000000368 00000 n 
+0000000438 00000 n 
+0000000537 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+4833
+%%EOF

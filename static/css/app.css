@@ -1,0 +1,1731 @@
+/* ==========================================================================
+   IT Tools — 全局样式
+   取值对齐参考项目的实测主题变量。
+   ========================================================================== */
+
+/* ---------- 主题变量 ---------- */
+:root {
+  --bg-page: #f1f5f9;
+  --bg-sider: #ffffff;
+  --bg-card: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --bg-hover: rgba(46, 51, 56, 0.05);
+  --bg-active: rgba(46, 51, 56, 0.22);
+
+  --border-card: #efeff5;
+  --border-sider: rgba(0, 0, 0, 0.06);
+  /* 输入区与结果区之间的分隔线（参考实现的 n-divider） */
+  --divider: rgba(0, 0, 0, 0.06);
+  --code-bg: #f4f5f7;                     /* 代码块底色（n-code 那种灰底） */
+  --border-input: rgba(0, 0, 0, 0.09);
+  /* n-input-group-label 的底色（实测 rgb(250,250,252)）——
+     是一格浅灰，跟右边的输入框拼成一行。 */
+  --bg-group-label: #fafafc;
+
+  --primary: #18a058;
+  --primary-hover: #1ea54c;
+  --primary-pressed: #0c7a43;
+  --primary-faded: rgba(24, 160, 88, 0.18);
+
+  --text-base: #333639;
+  --text-muted: #767c82;
+  --text-title: #000000;
+  --text-desc: #737373;
+  --icon: #a3a3a3;
+
+  /* 开关（.switch）轨道「关」态的颜色。不能用 --border-sider：
+     深色下它是 transparent，开关就只剩一个悬空的白圆点了。 */
+  --switch-track: #d9d9d9;
+
+  --brand-gradient: linear-gradient(48deg, #25636c 0%, #3b956f 60%, #14a058 100%);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --radius: 4px;
+
+  --sider-width: 240px;
+  --content-pad: 26px;
+  --mobile-break: 700px;
+}
+
+:root[data-theme='dark'] {
+  --bg-page: #1c1c1c;
+  --bg-sider: #232323;
+  --bg-card: #232323;
+  --bg-elevated: #2b2b2b;
+  --bg-input: #333333;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(255, 255, 255, 0.24);
+
+  --border-card: #282828;
+  --border-sider: transparent;
+  --divider: rgba(255, 255, 255, 0.1);
+  --code-bg: #1d1d20;
+  --border-input: #3d3d3d;
+  --bg-group-label: #2b2b2b;
+
+  --primary: #1ea54c;
+  --primary-hover: #36ad6a;
+  --primary-pressed: #0c7a43;
+  --primary-faded: rgba(24, 160, 88, 0.18);
+
+  --text-base: rgba(255, 255, 255, 0.82);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-title: #ffffff;
+  --text-desc: #a3a3a3;
+  --icon: #525252;
+
+  --switch-track: #4a4a4a;
+
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 基础 ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* el.hidden = true 必须真的藏起来。
+   浏览器默认的 `[hidden] { display: none }` 来自 UA 样式表，任何作者写的
+   display 规则都能盖掉它 —— `.switch`/`.palette`/`.scrim` 这些都带 display，
+   于是设了 hidden 照样显示（下面原本还给 .palette / .scrim 各补了一条
+   [hidden] 规则，就是反复踩这个坑留下的）。这里一次性补上全局规则，
+   !important 是必需的：作者样式本来就压过 UA 样式。
+   下面那两条按元素的规则留着不删，无害。 */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-base);
+  /* 字体栈要跟原版一致，否则**文字的宽度**就不一致。
+     原版用 UnoCSS 的 `v-sans`（= presetUno 的 theme.fontFamily.sans）：
+       ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+       Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, ...
+     少了前面的 `ui-sans-serif, system-ui`，在 Linux 上就会掉到 Arial
+     （Liberation Sans），字比原版的 system-ui 窄 9px ——
+     「Encode URL safe」原版量出来 118px，我们只有 109px。
+     中文那几个字体放在后面（只为中文兜底，不影响拉丁字形）。 */
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  /* 原版 body 的行高是 22.4px = 14 × 1.6（实测 getComputedStyle）。
+     我们原来是 1.5（21px）—— 每个标签矮 1.4px，整页的竖向节奏都对不上。 */
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { color: var(--primary-hover); }
+
+.muted { color: var(--text-muted); }
+
+.icon { fill: none; stroke: currentColor; vertical-align: middle; flex: none; }
+
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 200;
+  background: var(--primary); color: #fff; padding: 8px 16px;
+}
+.skip-link:focus { left: 0; }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ---------- 布局 ---------- */
+.layout { display: flex; min-height: 100vh; }
+
+.main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+.content { padding: var(--content-pad); flex: 1 1 auto; }
+
+/* ---------- 侧栏 ---------- */
+.sidebar {
+  width: var(--sider-width);
+  flex: none;
+  background: var(--bg-sider);
+  border-right: 1px solid var(--border-sider);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 宽屏收起走 width（见下面的 min-width 断点），小屏收起走 transform */
+  transition: width .22s ease;
+}
+
+.brand {
+  position: relative;
+  display: block;
+  height: 160px;
+  overflow: hidden;
+  color: #fff;
+  flex: none;
+}
+
+.brand-gradient {
+  position: absolute;
+  inset: -65px 0 auto 0;
+  height: 220px;
+  background: var(--brand-gradient);
+  border-radius: 0 0 50% 50% / 0 0 22% 22%;
+  display: block;
+}
+
+.brand-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 18px;
+  text-align: center;
+}
+.brand:hover { color: #fff; }
+
+.brand-title { font-size: 25px; font-weight: 600; letter-spacing: .02em; }
+
+.brand-divider {
+  width: 50px; height: 2px; border-radius: 4px;
+  background: #fff; opacity: .9; margin: 6px auto 5px;
+}
+
+.brand-subtitle { font-size: 15px; opacity: .92; }
+
+.nav { flex: 1 1 auto; padding-bottom: 24px; }
+
+.nav-group { margin-top: 10px; }
+
+.nav-group-head {
+  display: flex; align-items: center; gap: 8px;
+  /* 分类名右边那一大片空白也得能点 —— 参考实现（CollapsibleToolMenu.vue）用的是
+     块级 div，整行都是折叠入口；我们这里是 <button>，而表单控件的 width:auto
+     会收缩到内容宽度：实测「加密」只有 58px、「转换器」89px，侧栏本身有 239px，
+     于是只有箭头和「加密」那几个字能点，右边全是死区。
+     这里显式撑开：margin-left 6px + width calc(100% - 6px) = 正好 100%。
+     不能写成 width:100% —— 那样 6px 的 margin 会额外多出来，
+     侧栏又会多出一条横向滚动条（实测 clientWidth 239 / scrollWidth 245）。 */
+  width: calc(100% - 6px);
+  margin-left: 6px;
+  padding: 6px 8px 6px 0;
+  background: none; border: 0;
+  color: inherit; font: inherit;
+  cursor: pointer;
+  opacity: .6;
+  text-align: left;
+}
+.nav-group-head:hover { opacity: 1; }
+
+/* 分类折叠箭头用的是图标精灵里的 chevron-right，跟侧栏其余图标同一套描边约定
+   （24 网格、不写 stroke-width）。早先这里是用 CSS 边框拼的 16px「L」形加 2px
+   描边 —— 那是整个侧栏唯一比邻居重的元素，比 13px 的分类名还高，所以看着别扭。
+   换成精灵图标后粗细自动跟着工具图标走；展开态转 90°，和参考实现一致。 */
+.chev { transition: transform .18s ease; }
+.nav-group-head[aria-expanded='true'] .chev { transform: rotate(90deg); }
+
+.nav-group-label { font-size: 13px; }
+
+/* 分类折叠的过渡。参考实现用的是 naive-ui 的 <n-collapse-transition>（高度过渡），
+   这里用纯 CSS 的等效写法：grid-template-rows 从 1fr 收到 0fr，
+   里面那层 overflow:hidden 负责裁掉内容 —— 不用 JS 去量高度。
+   过渡只在 .animating 时开着：首屏按 localStorage 还原折叠状态时，
+   不该看到分类「啪」地一下收起来。 */
+.nav-group-body {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.nav-group.animating .nav-group-body { transition: grid-template-rows .22s ease; }
+.nav-group[data-collapsed='true'] .nav-group-body { grid-template-rows: 0fr; }
+
+.nav-list {
+  list-style: none; margin: 0; padding: 0;
+  /* grid item 默认 min-height:auto，不写这行就收不到 0，折叠会「弹」一下 */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 左侧那条 2px 竖线 —— 参考实现 CollapsibleToolMenu.vue 的 .toggle-bar：
+   常态几乎看不见，鼠标移上去变亮，点它也能折叠分类。
+   绝对定位，不占布局宽度：工具图标从 x=8 就开始了，竖线只能待在左侧留白里
+   （参考实现是把它做成 24px 的一列把菜单整体右移，我们不挪条目）。 */
+.nav-toggle-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 8px;
+  padding: 0; margin: 0;
+  border: 0; background: none;
+  cursor: pointer;
+  opacity: .12;
+  transition: opacity .2s ease;
+}
+.nav-toggle-bar::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--text-base);
+}
+.nav-toggle-bar:hover { opacity: .45; }
+.nav-group[data-collapsed='true'] .nav-toggle-bar { opacity: 0; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  height: 32px;
+  margin: 0 13px 0 0;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  color: var(--text-base);
+  font-size: 13px;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.nav-item::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--bg-hover);
+  opacity: 0;
+  transition: opacity .15s ease;
+  z-index: -1;
+}
+.nav-item:hover::before { opacity: 1; }
+.nav-item:hover { color: var(--text-base); }
+.nav-item.is-active { background: var(--primary-faded); color: var(--primary); font-weight: 500; }
+.nav-item.is-active::before { opacity: 0; }
+
+.nav-icon { color: var(--icon); flex: none; }
+.nav-item.is-active .nav-icon { color: var(--primary); }
+
+.nav-text { overflow: hidden; text-overflow: ellipsis; }
+
+/* 窄屏专用的一块：语言下拉 + 站外链接 + 主题按钮。
+   宽屏上这些都在顶栏（见 navbar.html），所以默认藏起来。 */
+.sidebar-mobile-bar { display: none; }
+
+.sidebar-footer {
+  flex: none;
+  text-align: center;
+  color: #838587;
+  font-size: 12px;
+  margin-top: 20px;
+  padding: 20px 0;
+}
+.sidebar-footer a { color: var(--primary); }
+.sidebar-footer > div + div { margin-top: 4px; }
+
+/* ---------- 顶栏 ---------- */
+.navbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px var(--content-pad);
+  min-height: 54px;
+  position: sticky; top: 0; z-index: 30;
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--border-sider);
+}
+
+.nav-left, .nav-right { display: flex; align-items: center; gap: 8px; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: 0; border-radius: 50%;
+  background: none; color: var(--text-base);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.icon-btn:hover { background: var(--bg-hover); color: var(--text-base); }
+
+.search-trigger {
+  flex: 1 1 auto;
+  display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font: inherit; cursor: pointer;
+  text-align: left;
+}
+.search-trigger:hover { border-color: var(--primary); }
+.search-icon { flex: none; }
+.search-label { flex: 1 1 auto; }
+
+.search-kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  border: 1px solid var(--border-input);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.lang-select {
+  height: 34px;
+  padding: 0 8px;
+  background: var(--bg-card);
+  color: var(--text-base);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+
+.support-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 18px;
+  border-radius: 17px;
+  background: var(--brand-gradient);
+  color: #fff; font-size: 13px; white-space: nowrap;
+  transition: padding .2s ease;
+}
+.support-btn:hover { color: #fff; padding: 0 24px; }
+
+/* 主题图标：DOM 里月亮和太阳两个 span 都在，只显示「点下去要切过去的那个模式」。
+   方向对齐参考实现（NavbarButtons.vue）：浅色显月亮（切到深色），深色显太阳（切回浅色）。
+
+   基础规则一律 display:none，只靠「放出哪个」的规则驱动 ——
+   早先这里只写了四条「显示谁」，漏了深色下藏太阳那条，
+   而 .theme-icon-sun 又没有基础规则，于是深色下太阳落到 span 默认的
+   display:block，和月亮一起显示，把 34px 的圆按钮挤成 44px。
+   「先全藏、再放一个」的结构让这种漏写不再可能发生。 */
+.theme-icon-moon,
+.theme-icon-sun { display: none; }
+:root[data-theme='light'] .theme-icon-moon { display: inline-flex; }
+:root[data-theme='dark'] .theme-icon-sun { display: inline-flex; }
+
+/* ---------- 卡片网格 ---------- */
+.grid { display: grid; gap: 12px; }
+.grid-tools { grid-template-columns: 1fr; }
+.grid-banner { grid-template-columns: 1fr; }
+
+@media (min-width: 640px) {
+  .grid-tools, .grid-banner { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 768px) {
+  .grid-tools, .grid-banner { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1280px) {
+  .grid-tools, .grid-banner { grid-template-columns: repeat(4, 1fr); }
+}
+
+.section-head {
+  margin: 25px 0 5px;
+  font-size: 14px; font-weight: 500;
+  color: #a3a3a3;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-note { color: var(--text-muted); display: inline-flex; }
+
+.tool-card {
+  display: flex; flex-direction: column;
+  background: var(--bg-card);
+  border: 2px solid var(--border-card);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  min-height: 130px;
+  color: inherit;
+  transition: border-color .5s ease;
+}
+.tool-card:hover { border-color: var(--primary); color: inherit; }
+
+.tool-card-head { display: flex; align-items: flex-start; justify-content: space-between; }
+.tool-card-icon { color: var(--icon); }
+:root[data-theme='dark'] .tool-card-icon { color: #525252; }
+
+.tool-card-actions { display: flex; align-items: center; gap: 8px; }
+
+.badge-new {
+  border-radius: 9999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  background: var(--primary);
+  color: #fff;
+}
+:root[data-theme='dark'] .badge-new { color: #262626; }
+
+.tool-card-title {
+  margin: 5px 0;
+  font-size: 18px;
+  color: var(--text-title);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tool-card-desc {
+  font-size: 13px;
+  color: var(--text-desc);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fav-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: none; color: var(--text-base);
+  cursor: pointer; opacity: .25;
+  transition: opacity .15s ease, background .15s ease;
+}
+.fav-btn:hover { background: var(--bg-hover); opacity: 1; }
+.fav-btn.is-favorite { color: var(--primary); opacity: 1; }
+.fav-btn-lg { width: 34px; height: 34px; }
+
+.promo-card {
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  background: var(--brand-gradient);
+  color: #fff;
+  min-height: 130px;
+  display: flex; flex-direction: column;
+}
+.promo-icon { opacity: .7; }
+.promo-title { margin: 5px 0; font-size: 18px; font-weight: 600; }
+.promo-body { opacity: .85; font-size: 13px; }
+
+/* ---------- 通用卡片 / 表单 ---------- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+
+/* ---------- 卡片外壳 ----------
+   参考实现里有一批工具的正文直接躺在页面背景上：标签、输入框、结果都排在
+   同一层，中间没有白底卡片。我们默认给每块内容套了 .card（白底 + 边框 +
+   20px 24px 内边距），对这一批工具就得把壳摘掉，否则页面上凭空多一圈边框。
+
+   名单是量出来的：打开原版那一页，数正文里一共有几张卡片、第一个输入框
+   外面套了几层卡片（见 src/registry/mod.rs 的 plain_shell / plain_input）。
+
+   .plain-shell  整页都没有卡片 → 全部摘掉
+   .plain-input  只有输入区没有卡片（输出区在 TextareaCopyable 的 c-card 里）
+                 → 只摘第一张（输入区那张）
+
+   margin-bottom 留着：卡片没了，但块与块之间还是要有间距。 */
+.tool-content.plain-shell .card {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.tool-content.plain-input > .card:first-child {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+/* 工具页的字段块：标签在左、固定 120px、右对齐，控件占右边。
+   参考实现的 c-input-text 默认是「标签在上」：
+   labelPosition 的默认值是 'top'、labelAlign 是 'left'，
+   标签在控件上面一行、靠左、下面留 5px。
+   全站只有少数工具显式写成 label-position="left"，
+   而那一套（120px 宽、右对齐）其实是 case-converter 自己的
+   inputLabelAlignmentConfig —— 它是那个工具的局部约定，不是全站约定。
+   照着它做成全站默认，就是把一个工具的写法当成了规范。
+
+   所以这里默认竖排（标签在上），要左标签的字段自己加 .field-left：
+     .field-left            标签在左、右对齐、120px（c-input-text + label-align="right"）
+     .field-left + --field-label-align: left   标签在左、左对齐（n-form-item / c-input-text 默认对齐）
+     --field-label-width    自己指定标签列宽（uuid-generator 用 100px，base-converter 用 110px）
+
+   只有「标签 + 控件」这种块才排成两列：case-converter 那几个工具把
+   .field 当成整块结果的容器（div.field.kv-rows，里面是若干 .field-row），
+   那种容器不能变成两列网格 —— 里面的行会被塞进「标签列」和「内容列」里，
+   看起来像两栏错位。 */
+.field { margin-bottom: 16px; }
+@supports selector(:has(*)) {
+  .field:has(> .field-label) { display: block; }
+  .field:has(> .field-label) > .field-label { text-align: left; margin: 0 0 6px; }
+
+  .field-left:has(> .field-label) {
+    display: grid;
+    grid-template-columns: var(--field-label-width, 120px) minmax(0, 1fr);
+    align-items: start;
+    /* 同样不留 gap：标签自己的 pr-12px 就是它跟控件之间的距离 */
+    gap: 0;
+  }
+  .field-left:has(> .field-label) > .field-label {
+    text-align: var(--field-label-align, right);
+    margin: 0;
+    /* 原版左标签的右边留 12px：naive-ui 的 .n-form-item-label 在左摆放时
+       padding 是 `0 12px 0 2px`，c-label 的标签上带着 `pr-12px`。
+       不补这 12px，右对齐的文字会比原版往右偏一截。 */
+    padding-right: 12px;
+  }
+  .field-left:has(> .field-label) > .field-hint { grid-column: 2; }
+}
+
+.api-form .field,
+.api-form .field:has(> .field-label) { display: block; }
+.api-form .field > .field-label { text-align: left; margin-bottom: 6px; }
+/* 显式写成左标签的那几个工具（bcrypt / rsa / otp）要盖掉上面这条默认。 */
+.api-form .field-left:has(> .field-label) { display: grid; }
+.api-form .field-left:has(> .field-label) > .field-label { text-align: var(--field-label-align, right); margin: 0; padding-right: 12px; }
+
+/* 半宽字段：原版把两个下拉框并排放（hmac-generator 的「Hashing function」
+   和「Output encoding」是一个 `flex gap-2` 的行，两个框各占一半）。
+   名单在注册表的 Tool::api_half_fields 里，模板给这些字段加 .field-half。
+
+   整张表单只有在**确实有**半宽字段时才改成 flex —— 其余工具保持原来的
+   竖排块状布局，免得为了一个工具把其他工具的表单都搅动一遍。 */
+.api-form:has(> .field-half) { display: flex; flex-wrap: wrap; column-gap: 16px; }
+.api-form:has(> .field-half) > * { flex: 1 1 100%; min-width: 0; }
+.api-form:has(> .field-half) > .field-half { flex: 1 1 calc(50% - 8px); }
+
+/* 并排字段：参考实现里 date-time-converter 的输入区是
+   `<div flex gap-2>` 里一个输入框（占满剩余宽度）加一个 170px 的下拉框，
+   两个控件**都不带标签**。名单在注册表的 Tool::api_inline_fields 里，
+   宽度直接写在元素的 style="flex: …" 上（inline style 优先级最高，
+   所以这里那条 `> * { flex: 1 1 100% }` 不会盖住它）。 */
+.api-form:has(> .field-inline) { display: flex; flex-wrap: wrap; column-gap: 16px; }
+.api-form:has(> .field-inline) > * { flex: 1 1 100%; min-width: 0; }
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  /* 原版工具表单的标签是 14px / 400（naive-ui 的 .label），
+     这里跟着对齐，别让标签比正文小一号。 */
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-base);
+}
+
+/* 开关字段（FieldKind::Boolean）。
+   原生 checkbox + 一层自绘的轨道，不引 layui 的 form 模块 ——
+   那要额外一段 JS 初始化，而这里只需要一个能点的开关。
+   上面那条 `.api-form input { width: 100% }` 会把 checkbox 撑满整行，
+   所以这里要把宽度、内边距、边框都改回去。 */
+.field-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: var(--text-base);
+}
+.api-form .field-switch input[type="checkbox"] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+.field-switch-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--border-input);
+  transition: background .2s;
+}
+.field-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+  transition: transform .2s;
+}
+.api-form .field-switch input:checked + .field-switch-track { background: var(--primary); }
+.api-form .field-switch input:checked + .field-switch-track::after { transform: translateX(18px); }
+.api-form .field-switch input:focus-visible + .field-switch-track {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input.layui-input, textarea.layui-textarea, select.layui-select,
+.api-form input, .api-form textarea, .api-form select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  color: var(--text-base);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+/* 原版输入框（naive-ui small）连边框一共 34px 高；layui 默认按内容算会撑到 38px。
+   写死高度 + 去掉上下内边距，文字仍然居中，行距也跟着原版走。 */
+input.layui-input:not([type='file']),
+.api-form input:not([type='file']):not([type='checkbox']),
+select.layui-select, .api-form select {
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.4;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg-card);
+}
+textarea { resize: vertical; min-height: 90px; font-family: inherit; }
+
+/* 代码区（JSON / XML / YAML / TOML / SQL …）用等宽字体。
+   参考实现的 c-input-text 有个 monospace 属性（!font-mono），
+   转换出来的结果则一律走 n-code，也是等宽的。
+   这里给需要的地方加 .mono，别把整个 textarea 都改成等宽 ——
+   lorem-ipsum、ascii-text-drawer 那些正文类的文本框在原版是比例字体。 */
+textarea.mono,
+input.mono,
+pre.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* 输入区与结果区之间的分隔线（参考实现的 <n-divider />：1px，上下各 24px）。 */
+.tool-divider {
+  height: 1px;
+  margin: 24px 0;
+  background: var(--divider);
+  border: 0;
+}
+
+.form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.form-status { font-size: 13px; color: var(--text-muted); }
+.form-status.is-error { color: #d03050; }
+:root[data-theme='dark'] .form-status.is-error { color: #e88080; }
+.form-status.is-warn { color: #b06a00; }
+:root[data-theme='dark'] .form-status.is-warn { color: #e0a54a; }
+
+/* API 工具的结果区：参考实现的 TextareaCopyable 是一张白卡片，
+   里面是 n-code（等宽、白底），复制按钮是浮在卡片右上角的圆形图标按钮。
+   标题（n-form-item 的 label）在卡片外面。 */
+.api-output { position: relative; }
+.api-output .output-body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-base);
+  white-space: pre-wrap;
+  /* 结果区里既有原始 token（哈希、PEM、base64），也有人话（说明文字）。
+     break-all 是给前者的：它保证再长的串也能塞进卡片里。
+     但它是从容器一路继承下去的，散文也跟着一起从词中间断 ——
+     eta-calculator 的「≈ 7 days 4 hours 12 minutes 45 seconds」
+     被断成「ho」「urs」。所以这里改成「按词换行，放不下再从任意字符断」
+     （break-word）：长 token 照样断（它放不进一行），散文不再断词。
+     真正需要 break-all 的原始输出块自己带着（见 .output-primary）。 */
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-height: 460px;
+  overflow: auto;
+  min-height: 22px;
+}
+.api-output .output-body:has(.output-table) { font-family: inherit; font-size: 14px; }
+.api-copy {
+  position: absolute; right: 10px; top: 10px;
+  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0;
+  background: rgba(46, 51, 56, 0.05);
+  color: var(--text-base);
+  cursor: pointer;
+}
+.api-copy:hover { background: rgba(46, 51, 56, 0.1); }
+.api-copy.is-copied { color: var(--primary); }
+:root[data-theme='dark'] .api-copy { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .api-copy:hover { background: rgba(255, 255, 255, 0.14); }
+.output-label { font-size: 13px; font-weight: 500; }
+.output-body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  /* 同上：容器只管「按词换行」，break-all 留给真正的原始输出块 */
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-height: 460px;
+  overflow: auto;
+}
+/* 主结果（RSA 私钥、密文、哈希）单独成块：它是用户真正要复制的东西，
+   不能和下面的补充表格挤在一起 —— 表格一长就把它顶到看不见了 */
+.output-primary {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 0;
+  margin-bottom: 10px;
+  /* 主输出常常是 PEM / JSON / 命令行这种多行文本，不保留换行会被压成一坨。
+     这一块就是要「从任意字符断」的那种内容（base64 没有词边界），
+     所以 break-all 用在这里，而不是用在整个结果区上。 */
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.output-raw { margin: 0; white-space: pre-wrap; word-break: break-all; }
+/* 表格的两列宽度是**定死的**：左边是行标题，右边是值。
+   table-layout: fixed 是这里的关键 —— 没有它，表格的宽度由内容的
+   min-content 决定：行标题里只要有一句长话（或者一个长 base64），
+   整张表就撑到容器外面去，右边那列被挤成一条竖线，一行一个字。
+   固定布局下长内容改为在列内换行，表格永远不会溢出容器。 */
+.output-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+/* 单元格继承 .output-body 的 white-space: pre-wrap（多行的 PEM 要保留换行），
+   但 word-break: break-all 会在单词中间断开普通文字 —— 换成
+   overflow-wrap: break-word：整段话按词换行，实在放不下的长串（base64）
+   仍然可以从任意字符断开。
+
+   用 break-word 不用 anywhere：anywhere 会在**任何**字符上断，
+   「Africa/Dar_es_Salaam」被断成「…Salaa」「m」；break-word 先找能断的
+   地方（下划线、连字符），实在断不了才从中间断。
+   这张表是 table-layout: fixed，列宽定死，min-content 不参与计算，
+   所以换成 break-word 不会把表撑宽。 */
+.output-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-card);
+  vertical-align: top;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+/* 标签列的宽度：默认 150px，够用就不动。
+   固定布局下**列宽只由第一行决定**，所以「按内容定宽」得由 JS 那边算好
+   再通过 --label-w 传进来（见 app.js 的 fitLabelColumn）：
+   写死 150px 的话，「America/Argentina/ComodRivadavia」这种标签装不下，
+   只能从词中间断（iana-timezone-index 的时区名就是这么断成「ComodRivada」「via」的）。
+   标签短的表（MD5、SHA-1 那些）还是 150px，样子不变。 */
+.output-table td:first-child { color: var(--text-muted); width: var(--label-w, 150px); }
+
+/* ---------- API 结果区的形状（见 src/registry/mod.rs 的 ResultKind）----------
+   参考实现里每个工具的结果区长得都不一样。以前我们给所有 API 工具
+   一张一样的「Output」卡片 —— 对齐不了任何一个有原版可对的工具。
+   下面几种形状对应原版的几个组件：
+
+     text     c-input-text / input-copyable —— 只读**单行**框（标签在上）
+     textarea c-input-text multiline monospace —— 只读**多行**框（标签在上）
+     bare     c-input-text（没有 label）—— 只读单行框，**没有标签**、文字居中
+     lines    c-card —— 一张装着几行字的卡片
+     keypair  两个 <h3> + 两张 TextareaCopyable
+     tokens   TokenDisplay —— 一行三个令牌按钮 */
+
+/* text：结果是一个只读框。原版的 readonly 输入框还是白底黑字，
+   不是灰底 —— 灰底看着像「这一栏被禁用了」。 */
+.api-result-text { margin-top: 16px; }
+.api-result-text .layui-input[readonly] {
+  background: var(--bg-input);
+  color: var(--text-base);
+  font-family: inherit;
+}
+
+/* textarea：原版 encryption 的结果是三行等宽文本域
+   （multiline monospace readonly autosize）。 */
+.api-result-textarea { margin-top: 16px; }
+.api-result-textarea .layui-textarea {
+  min-height: 76px;
+  height: auto;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.api-result-textarea .layui-textarea[readonly] {
+  background: var(--bg-input);
+  color: var(--text-base);
+}
+
+/* bare：原版 bcrypt 的结果是 `<c-input-text :value="hashed" readonly text-center />`
+   —— 没有 label，所以**没有标签**；文字是**居中**的。 */
+.api-result-bare { margin-top: 16px; }
+.api-result-bare .layui-input[readonly] {
+  background: var(--bg-input);
+  color: var(--text-base);
+  font-family: inherit;
+  text-align: center;
+}
+
+/* lines：小标题在卡片外面，卡片里一行行普通文字。
+   原版的 mac-address-lookup 就是「Vendor info:」+ 一张卡片。 */
+.api-result-lines .api-output { margin-bottom: 0; }
+.api-result-lines .output-body {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: normal;
+  word-break: normal;
+}
+
+/* keypair：两个 <h3>，各带一张代码卡。
+   原版的 rsa-key-pair-generator：<h3>Public key</h3> + TextareaCopyable，
+   <h3>Private key</h3> + TextareaCopyable。 */
+.api-result-keypair { margin-top: 16px; }
+.keypair-block { margin-bottom: 16px; }
+.keypair-block:last-child { margin-bottom: 0; }
+.keypair-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-title);
+}
+
+/* tokens：一行三个令牌（上一个 / 当前 / 下一个）。
+   原版的 TokenDisplay：三列标题（靠左/居中/靠右）+ 三个等宽按钮，
+   当前那个字号更大，两边两个按钮的圆角只留外侧。 */
+.api-result-tokens { margin-top: 16px; }
+.token-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: var(--text-base);
+}
+.token-head > span { flex: 1 1 0; min-width: 0; }
+.token-head-prev { text-align: left; }
+.token-head-cur { text-align: center; }
+.token-head-next { text-align: right; }
+.token-row { display: flex; align-items: stretch; }
+.token-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 48px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px 0 0 4px;
+  background: rgba(46, 51, 56, 0.05);
+  color: var(--text-base);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.token-btn-current {
+  border-radius: 0;
+  border-left: 1px solid rgba(46, 51, 56, 0.2);
+  border-right: 1px solid rgba(46, 51, 56, 0.2);
+  font-size: 22px;
+}
+.token-row > .token-btn:last-child { border-radius: 0 4px 4px 0; }
+.token-btn:hover { background: rgba(46, 51, 56, 0.09); }
+.token-btn.is-copied { color: var(--primary); }
+:root[data-theme='dark'] .token-btn { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .token-btn:hover { background: rgba(255, 255, 255, 0.12); }
+:root[data-theme='dark'] .token-btn-current {
+  border-left-color: rgba(255, 255, 255, 0.2);
+  border-right-color: rgba(255, 255, 255, 0.2);
+}
+
+.layui-btn {
+  background: var(--primary); color: #fff;
+  border: 0; border-radius: var(--radius);
+  height: 34px; padding: 0 18px;
+  font-size: 14px; cursor: pointer;
+  transition: background .15s ease;
+}
+.layui-btn:hover { background: var(--primary-hover); color: #fff; opacity: 1; }
+.layui-btn-primary {
+  background: transparent; color: var(--primary);
+  border: 1px solid var(--border-input);
+}
+.layui-btn-primary:hover { background: var(--primary-faded); color: var(--primary); }
+.layui-btn-sm { height: 28px; padding: 0 12px; font-size: 12px; }
+
+/* app.css 在 layui.css 之后加载，同为单类选择器，所以上面的 .layui-btn
+   会把 layui 自己的 .layui-btn-danger / -normal 覆盖掉（危险按钮会变绿，
+   看着像普通按钮）。这里按本项目调色板补回这两个变体。 */
+.layui-btn-normal { background: var(--primary); color: #fff; }
+.layui-btn-danger { background: #d03050; color: #fff; }
+.layui-btn-danger:hover { background: #e04060; color: #fff; }
+:root[data-theme='dark'] .layui-btn-danger { background: #b32845; }
+:root[data-theme='dark'] .layui-btn-danger:hover { background: #c93a58; }
+
+/* ---------- 工具页 ---------- */
+/* 尺寸取自参考实现 tool.layout.vue：.tool-layout { padding: 40px 0 }，
+   h1 40px/400，下面一条 200×2px 的分隔线（rgba(161,161,161,.2)），
+   描述 opacity .7。原版标题左侧没有图标，标题下也没有关键词标签，
+   所以这两样都不在这儿。 */
+.tool-header { max-width: 600px; margin: 0 auto; padding: 40px 0; }
+
+.tool-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.tool-title {
+  margin: 0;
+  font-size: 40px; font-weight: 400; line-height: 1;
+  opacity: .9;
+  color: var(--text-base);
+}
+
+.tool-separator {
+  width: 200px; height: 2px;
+  background: rgba(161, 161, 161, 0.2);
+  margin: 10px 0;
+}
+
+.tool-desc { margin: 0; opacity: .7; }
+
+/* 工具正文区：照抄参考实现 tool.layout.vue 的 .tool-content ——
+   flex 换行 + gap 16px + 居中，每个面板 flex: 0 1 600px。
+
+   两个地方曾经写错，导致 crontab-generator 这类「左右两块」的工具全变成上下：
+     1. 这里写了 max-width:600px —— 容器被钉死在 600px，两块永远放不下；
+     2. 子元素写的是 flex: 1 1 100% —— 每个面板都抢满 100% 宽度，
+        就算容器够宽也必然换行。
+   参考实现（以及 arch.md）都是 0 1 600px：容器 ≥ 600×2+16 时左右并排，
+   不够就换行；只有一块时就是居中的一块 600px —— 和原来单栏的效果一样。
+   标题区另有 .tool-header 的 max-width:600px 负责居中，不靠这里。 */
+.tool-content {
+  display: flex; flex-direction: row; flex-wrap: wrap;
+  justify-content: center; align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+/* min-width:0 是必须的：flex item 默认 min-width:auto，会被卡在内容的
+   min-content 上。里面只要有一个不许折行的东西（长标签、nowrap 的输入组、
+   宽表），整张卡片就撑到 min-content，整页跟着横向溢出。 */
+.tool-content > * { flex: 0 1 600px; min-width: 0; }
+
+.tool-loading { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
+
+.spinner {
+  width: 16px; height: 16px; flex: none;
+  border: 2px solid var(--border-input);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 速查表内容：服务端渲染好的 Markdown（见 src/markdown.rs）。
+   之前是一个 <pre>，把 .md 原文整段倒出来，满屏的 ## 和 ``` 围栏；
+   现在是正常的 HTML，所以要按正文排版来写样式。 */
+.memo-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-base);
+  /* 速查表是 Markdown 渲染的散文 + 行内代码。
+     anywhere 会在**任何**字符上断（正则是断成「…[0-9]」「*」这种），
+     break-word 是「这个词放不下这一行才断」——长 URL、长正则照样断，
+     但不会把正常的词拆开。 */
+  overflow-wrap: break-word;
+}
+.memo-body > *:first-child { margin-top: 0; }
+.memo-body > *:last-child { margin-bottom: 0; }
+
+.memo-body h1, .memo-body h2, .memo-body h3, .memo-body h4 {
+  color: var(--text-title);
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 24px 0 10px;
+}
+.memo-body h1 { font-size: 22px; }
+.memo-body h2 { font-size: 19px; }
+.memo-body h3 { font-size: 16px; }
+.memo-body h4 { font-size: 15px; }
+
+.memo-body p { margin: 10px 0; }
+
+.memo-body ul, .memo-body ol { margin: 10px 0; padding-left: 24px; }
+.memo-body li { margin: 4px 0; }
+.memo-body li > ul, .memo-body li > ol { margin: 4px 0; }
+
+.memo-body a { color: var(--primary); text-decoration: underline; }
+
+.memo-body blockquote {
+  margin: 12px 0;
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid var(--border-input);
+  color: var(--text-muted);
+}
+
+.memo-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-card);
+  border-radius: 3px;
+  padding: 1px 5px;
+  /* 行内代码**不许从中间断**：这页大半是正则，
+     「/^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+…$/」被断成两截就没法照着看了
+     （它前面还跟着一个链接，剩下的空位根本放不下整条正则）。
+     做成 inline-block：整块挪到下一行，断不了；
+     窄屏真的放不下时它自己出横向滚动条，页面不会被撑宽。 */
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+/* 代码块里的 <code> 不该再带背景和边框 —— 外层 <pre> 已经有了 */
+.memo-body pre {
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-card);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.memo-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+  /* 回到行内：上面那条 inline-block 是给行内代码的，
+     代码块里的代码要跟着 <pre> 一起横向滚。 */
+  display: inline;
+  max-width: none;
+  overflow: visible;
+}
+
+.memo-body table {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.memo-body th, .memo-body td {
+  border: 1px solid var(--border-input);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.memo-body th {
+  background: var(--bg-elevated);
+  color: var(--text-title);
+  font-weight: 600;
+}
+.memo-body hr {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid var(--border-card);
+}
+
+/* ---------- 命令面板 ---------- */
+.palette {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; justify-content: center;
+  padding-top: 80px;
+  background: var(--scrim);
+}
+.palette[hidden] { display: none; }
+
+.palette-panel {
+  width: min(650px, calc(100vw - 32px));
+  max-height: 70vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+
+.palette-input-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-card);
+}
+.palette-search-icon { color: var(--text-muted); flex: none; }
+
+.palette-input {
+  flex: 1 1 auto;
+  background: none; border: 0; outline: none;
+  color: var(--text-base); font-size: 18px;
+}
+
+.palette-results { overflow-y: auto; padding: 6px 0; }
+
+.palette-group-label {
+  margin: 8px 12px 4px;
+  font-size: 12px; font-weight: 700;
+  color: var(--primary); opacity: .7;
+}
+
+.palette-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0; background: none;
+  color: var(--text-base);
+  font: inherit; text-align: left;
+  cursor: pointer;
+}
+.palette-item:hover, .palette-item.is-selected { background: var(--primary); color: #fff; }
+.palette-item.is-selected .palette-item-name, .palette-item.is-selected .palette-item-desc { opacity: 1; }
+.palette-item.is-selected .palette-item-icon { opacity: .85; }
+
+.palette-item-icon { opacity: .5; flex: none; }
+.palette-item-text { min-width: 0; flex: 1 1 auto; }
+/* display:block 是必须的：这两条是 <span>（inline），而 text-overflow:ellipsis
+   只对块级盒子的溢出有效。inline 盒子上 overflow/white-space 不起作用，
+   文字直接顶出面板（实测 scrollWidth 1632 > 面板 635）。 */
+.palette-item-name { display: block; font-weight: 600; opacity: .9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-item-desc { display: block; font-size: 12px; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.palette-empty { padding: 20px 16px; color: var(--text-muted); text-align: center; }
+
+.palette-foot {
+  display: flex; gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-card);
+  font-size: 11px; color: var(--text-muted);
+}
+.palette-foot kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--border-input);
+  border-radius: 3px; padding: 0 4px;
+}
+
+/* ---------- 遮罩 ---------- */
+.scrim {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgba(0, 0, 0, 0.5);
+}
+.scrim[hidden] { display: none; }
+
+/* ---------- 关于 / 404 ---------- */
+.about { max-width: 600px; margin: 40px auto; }
+.about-title { font-size: 32px; font-weight: 400; margin: 0 0 6px; color: var(--text-title); }
+.about-lede { color: var(--text-muted); margin: 0 0 24px; }
+.about-list { margin: 0; padding-left: 20px; }
+.about-list li { margin-bottom: 6px; }
+
+.notfound { max-width: 600px; margin: 80px auto; text-align: center; }
+.notfound-code { font-size: 72px; font-weight: 300; color: var(--text-desc); line-height: 1; }
+.notfound-title { font-size: 20px; font-weight: 400; margin: 16px 0 8px; color: var(--text-base); }
+.notfound-hint { color: var(--text-muted); margin: 0 0 24px; }
+
+/* ---------- 宽屏侧栏折叠 ----------
+   参考实现是 n-layout-sider collapse-mode="width" :collapsed-width="0"，
+   即收到 0 而不是缩成图标窄条；这边用 width 过渡等效。宽屏不给遮罩，
+   遮罩归小屏的位移式侧栏用。
+
+   必须夹在 min-width 里：小屏那边侧栏是 absolute 定位、靠 translateX 收起，
+   宽度归零这条会跟位移打架，把侧栏内容挤成一条。 */
+@media (min-width: 701px) {
+  .layout[data-menu-open='false'] .sidebar {
+    width: 0;
+    /* box-sizing: border-box 下 width:0 只把内容盒收掉，那 1px 右边框还在，
+       不显式去掉的话折叠后还留着一条竖线 */
+    border-right: 0;
+    overflow: hidden;
+  }
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 700px) {
+  .sidebar {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    /* 浮在顶栏之上：原版的移动端侧栏（n-layout-sider position=absolute）
+       盖住整屏，侧栏顶部那 160px 的品牌区是完整露出来的。
+       顶栏是 sticky / z-index 30，所以这里要更高。 */
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+  }
+  .layout[data-menu-open='true'] .sidebar { transform: none; }
+  /* 遮罩也要盖住顶栏（z-index 30），否则顶栏不会被压暗。 */
+  .scrim { z-index: 35; }
+  .content { padding: 16px; }
+  .navbar { padding: 8px 16px; }
+  .support-btn { display: none; }
+  .search-kbd { display: none; }
+  .tool-title { font-size: 28px; }
+  .tool-header { padding: 24px 0 10px; }
+
+  /* 窄屏藏掉语言下拉和站外/关于三个图标。
+     不藏的话 390px 下这一排要 445px（16+76+8+94+8+259+16），整页横向溢出 71px，
+     主题按钮整个被挤出屏幕外。
+     对齐参考实现 base.layout.vue 的 <locale-selector v-if="!isSmallScreen"> 与
+     <NavbarButtons v-if="!isSmallScreen">（那边断点也是 max-width:700px）。
+     主题按钮也一并挪到侧栏 —— 那边的主题按钮也在侧栏里（NavbarButtons 的一部分）。 */
+  .nav-right .nav-chrome,
+  .nav-right .lang-select,
+  .nav-right .theme-toggle { display: none; }
+
+  /* 挪下来的语言下拉和按钮组（原版 base.layout.vue 的 sider 顶部那一块） */
+  .sidebar-mobile-bar {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 12px 6px;
+  }
+  .sidebar-mobile-bar .lang-select { width: 90%; }
+  .sidebar-mobile-actions { display: flex; justify-content: center; gap: 5px; }
+}
+
+/* ---------- layui 深色适配 ---------- */
+:root[data-theme='dark'] body .layui-input,
+:root[data-theme='dark'] body .layui-textarea,
+:root[data-theme='dark'] body .layui-select {
+  background: #333;
+  color: rgba(255, 255, 255, .82);
+  border-color: #3d3d3d;
+}
+:root[data-theme='dark'] body .layui-form-select dl,
+:root[data-theme='dark'] body .layui-form-select .layui-input {
+  background: #333;
+  color: rgba(255, 255, 255, .82);
+}
+:root[data-theme='dark'] body .layui-form-select dd { color: rgba(255, 255, 255, .82); }
+:root[data-theme='dark'] body .layui-form-select dd.layui-this { background: var(--primary); color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+/* ---------- JS 工具共用组件 ----------
+   static/js/tools/ 下的模块共用这几组类，新增工具不必再写样式。 */
+
+/* 开关（替代 naive-ui 的 n-switch） */
+.switch {
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; user-select: none; font-size: 14px;
+  color: var(--text-base);
+  /* 不许被挤窄：挤窄了文字会折行，开关看着像坏了两截。
+     需要让位的只有同行的输入框（.input-group > .layui-input 是 1 1 auto + min-width:0）。 */
+  flex: 0 0 auto; white-space: nowrap;
+}
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+/* 轨道和滑块都要以 span 为定位基准。span 原来没定位，
+   于是绝对定位的滑块（::after）跑到远处的祖先上去了。 */
+.switch span { position: relative; display: inline-flex; align-items: center; }
+.switch span::before {
+  content: ''; display: inline-block; flex: 0 0 auto;
+  width: 34px; height: 18px; margin-right: 8px;
+  border-radius: 9px; background: var(--switch-track);
+  transition: background-color .25s;
+}
+.switch span::after {
+  content: ''; display: inline-block; position: absolute;
+  left: 1px; top: 50%;
+  width: 16px; height: 16px;
+  border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  transform: translateY(-50%);
+  transition: transform .25s;
+}
+.switch input:checked + span::before { background: var(--primary); }
+.switch input:checked + span::after { transform: translateY(-50%) translateX(16px); }
+.switch input:focus-visible + span::before { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* 窄屏放开上面的「不许折行」和「不许被挤窄」。
+   有些工具的开关文字很长（crontab-generator 的选项、
+   json-viewer 的「自动反转义」等），max-content 会超过卡片内宽 ——
+   不放开就是整条开关溢出卡片。
+
+   这段必须写在 .switch 基础规则之后：媒体查询不提升优先级，
+   写在文件头部那个 @media(max-width:700px) 块里会被后面这条同优先级的
+   基础规则按源码顺序盖掉（实测 flex/white-space 仍是旧值）。 */
+@media (max-width: 700px) {
+  .switch { flex: 1 1 auto; min-width: 0; white-space: normal; }
+}
+
+/* 选项区的两列排布（原版 list-converter 就是这么排的：
+   左列几个开关，右列下拉框和输入框）。 */
+.option-columns { display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: flex-start; }
+.option-column { flex: 1 1 260px; min-width: 0; }
+
+/* 开关的两列排布 */
+.switch-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px; margin-bottom: 14px;
+}
+@media (max-width: 560px) { .switch-grid { grid-template-columns: 1fr; } }
+
+/* 滑块 */
+.slider {
+  width: 100%; margin: 4px 0 0; accent-color: var(--primary); cursor: pointer;
+}
+
+/* 输入框 + 尾部按钮（眼睛图标等） */
+.input-group { display: flex; align-items: center; gap: 6px; }
+.input-group > .layui-input { flex: 1 1 auto; min-width: 0; }
+
+/* 输入组里的小标签（原版 n-input-group-label，
+   例如 base-converter 那行的 "Custom:"）—— 一块灰底，跟输入框拼在一起。
+   实测原版：四边**都没有**边框（bt/br/bb/bl 全是 0px），
+   底色 rgb(250,250,252)，圆角 3px 0 0 3px，内边距 0 12px。
+   之前我们给它加了 1px 边框，内容区少 1px，"Site account" 这种
+   刚好放不下的文字就把盒子撑大 1px（111 → 112），还多画了一条
+   原版没有的竖线。 */
+.input-group-label {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 3px 0 0 3px;
+  background: var(--bg-group-label);
+  color: var(--text-base);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.input-group > .icon-btn {
+  flex: 0 0 auto; border: 1px solid var(--border-sider); border-radius: 4px;
+  padding: 6px; line-height: 0;
+}
+
+/* 字段下方的补充说明 */
+.field-hint { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
+
+/* 令牌一类的等宽大文本框 */
+.token-display { text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* 结果行：标签固定 120px 右对齐（跟参考实现一样），控件占剩下的宽度。
+   flex-wrap 是必需的：badge-note 之类的标签没有 flex 声明，
+   min-width:auto 会把它们的下限撑成内容宽度。mime-types 的统计行
+   （1 个标签 + 5 个徽章）min-content 有 632px，不换行就顶出卡片 34px。
+
+   控件的 flex-basis 必须是 0：layui 的 .layui-input 带 width:100%，
+   auto basis 会把它解析成整行宽度，于是 120px 标签 + 100% 控件放不下，
+   控件被挤到下一行，标签和控件上下堆叠（实测输入框宽 550px = 整行宽）。
+   basis 改成 0 之后它先按 0 参与排布，再把剩余空间撑满。 */
+.field-row { position: relative; display: flex; flex-wrap: wrap; align-items: center; column-gap: 0; margin-bottom: 12px; }
+/* 标签跟控件之间**不留额外的 gap**。
+   原版的 c-input-text 是一行 flex：[标签(自带 pr-12px)][控件]，
+   标签右边那 12px 内边距就是它跟控件的全部间距，组里没有 gap。
+   我们原来给 .field-row 加了 gap:12px，等于「12px 内边距 + 12px gap」，
+   输入框整体比原版右移 12px、窄 12px（实测 case-converter：
+   原版标签文字止于 665.5、框内文字起于 690.5；我们是 665.5 → 702.5）。
+   同一行里的其它兄弟元素（徽章、第二个控件）还是要 12px 间距，
+   所以用 margin 补回来，但标签后面的那个不加。 */
+.field-row > * + * { margin-left: 12px; }
+.field-row > .field-label + * { margin-left: 0; }
+/* 标签列宽与对齐都是**按工具**定的，不是全站统一：
+   参考实现里 c-input-text 的默认是「标签在上」，真要左标签的那几个工具
+   各自写死了自己的宽度（100/110/120/150/170px…）和对齐（left/right）。
+   这里统一用两个 CSS 变量表达，工具自己覆盖。
+
+   标签**不能**再写死 width：原版的 .c-input-text > .label 只有
+   `flex: 0 0 <labelWidth>`，没有 width。少了 width，flex item 的
+   「自动最小尺寸」才是内容宽度 —— 标签文字比列宽长时盒子会被撑开
+   （ipv4 转换器的 "Hexadecimal:"：列宽 100px，文字 95.67 + pr-12px
+   = 107.67，盒子实测 107.67，输入框被往右推 8px）。
+   写了 width，自动最小尺寸就被 width 夹住，盒子永远停在 100px，
+   文字直接压在输入框上 —— 跟原版对不上。
+
+   标签右边的内边距也分两种：c-label / n-form-item / c-buttons-select
+   都自带 pr-12px，但原版有两处是**裸标签**（ulid-generator 的
+   `<label w-75px>`、uuid-generator 的 `<span w-100px>`）—— 没有内边距，
+   标签和控件之间 0 间距。那两行用 --field-label-pr: 0 覆盖。 */
+.field-row > .field-label { flex: 0 0 var(--field-label-width, 120px); margin: 0; text-align: var(--field-label-align, right); padding-right: var(--field-label-pr, 12px); }
+/* 原版 hash-text 的结果行标签是 n-input-group-label —— 一格灰底
+   （实测底色 rgb(250,250,252)、圆角 3px 0 0 3px、四边无边框、
+   左右各留 12px），右边**紧贴**输入框（组内没有间距），
+   输入框的左圆角被压平。普通左标签（c-label / n-form-item）
+   右边留 12px、左边不留，两者不能混：内边距不同，文字落点就差一截。 */
+.field-row-cell-label { column-gap: 0; }
+.field-row-cell-label > .field-label {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  background: var(--bg-group-label);
+  border-radius: 3px 0 0 3px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.field-row-cell-label > .layui-input { border-radius: 0 var(--radius) var(--radius) 0; }
+.field-row > .layui-input,
+.field-row > .layui-select,
+.field-row > .layui-textarea { flex: 1 1 0; min-width: 0; width: auto; }
+.field-row > .input-group { flex: 1 1 0; min-width: 0; }
+
+/* 窄屏：标签仍然留在左边（原版就是这样 —— naive-ui 的 n-form-item 在窄屏
+   也不把标签挪到上方，只是控件变窄）。所以这里只有「一行塞了好几个控件」
+   的行才竖排：390px 视口下正文内宽只有 328px，120px 标签 + 4 个数字框
+   （lorem-ipsum 的「段落数/单位/句子数/单位」）根本放不下。
+
+   竖排时 flex 主轴变成竖的，basis:0 会把控件的高度算成 0（输入框直接消失），
+   所以那一行要把 basis 改回 auto。
+
+   这段必须写在上面那条 .field-row 之后：媒体查询不提升优先级，
+   写在 max-width:700px 那个块里（它在 700 多行）会被后面这条同优先级的
+   基础规则按源码顺序盖掉。 */
+@media (max-width: 700px) {
+  .field-row:has(> .input-group) { flex-direction: column; align-items: stretch; gap: 6px; }
+  /* 竖排的行里，兄弟之间的 12px 左边距要换成竖向的间距（上面那条 gap: 6px） */
+  .field-row:has(> .input-group) > * + * { margin-left: 0; }
+  .field-row:has(> .input-group) > .field-label { width: auto; flex: 0 0 auto; text-align: left; padding-right: 0; }
+  .field-row:has(> .input-group) > .input-group { flex: 0 0 auto; }
+}
+
+/* ---------- 复制按钮 ----------
+   参考实现里复制图标是输入框的 suffix（叠在控件右端的一个小图标），
+   不是一整块带文字的按钮。带自定义文案的（表格里并排多个时需要区分）
+   仍走文字按钮，见 Util.copyButton。 */
+.copy-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer; line-height: 0;
+  flex: none;
+}
+.copy-btn:hover { background: var(--bg-hover); color: var(--primary); }
+.copy-btn.is-copied { color: var(--primary); }
+.copy-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* 叠在控件右端。没有 :has() 的老浏览器就退回「跟在控件后面」，
+   布局差一点但不出错。 */
+@supports selector(:has(*)) {
+  .field-row:has(> .layui-input) > .copy-btn,
+  .field-row:has(> .layui-textarea) > .copy-btn {
+    position: absolute; right: 8px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+  }
+  /* 只给「复制图标紧跟在后面」的那个输入框留位置。
+     一行里塞了几个输入框的行（percentage-calculator：X、Y、结果），
+     每个都留 38px 会在数字框里空出一块死白。 */
+  .field-row > .layui-input:has(+ .copy-btn),
+  .field-row > .layui-textarea:has(+ .copy-btn) { padding-right: 38px; }
+}
+
+/* 行尾的结果框（percentage-calculator 那种「输入 → 输入 → 结果」的行）：
+   复制图标要叠在这个框里，而不是整行的右端 —— 框只有 150px 宽，
+   叠在行尾会飘到离它十万八千里的地方，图标和框对不上。 */
+.row-result { position: relative; flex: 0 0 150px; min-width: 0; }
+.row-result > .layui-input { width: 100%; padding-right: 38px; }
+.row-result > .copy-btn {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%); z-index: 1;
+}
+/* 行首/行中的说明文字（percentage-calculator 的「What is」「% of」）。 */
+.row-lead { flex: 0 0 auto; color: var(--text-muted); white-space: nowrap; }
+
+/* ---------- 可复制的输入框（原版的 InputCopyable 组件）----------
+   复制图标浮在框的右端，框的右边留出 38px。
+   .field-row 里的复制按钮由上面那条 .field-row > .copy-btn 规则管；
+   这里是「不跟标签同行」的场景 —— 比如 numeronym-generator 的结果框。 */
+.input-copyable { position: relative; }
+.input-copyable > .layui-input,
+.input-copyable > .layui-textarea { width: 100%; padding-right: 38px; }
+.input-copyable > .copy-btn {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%); z-index: 1;
+}
+/* 多行框：图标钉在右上角，跟原版 TextareaCopyable 一致 */
+.input-copyable:has(> .layui-textarea) > .copy-btn { top: 6px; transform: none; }
+
+/* ---------- 提示框（参考实现的 n-alert） ----------
+   参考实现里 info / warning / error 三种提示是一个带边框、带底色、
+   左边一个图标的方块（n-alert / c-alert）。
+   我们没有图标字体，就用自带的 SVG 图标：info-circle / alert-circle / close-circle。 */
+.alert {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 14px; margin: 0 0 16px;
+  border: 1px solid var(--alert-border); border-radius: 4px;
+  background: var(--alert-bg); color: var(--alert-fg);
+  font-size: 14px; line-height: 1.6;
+}
+.alert:last-child { margin-bottom: 0; }
+.alert-icon { flex: none; width: 22px; height: 22px; opacity: .65; }
+.alert-title { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.alert ul { margin: 4px 0 0; padding-left: 20px; }
+.alert-info { --alert-bg: #f0f6ff; --alert-border: #b6d3f7; --alert-fg: #1c4b7c; }
+.alert-warning { --alert-bg: #fff8e6; --alert-border: #f0d8a0; --alert-fg: #7a5b00; }
+.alert-error { --alert-bg: #fdf0f0; --alert-border: #f4c4c4; --alert-fg: #a4262c; }
+:root[data-theme='dark'] .alert-info { --alert-bg: #16283f; --alert-border: #27496f; --alert-fg: #a9c9ef; }
+:root[data-theme='dark'] .alert-warning { --alert-bg: #33280d; --alert-border: #5f4a1c; --alert-fg: #e8cd85; }
+:root[data-theme='dark'] .alert-error { --alert-bg: #35191a; --alert-border: #63302f; --alert-fg: #f0a3a3; }
+
+/* 行式结果（date-converter 那种）：一行一个格式，结果直接排在表单卡片里。
+   标签列 150px —— 跟参考实现的 input-copyable（label-width="150px"）一样，
+   比普通字段的 120px 宽，「JS locale date string」这种长标签才排得下两行。 */
+.api-rows {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-card);
+}
+/* 结果行的标签列宽。写在**行**上而不是标签上：行内联样式能按工具覆盖它
+   （date-time-converter 是 150px，hash-text 是 120px）。 */
+.field-row-wide { --field-label-width: 150px; }
+
+/* 窄屏下的结果表：整张表横向滚动，而不是把列宽一路压到 min-content。
+   table 是 auto 布局，列宽会一路收到各自 min-content 为止 —— 390px 下
+   crontab-generator 的 12 行表溢出 73px，ipv4-range-expander「数量」那格是
+   .input-group（输入框 + 按钮），110px 的格子里输入框只剩 30px。
+
+   必须写 display:block：overflow 用在 display:table 上会被浏览器直接忽略
+   （实测 computed 仍是 visible，页面照样溢出）。改成块级之后表格内容仍排成
+   一个匿名 table 盒，列宽照旧对齐，盒子自己变成滚动容器。
+   用「表本身就是滚动容器」而不是去父级找包装层，是因为建表的那些工具里
+   有的把表直接挂在 .card 下、有的挂在一个中间 div 下，两种都得管到。 */
+@media (max-width: 700px) {
+  .result-table,
+  .kv-table { display: block; overflow-x: auto; }
+  /* 单元格里带输入框时得给个下限：<input> 的 min-content 很小（实测 28px），
+     表不会因为它变宽，于是它就被同格的按钮挤成一条缝
+     （ipv4-range-expander 的「数量」列：输入框 + 按钮）。 */
+  .result-table .input-group > .layui-input { min-width: 110px; }
+}
+
+/* 键值对照表（进制转换、HTTP 状态码等） */
+.kv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.kv-table th, .kv-table td {
+  padding: 8px 10px; border-bottom: 1px solid var(--border-card);
+  text-align: left; vertical-align: top;
+}
+.kv-table th { color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.kv-table td.val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* 短值不许折行（可选，由工具自己挂）。
+   td.val 这一列的 min-content 被压到 1 个字符（见下面那条 word-break 规则的说明），
+   相邻的列又压不动（th 是 nowrap，min-content = max-content）——
+   auto 布局的亏空全落在 val 列上，它被一路挤扁：
+   HTTP 状态码那一列的「100」被拆成「10」「0」两行，看着像变形。
+   值长的格子（JWT、邮件头、URL）该折还是要折，所以不做成全局规则。 */
+.kv-table td.val.nowrap { white-space: nowrap; }
+.kv-table tr:last-child td { border-bottom: none; }
+
+/* 结果表格（generic outputCard 的 table 形态） */
+.result-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.result-table th, .result-table td {
+  padding: 8px 10px; border-bottom: 1px solid var(--border-card); text-align: left;
+}
+/* 表头不许折行。.result-table 的表头格在 .output-body 里会继承
+   white-space: pre-wrap + word-break: break-all（见上面 .output-body 那段），
+   于是这一列的 min-content 掉到 1 个字符 —— 而同一列的正文格里是长 URL，
+   max-content 巨大，auto 布局把亏空全推给这一列，整列被挤扁：
+   ical-parser 的「Location」表头被拆成「Loc」「ati」「on」三行。
+   表头都是短标签（最长的也就二十来个字符），定住宽度没有副作用
+   （.kv-table th 本来就是 nowrap，result-table 漏了这一条）。 */
+.result-table th { color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+
+/* 表格不继承 .output-body 的 word-break: break-all。
+   容器要 break-all 是为了 PEM / base64 那类没有空格的长串；
+   表格里全是「人话」，在词中间断开很难看 —— ical-parser 的时间戳断成
+   「21:00:0」「0」、device-information 的「AppleWebKit/537」断成两半、
+   text-statistics 的「0 Bytes」断成「0 Byte」「s」。
+   跟 .output-table td 一个办法：先按词断，实在放不下的长串再从任意字符断。
+
+   用 break-word 不用 anywhere：anywhere 会把 min-content 压到 1 个字符，
+   这一列就压得动，短词反而被拆开（crontab-generator 的「@annually」断成
+   「@annua」「lly」）；break-word 的 min-content 仍是「最长的那个词」，
+   列宽撑得住它，词就不会断（实测全站工具页：断词 0 处，表格也没有溢出）。
+
+   规则写在**表格**上而不是只写在 td 上：这两个属性是会继承的，
+   写在表格上，格子里所有的 span / code / b 都一起拿到（只写 td 的话，
+   表格外面的元素、还有 th，仍然是 break-all）。 */
+.kv-table, .result-table {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.kv-table td, .result-table td {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* 多行等宽结果 */
+.mono-output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap; word-break: break-all; margin: 0;
+}
+
+/* ---------- 结果代码卡（原版的 TextareaCopyable）----------
+   原版的输出区是一张 c-card，里面是 n-code（等宽、横向滚动），
+   右上角浮一个圆形复制按钮。实测原版：
+     c-card      padding 20px 24px / border 1px / radius 4px / 白底
+     n-code      等宽 14px、行高 22.4px（1.6）、白色背景（透明）
+     复制按钮    40×40 圆形，浮在卡片右上角 10px 处，浅灰底 */
+.code-card { position: relative; }
+.code-card > .code-body {
+  margin: 0;
+  padding-bottom: 10px;      /* 原版 n-scrollbar 的 padding-bottom */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-base);
+  white-space: pre;          /* n-code 也不折行，超出部分横向滚 */
+  overflow-x: auto;
+  max-height: 460px;
+  overflow-y: auto;
+}
+.code-card > .copy-btn {
+  position: absolute; right: 10px; top: 10px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(46, 51, 56, 0.05);
+  color: var(--text-base);
+}
+.code-card > .copy-btn:hover { background: rgba(46, 51, 56, 0.1); color: var(--text-base); }
+.code-card > .copy-btn svg { width: 22px; height: 22px; }
+:root[data-theme='dark'] .code-card > .copy-btn { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .code-card > .copy-btn:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* 输出区的小标题：原版是卡片外面一个 mb-5px 的 div */
+.code-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-base);
+}
+
+/* diff 高亮 */
+.diff-line { display: flex; gap: 8px; padding: 2px 6px; border-radius: 3px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.diff-line .diff-no { flex: 0 0 40px; color: var(--text-muted); text-align: right; }
+.diff-line.add { background: rgba(24, 160, 88, .16); }
+.diff-line.del { background: rgba(208, 48, 80, .16); text-decoration: line-through; }
+.diff-line.same { color: var(--text-desc); }
+:root[data-theme='dark'] .diff-line.add { background: rgba(54, 173, 106, .2); }
+:root[data-theme='dark'] .diff-line.del { background: rgba(232, 128, 128, .2); }
+
+/* 徽标 / 提示条 */
+.badge-note {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: 4px; font-size: 12px;
+  background: var(--border-card); color: var(--text-muted);
+}
+:root[data-theme='dark'] .badge-note { background: #2f2f2f; }
+
+/* 预览区（SVG / 图片类工具） */
+.preview-box {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  padding: 16px; border-radius: 4px;
+  background: var(--bg-page); border: 1px solid var(--border-card);
+  min-height: 120px; overflow: auto;
+}
+/* 预览区里的控件不许把盒子撑宽：窄屏上 <input type=file> 的默认宽度（303px）
+   比盒子还宽，它挤不动就把旁边的说明文字压成一条竖线
+   （exif-reader 窄屏上那列一个字母一个字母竖着排）。 */
+.preview-box input, .preview-box select, .preview-box textarea { max-width: 100%; }
+/* 可编辑的文档区（html-wysiwyg-editor）：内容按文档流排。
+   不能用 flex —— flex 会把 <h1> 和 <p> 并排放成一行，
+   预览里就成了「Hey! Welcome to this html wysiwyg editor」挤在一行。 */
+.preview-box-doc { display: block; }
+:root[data-theme='dark'] .preview-box { background: #1a1a1a; }
+
+/* 二维码预览：必须钉成正方形。
+   qrcode 的渲染器（static/lib/qrcode/build/qrcode.js 的 render()）在画完图之后
+   往 canvas 上写内联 style.width / style.height，值就是用户填的像素尺寸（默认 1024）。
+   内联样式压得过普通规则，于是工具里那句 max-width:100% 只把宽从 1024px 压到容器宽，
+   高仍然是 1024px —— 画出来是 516×1024 的竖条，不是二维码。
+
+   这里必须用 !important 才压得住内联样式；height:auto 让替换元素按内在宽高比
+   （canvas 的 width/height 属性，恒为 1:1）把高等比缩回来。 */
+.preview-box canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* ---------- temperature-converter：每个温标一行 n-input-group ----------
+   原版 temperature-converter 的每一行是
+     <n-input-group><n-input-group-label style="width:100px">温标名</…>
+       <n-input-number style="flex:1"/><n-input-group-label style="width:50px">单位</…>
+     </n-input-group>
+   —— 左边一格 100px、右边一格 50px，都是**带边框的单元格**（不是 <label>），
+   文字左对齐，三格紧挨着（n-input-group 里没有间隙）。
+   .input-group-label 的默认样式是「左边那一格」（右边不描边、圆角在左），
+   单位那一格正好是它的镜像，所以单独给它一条规则。 */
+.temperature-converter-row { gap: 0; margin-bottom: 12px; }
+.temperature-converter-scale,
+.temperature-converter-unit { padding: 0 12px; }
+.temperature-converter-scale { flex: 0 0 100px; width: 100px; }
+.temperature-converter-unit {
+  flex: 0 0 50px; width: 50px;
+  border-left: 0;
+  border-right: 1px solid var(--border-input);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}

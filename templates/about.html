@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="about">
+  <h1 class="about-title">{{ base.ui.about }}</h1>
+  <p class="about-lede">{{ base.ui.footer_note }}</p>
+
+  <div class="card">
+    <p class="muted">{{ base.ui.about_stack }}</p>
+    <p class="muted">{{ base.ui.about_license }}</p>
+  </div>
+
+  <h3 class="section-head">{{ base.ui.sources }}</h3>
+  <div class="card">
+    <ul class="about-list">
+      <li>{{ base.ui.about_stack_rust }}</li>
+      <li>{{ base.ui.about_stack_front }}</li>
+      <li>{{ base.ui.about_stack_icons }}</li>
+    </ul>
+  </div>
+</div>
+{% endblock content %}

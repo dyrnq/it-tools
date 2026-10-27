@@ -1,0 +1,7 @@
+{
+  "name": "it-tools-js-tests",
+  "private": true,
+  "description": "static/js/tools 下的模块的冒烟测试（仅测试用，不参与发行构建）",
+  "scripts": { "test": "node harness.js && node api-form.js && node sidebar.js && node theme.js && node palette.js && node big-integers.js && node fuzz-diff.js && node check-vendor.js" },
+  "devDependencies": { "jsdom": "^26.0.0" }
+}

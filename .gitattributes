@@ -1,0 +1,21 @@
+# 换行规矩：一律 LF 入库、一律 LF 检出。
+#
+# 为什么不能交给默认设置：Windows 上 Git for Windows 默认 core.autocrlf=true，
+# 检出时会把 LF 换成 CRLF。而这个仓库里有**按字节比对**的东西 ——
+# 换行一换，字节就偏了，测试直接红。
+#
+# （Windows 的 CI 矩阵上就是这条路：windows-2022 的检出默认走 autocrlf。）
+* text=auto eol=lf
+
+# 下面这些是二进制/自带换行的资源，明确不让 git 碰它们：
+#
+#   *.pdf   PDF 签名样本。样本里的 /ByteRange 指的是**文件里的字节位置**，
+#           CRLF 一换，位置全偏，「有效签名」当场变成「解析失败」。
+#   *.flf   figlet 字体。上游本来就是 CRLF 的文件，转成 LF 会把字形改掉。
+#   字体     二进制，本来就不该按文本处理。
+src/tools/fixtures/*.pdf binary
+static/lib/figlet/fonts/*.flf binary
+static/lib/layui/font/*.eot binary
+static/lib/layui/font/*.ttf binary
+static/lib/layui/font/*.woff binary
+static/lib/layui/font/*.woff2 binary

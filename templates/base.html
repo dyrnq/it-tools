@@ -1,0 +1,67 @@
+{#
+  base.html 自己也要 import 一次：Tera 渲染 {% block %} 和 {% include %} 时用的是
+  本模板的作用域，子模板的 import 不会传进来。
+#}
+{% import "macros.html" as m %}
+<!DOCTYPE html>
+<html lang="{{ base.lang }}" data-theme="{% if base.is_dark %}dark{% else %}light{% endif %}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ base.title }}</title>
+  {% if base.description %}<meta name="description" content="{{ base.description }}">{% endif %}
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+
+  <script>
+    // 在样式生效前定好主题，避免首屏闪烁。
+    // 优先级：用户手动选过的（localStorage） > 系统偏好（prefers-color-scheme） > 服务端默认值。
+    // 跟系统走是原版 useDark() 的 'auto' 行为：原版没有手动切换之前，
+    // 主题一直跟着系统的深浅色设置走。
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (e) { /* 隐私模式：读不到 */ }
+      var dark;
+      if (saved === 'dark' || saved === 'light') {
+        dark = saved === 'dark';
+      } else if (window.matchMedia) {
+        dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      } else {
+        dark = {{ base.is_dark }};
+      }
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/assets/lib/layui/css/layui.css">
+  <link rel="stylesheet" href="/assets/css/app.css">
+
+  {# 图标雪碧图：内联以便 <use> 能继承 currentColor #}
+  {{ base.icon_sprite | safe }}
+</head>
+<body>
+  <a class="skip-link" href="#main-content">{{ base.ui.skip_to_content }}</a>
+
+  <div class="layout" id="layout">
+    {% include "sidebar.html" %}
+    <div class="main">
+      {% include "navbar.html" %}
+      <main class="content" id="main-content">
+        {% block content %}{% endblock content %}
+      </main>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  {% include "command_palette.html" %}
+
+  <script src="/assets/lib/layui/layui.js"></script>
+  {# 必须在 app.js 之前：ItTools.i18n() 启动时就读 window.__IT_TOOLS_I18N__ #}
+  {# 语言要显式带上：这个页面的文字是服务端按 base.lang 渲染的，工具里的文字  #}
+  {# 来自这个文件，两边必须是同一种语言，否则会出现「页面中文、工具英文」      #}
+  {# （只带 ?lang= 而没带 cookie 时最明显 —— 语言下拉会同时写 cookie，          #}
+  {#  但别人分享出去的链接只有 query 参数）。                                    #}
+  <script src="/i18n.js?lang={{ base.lang }}"></script>
+  <script src="/assets/js/app.js"></script>
+  {% block scripts %}{% endblock scripts %}
+</body>
+</html>

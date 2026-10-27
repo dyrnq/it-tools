@@ -1,0 +1,111 @@
+{% import "macros.html" as m %}
+{#
+  API 工具的通用表单。
+  完全由注册表里的 ApiSpec.fields 驱动 —— 新增一个服务端工具不需要改这个模板。
+
+  data-live="1"（来自注册表的 Tool::api_live）表示这个工具是「输入即算」的：
+  改一个输入就自动提交一次，Run 按钮仍然留着。
+
+  结果区有**五种形状**（注册表里的 Tool::api_result_kind）：
+    rows     一行一个格式（date-time-converter、hash-text）
+    text     一个只读输入框（hmac-generator、encryption、bcrypt）
+    lines    一张装着几行字的卡片（mac-address-lookup）
+    keypair  两张带标题的代码卡（rsa-key-pair-generator）
+    tokens   一行三个令牌（otp-code-generator-and-validator）
+    card     默认：一张「Output」卡片（我们自己加的服务端工具）
+
+  除了 card，其余四种都排在**表单卡片里面** —— 原版的结果区和输入区
+  多数在同一张卡里（bcrypt 的哈希在「Hash」那张卡中，encryption 的密文
+  在「Encrypt」那张卡中），拆成两张卡就多出一圈边框。
+
+  text / keypair / tokens 三种形状的具体骨架由 app.js 搭（见 initApiForm），
+  标题文案通过 data-label-N 传进去 —— 一个工具可能要不止一个标题
+  （rsa 的公钥私钥、otp 的三个令牌）。
+#}
+{% set kind = tool.api_result_kind %}
+<form class="card api-form" id="api-form" autocomplete="off" data-kind="{{ kind }}"{% if tool.api_live %} data-live="1"{% endif %}{% if tool.api_rows %} data-rows="1"{% endif %}{% if tool.api_refresh_field %} data-refresh="{{ tool.api_refresh_ms }}" data-refresh-field="{{ tool.api_refresh_field }}"{% endif %}>
+  {% for field in tool.fields %}
+  {# 少数工具的标签在左边（见 Tool::api_left_label）：参考实现里它们显式写了
+     label-position="left" / n-form-item 的 label-placement="left"。 #}
+  {# 少数工具有两个字段并排占一半（见 Tool::api_half_fields）：原版把它们放在
+     一个 `flex gap-2` 的行里，例如 hmac-generator 的两个下拉框。 #}
+  <div class="field{% if field.left_label %} field-left{% endif %}{% if field.inline %} field-inline{% endif %}{% if tool.api_half_fields is containing(field.name) %} field-half{% endif %}"
+       {% if field.inline %}style="flex: {{ field.inline_width }}"
+       {% elif field.left_label %}style="--field-label-width: {{ tool.api_left_label }}; --field-label-align: {{ tool.api_left_label_align }}"
+       {% endif %}>
+    {% if field.kind != "boolean" and not field.label_less %}
+      {# 开关把文案放在自己身上（见下面），别在上头再贴一遍；
+         原版本来就没有标签的字段（见 Tool::api_label_less_fields）也照样不贴 ——
+         那种框靠 placeholder 说明自己是什么。 #}
+      <label class="field-label" for="f-{{ field.name }}">{{ field.label }}</label>
+    {% endif %}
+
+    {% if field.kind == "multiline" %}
+      <textarea class="layui-textarea" id="f-{{ field.name }}" name="{{ field.name }}"
+                rows="6" placeholder="{{ field.label }}"
+                {% if field.default %}value="{{ field.default }}"{% endif %}></textarea>
+
+    {% elif field.kind == "number" %}
+      <input class="layui-input" type="number" id="f-{{ field.name }}" name="{{ field.name }}"
+             {% if field.default %}value="{{ field.default }}"{% endif %}>
+
+    {% elif field.kind == "select" %}
+      <select class="layui-select" id="f-{{ field.name }}" name="{{ field.name }}">
+        {% for option in field.options %}
+        <option value="{{ option.value }}"{% if field.default == option.value %} selected{% endif %}>{{ option.label }}</option>
+        {% endfor %}
+      </select>
+
+    {% elif field.kind == "file" %}
+      <input class="layui-input" type="file" id="f-{{ field.name }}" name="{{ field.name }}">
+
+    {% elif field.kind == "boolean" %}
+      {# 开关：用原生 checkbox，不引 layui 的 form 模块（那要额外一段 JS 初始化）。
+         checked 时把 default 也带上 —— 注册表里 default 写 "true" 就是默认打开。 #}
+      <label class="field-switch">
+        <input type="checkbox" id="f-{{ field.name }}" name="{{ field.name }}"
+               {% if field.default == "true" %}checked{% endif %}>
+        <span class="field-switch-track" aria-hidden="true"></span>
+        <span class="field-switch-text">{{ field.label }}</span>
+      </label>
+
+    {% else %}
+      <input class="layui-input" type="text" id="f-{{ field.name }}" name="{{ field.name }}"
+             placeholder="{{ field.label }}"
+             {% if field.default %}value="{{ field.default }}"{% endif %}>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="form-actions">
+    <button class="layui-btn" type="submit" id="api-run">{{ base.ui.run }}</button>
+    <button class="layui-btn layui-btn-primary" type="button" data-clear>{{ base.ui.clear }}</button>
+    <span class="form-status" id="api-status" role="status"></span>
+  </div>
+
+  {% if kind == "rows" %}
+  {# 结果一行一个格式，直接排在表单卡片里（见上面的 data-rows 说明） #}
+  <div class="api-rows" id="api-rows" data-label-width="{{ tool.api_row_label_width }}" data-label-align="{{ tool.api_row_label_align }}" hidden></div>
+
+  {% elif kind != "card" %}
+  {# text / lines / keypair / tokens 四种形状的骨架由 app.js 搭 ——
+     标题文案通过 data-label-N 传进去。 #}
+  <div class="api-result api-result-{{ kind }}" id="api-output" data-kind="{{ kind }}"
+       {% for l in tool.api_result_labels %}data-label-{{ loop.index0 }}="{{ l }}" {% endfor %} hidden></div>
+  {% endif %}
+</form>
+
+{% if kind == "card" %}
+{# 结果区：标题在卡片**外面**，卡片里是等宽代码 + 右上角的圆形复制按钮。
+   参考实现的 TextareaCopyable 就是这个样子（c-card + n-code + 一个圆形图标按钮），
+   而标题（n-form-item 的 label / h3）在卡片外面。
+   这一种留在表单卡片**外面** —— 它自己就是一张卡片，两张卡片套在一起不对。 #}
+<div class="api-result" id="api-output" data-kind="card" hidden>
+  <div class="code-label">{% if tool.api_result_label %}{{ tool.api_result_label }}{% else %}{{ base.ui.output }}{% endif %}</div>
+  <div class="card api-output">
+    <div class="output-body" id="api-output-body"></div>
+    <button class="api-copy" type="button" id="api-copy"
+            title="{{ base.ui.copy }}" aria-label="{{ base.ui.copy }}">{{ m::icon(icon_name="copy", size="22") }}</button>
+  </div>
+</div>
+{% endif %}

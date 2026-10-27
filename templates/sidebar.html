@@ -1,0 +1,78 @@
+{% import "macros.html" as m %}
+
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="/">
+    <span class="brand-gradient" aria-hidden="true"></span>
+    <span class="brand-text">
+      <span class="brand-title">{{ base.ui.site_name }}</span>
+      <span class="brand-divider"></span>
+      <span class="brand-subtitle">{{ base.ui.tagline }}</span>
+    </span>
+  </a>
+
+  {# 窄屏（≤700px）顶栏放不下语言下拉和站外链接，原版把它们挪到侧栏顶部。
+     这里照抄：宽屏时这一整块 display:none。 #}
+  <div class="sidebar-mobile-bar">
+    <select class="lang-select" id="lang-select-mobile" aria-label="{{ base.ui.language }}"
+            title="{{ base.ui.language }}">
+      {% for lang in base.languages %}
+      <option value="{{ lang.code }}"{% if lang.code == base.lang %} selected{% endif %}>{{ lang.label }}</option>
+      {% endfor %}
+    </select>
+    <div class="sidebar-mobile-actions">
+      <a class="icon-btn" href="https://github.com/dyrnq/it-tools" target="_blank" rel="noopener"
+         title="{{ base.ui.github }}" aria-label="{{ base.ui.github }}">{{ m::icon(icon_name="brand-github", size="20") }}</a>
+      <a class="icon-btn" href="/about" title="{{ base.ui.about }}" aria-label="{{ base.ui.about }}">
+        {{ m::icon(icon_name="info-circle", size="20") }}
+      </a>
+      <button class="icon-btn theme-toggle" id="toggle-theme-mobile" type="button"
+              title="{{ base.toggle_theme_label }}" aria-label="{{ base.toggle_theme_label }}">
+        <span class="theme-icon-moon">{{ m::icon(icon_name="moon", size="20") }}</span>
+        <span class="theme-icon-sun">{{ m::icon(icon_name="sun", size="20") }}</span>
+      </button>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="{{ base.ui.categories }}">
+    {# 收藏分组由 app.js 客户端插入（服务端读不到 localStorage），占位保留位置 #}
+    <div id="favorites-group" hidden></div>
+
+    {% for cat in base.nav.categories %}
+    <section class="nav-group" data-category="{{ cat.id }}">
+      <button class="nav-group-head" type="button" aria-expanded="true">
+        {{ m::icon(icon_name="chevron-right", size="16", cls="chev") }}
+        <span class="nav-group-label">{{ cat.label }}</span>
+      </button>
+      {# nav-group-body 是折叠动画的载体（grid-template-rows: 1fr ↔ 0fr），
+         nav-toggle-bar 是参考实现里那条左侧 2px 竖线。 #}
+      <div class="nav-group-body">
+        <button class="nav-toggle-bar" type="button"
+                title="{{ base.ui.toggle_category }}" aria-label="{{ base.ui.toggle_category }}"></button>
+        <ul class="nav-list">
+          {% for tool in cat.tools %}
+          <li>
+            <a class="nav-item{% if base.current_path == tool.path %} is-active{% endif %}"
+               href="{{ tool.path | safe }}" title="{{ tool.name }}">
+              {{ m::icon(icon_name=tool.icon, size="16", cls="nav-icon") }}
+              <span class="nav-text">{{ tool.name }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    {% endfor %}
+  </nav>
+
+  {# 侧栏底部：版本号 + 版权（原版 base.layout.vue 的 .footer）。 #}
+  <div class="sidebar-footer">
+    <div>
+      {{ base.ui.site_name }}
+      <a href="https://github.com/dyrnq/it-tools" target="_blank" rel="noopener">v{{ base.version }}</a>
+    </div>
+    <div>
+      {{ base.copyright }}
+      <a href="https://github.com/dyrnq/it-tools" target="_blank" rel="noopener">{{ base.ui.copyright_link }}</a>
+    </div>
+  </div>
+</aside>

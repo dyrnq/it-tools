@@ -1,0 +1,242 @@
+name: CI
+
+# 流水线分四摊，跟「测试分三层」是对应的：
+#
+#   unit-tests        cargo test —— 单元测试 + 集成测试（tests/ 下的 HTTP 测试）
+#                     三个系统各跑一遍：这些代码里有多平台的地方（路径、编码、时区）
+#   js-tests          test/js 下的 JS 工具测试（jsdom）
+#   integration-tests scripts/test/integration-test.sh —— 起真的 release 二进制，
+#                     用 HTTP 打它：静态资源有没有真的嵌进二进制、真实 TCP 上的行为
+#   build-musl        交叉编译出两个架构的静态 musl 二进制（镜像里装的就是它们）
+#   docker            把上面那两个二进制打成多架构镜像，推到 Docker Hub 的
+#                     dyrnq/it-tools:main —— 滚动 tag，永远指向 main 最新的一次构建
+#
+# 前两层不需要联网之外的东西；第三层要能起进程、要 curl（ubuntu 自带）。
+
+on:
+  push:
+    branches: [main, master]
+    tags-ignore: ["v*"]
+    paths-ignore:
+      - "README.md"
+      - "_docs/**"
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  unit-tests:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # 先 build 再 test：release 的构建产物被 test 复用，
+      # 省掉一次全量编译（依赖编译是这里最花时间的一步）。
+      - name: Build (release)
+        run: cargo build --release
+
+      - name: Unit + integration tests (release)
+        run: cargo test --release
+
+  js-tests:
+    name: JS tool tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # npm ci：按 package-lock.json 装，版本是钉死的。
+      # 这份 lockfile **要入库**（.gitignore 里特意放行）——
+      # 没有它就只能 npm install，装到什么版本全看当天 registry 的心情。
+      - name: Install dependencies
+        working-directory: test/js
+        run: npm ci
+
+      - name: Run JS tests
+        working-directory: test/js
+        run: npm test
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-24.04
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build (release)
+        run: cargo build --release
+
+      # 脚本自己会起服务、跑完再收摊（临时目录 + 端口 + SIGTERM 收尾）。
+      # 端到端这一层是「发布出去的产物能不能用」——
+      # 前两层都打不到「资源真的嵌进二进制了吗」这件事。
+      - name: Run integration tests
+        run: bash scripts/test/integration-test.sh
+
+  # 镜像里装的是**外面编好的静态 musl 二进制**，不是在镜像里编的：
+  # arm64 那一层要 QEMU 模拟编译，慢到没法看。
+  # 所以先在这儿把两个架构编出来，交叉编译用 cross（跟 release.yml 同一个路子）。
+  build-musl:
+    name: Build (static musl, ${{ matrix.target }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # 缓存键带上 target：两个架构的编译产物互相不通用，混在一起会来回失效。
+      # ~/.cargo/bin 也缓存：cross 是 `cargo install` 装的，编一次要好几分钟，
+      # 不缓存的话每次跑都得重来一遍。
+      - name: Cache cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-musl-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-musl-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # 不用装 musl-tools：cross 的镜像里自带工具链（含 musl-gcc）。
+      - name: Build (cross)
+        run: cross build --release --target ${{ matrix.target }}
+
+      # 只传文件本身，artifact 里就是它，下载到 dist/<arch>/ 正好对上
+      # Dockerfile 找的位置。
+      # 顺带一提：upload-artifact 不保留可执行位，Dockerfile 那边写的是
+      # COPY --chmod=0755，不是 RUN chmod。
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/it-tools
+          if-no-files-found: error
+
+  # 多架构镜像。tag 固定是 main —— 滚动 tag，永远指向 main 最新的一次构建。
+  #
+  # 两个跟 release.yml 不同的地方：
+  #   · tag 固定成 main（发版流水线那边是 v* 版本号 tag）；
+  #   · 只推 main 这一个 tag，:latest 留给发版流水线 —— README 里
+  #     `docker pull dyrnq/it-tools` 拉的是 latest，得一直指着正式版本。
+  docker:
+    name: Docker image (dyrnq/it-tools:main)
+    runs-on: ubuntu-24.04
+    # 测试不过就不出镜像：推上去的镜像是公开的，推坏了再改就晚了。
+    needs: [unit-tests, integration-tests, build-musl]
+    # success() 得自己写：job 上只要带了 if，GitHub 就**不再**自动加那层
+    # 「依赖都成功了」检查 —— 少了它，测试挂了这个 job 照样会推镜像。
+    # PR 不推：PR 的代码不该占用 main 这个 tag（fork 的 PR 本来也拿不到 secrets）。
+    if: ${{ success() && github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Dockerfile 里没有 RUN，理论上用不上 QEMU；留着是为了以后加
+      # `RUN apk add` 时不用改流水线。
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download the static x86_64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: x86_64-unknown-linux-musl
+          path: dist/amd64
+
+      - name: Download the static arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: aarch64-unknown-linux-musl
+          path: dist/arm64
+
+      # 推上去的 main 是公开的 —— 推坏了再改就晚了。
+      # 所以先在本机把 amd64 的镜像跑起来，/healthz 应答了才算数。
+      - name: Smoke test (the amd64 image has to actually run)
+        run: |
+          ./buildx.sh --load true --platforms linux/amd64 --version main --no-latest
+          docker run -d --name it-tools-smoke -p 18080:8080 dyrnq/it-tools:main
+          for i in $(seq 1 30); do
+            if curl -fsS -m 2 http://127.0.0.1:18080/healthz; then
+              echo
+              echo "::notice::镜像起得来"
+              docker rm -f it-tools-smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::镜像没应答 /healthz"
+          docker logs it-tools-smoke || true
+          docker rm -f it-tools-smoke
+          exit 1
+
+      - name: Build the image (without push)
+        run: ./buildx.sh --push false --version main --no-latest
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build the image (with push)
+        run: ./buildx.sh --push true --version main --no-latest

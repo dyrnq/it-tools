@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="notfound">
+  <div class="notfound-code">404</div>
+  <h1 class="notfound-title">{{ base.ui.not_found }}</h1>
+  <p class="notfound-hint">{{ base.ui.maybe_cache }}</p>
+  <a class="layui-btn" href="/">{{ base.ui.back_home }}</a>
+</div>
+{% endblock content %}
