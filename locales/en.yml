@@ -531,6 +531,158 @@ tools:
   markdown-table-formatter:
     title: Markdown Table Formatter
     description: 'Align the columns of a Markdown table: every column is padded to its widest cell, the separator row is rebuilt to match, and the alignment markers are kept.'
+
+  arpa-decoder:
+    title: ARPA Decoder
+    description: Decode IPv4 and IPv6 ARPA (reverse DNS) addresses back into IP addresses, and turn IP addresses into their ARPA names.
+
+  bimi-dns-generator:
+    title: BIMI DNS Generator
+    description: Generate a BIMI TXT record linking a brand logo to a domain.
+
+  cidr-in-cidr:
+    title: CIDR in CIDR
+    description: Check whether one network block falls entirely inside another one.
+
+  crc-calculator:
+    title: CRC calculator
+    description: Compute all 13 CRC variants of a text at once (CRC-1, CRC-8, CRC-16, CRC-24, CRC-32, MODBUS, KERMIT, CCITT, MPEG-2, JAMCRC).
+
+  distinct-words:
+    title: Distinct Words
+    description: Extract and count the occurrences of each unique word in a text.
+
+  dkim-dns-generator:
+    title: DKIM DNS Generator
+    description: Generate the DKIM TXT record for a public key.
+
+  dmarc-dns-generator:
+    title: DMARC DNS Generator
+    description: Generate a DMARC TXT record from a policy and reporting addresses.
+
+  duplicate-line-finder:
+    title: Duplicate Lines Finder
+    description: Find and list duplicated lines in a text.
+
+  ecdsa-key-pair-generator:
+    title: ECDSA key pair generator
+    description: Generate an ECDSA key pair on NIST P-256, P-384 or P-521. Outputs the private key as PKCS#8 PEM and SEC1 PEM, the public key as SPKI PEM, or both as raw hex bytes.
+
+  ecdsa-signing:
+    title: ECDSA signature
+    description: 'Sign a text with an ECDSA private key (P-256, P-384 or P-521) and verify a signature with the matching public key. The digest is chosen by the curve: SHA-256, SHA-384 or SHA-512.'
+
+  ed25519-key-pair-generator:
+    title: Ed25519 key pair generator
+    description: Generate an Ed25519 key pair. Outputs the private key as PKCS#8 PEM and the public key as SPKI PEM, or both as raw hex bytes.
+
+  file-hasher:
+    title: File hasher
+    description: Compute every digest of an uploaded file at once (MD5, SHA-1, SHA-2, SHA-3, BLAKE2, BLAKE3, Keccak, RIPEMD-160, xxHash, Adler-32, CRC-32).
+
+  folder-structure-diagram:
+    title: Folder Structure Diagram
+    description: Generate a tree-like ASCII diagram of a folder structure.
+
+  gitattributes-generator:
+    title: GitAttributes Generator
+    description: Generate a .gitattributes file from common templates.
+
+  gitignore-generator:
+    title: GitIgnore Generator
+    description: Generate a .gitignore file from common templates.
+
+  html-formatter:
+    title: HTML Formatter
+    description: Prettify HTML source code with proper indentation.
+
+  i-and-l-checker:
+    title: I and L Checker
+    description: Highlight the characters that are easy to confuse, such as 1, l, I, 0 and O.
+
+  ip-cidr-to-range:
+    title: IP CIDR to range
+    description: Turn a CIDR block into its address range, with the network address, netmask, wildcard mask, total address count and usable host count.
+
+  ip-include-exclude:
+    title: IP include / exclude
+    description: Take a list of allowed network ranges, subtract the excluded ones, and get the remaining blocks as CIDR.
+
+  ip-range-to-cidr:
+    title: IP range to CIDR
+    description: Split an address range into the smallest possible set of CIDR blocks (works for IPv4 and IPv6).
+
+  ipv4-subnets-list:
+    title: IPv4 subnets list
+    description: List the subnets of an IPv4 block, one level at a time or at a prefix length you pick, with the usable host range of each subnet.
+
+  json-to-protobuf:
+    title: JSON to Protobuf
+    description: Generate a protobuf3 message definition from a JSON document.
+
+  json-to-schema:
+    title: JSON to Schema
+    description: Derive a schema from JSON — JSON Schema, MySQL, Mongoose, BigQuery, ClickHouse or a readable outline.
+
+  json-to-sql-insert:
+    title: JSON to SQL Insert
+    description: Turn a JSON document into SQL INSERT statements.
+
+  json-to-typescript:
+    title: JSON to TypeScript
+    description: Generate TypeScript types (interfaces or type aliases) from a JSON document.
+
+  levenshtein-calculator:
+    title: Levenshtein Calculator
+    description: Compute the Levenshtein distance between two strings.
+
+  list-comparer:
+    title: Lists Comparer
+    description: Compare two lists and show the items only in the first, only in the second, and in both.
+
+  ptr-dns-generator:
+    title: PTR DNS Generator
+    description: Generate the reverse DNS PTR record for an IP address.
+
+  random-line-picker:
+    title: Random Line Picker
+    description: Pick random lines from a text input.
+
+  rsa-encryption:
+    title: RSA encryption
+    description: Encrypt and decrypt text with an RSA key pair. Supports PKCS#1 v1.5 and OAEP (SHA-1 or SHA-256), and reads private keys protected by a passphrase.
+
+  shell-formatter:
+    title: Shell Commands Formatter
+    description: Format a shell command as a multiline command split on its arguments.
+
+  shell-linearizer:
+    title: Shell Commands Linearizer
+    description: Linearize a multiline shell command into a single line.
+
+  smart-text-replacer:
+    title: Smart Text Replacer
+    description: Search and replace text, with regular expression support and line splitting.
+
+  spf-dns-generator:
+    title: SPF DNS Generator
+    description: Generate an SPF TXT record from the allowed and disallowed sources.
+
+  tab-to-spaces:
+    title: Tab to Spaces
+    description: Convert tabs to spaces, or spaces to tabs, with a configurable width.
+
+  wpa-psk-generator:
+    title: WPA-PSK generator
+    description: Derive the 256-bit raw WPA-PSK key from a passphrase and an SSID (PBKDF2-HMAC-SHA1, 4096 rounds, as IEEE 802.11i specifies).
+
+  css-minifier:
+    title: CSS minifier
+    description: 'Shrink a stylesheet: drop comments, collapse whitespace and remove redundant punctuation — without touching strings, urls or !important.'
+
+  html-minifier:
+    title: HTML minifier
+    description: 'Shrink an HTML document: drop comments, collapse whitespace and remove redundant quotes — while keeping script, style, textarea and pre content byte for byte.'
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -585,6 +737,27 @@ ui:
   # JS 工具自己的界面文案。键的约定是 ui.tool.<slug>.<用途>，
   # 前端用 ItTools.t('<slug>')('<用途>', '英文兜底') 取。
   tool:
+    arpa-decoder:
+      btn_swap: 'Reverse direction'
+      err_bad_ip: 'This is not a valid IP address.'
+      err_bad_ipv4_arpa: 'An in-addr.arpa name has exactly 4 numeric labels, for example 4.3.2.1.in-addr.arpa.'
+      err_bad_ipv4_label: 'Each in-addr.arpa label has to be a number between 0 and 255.'
+      err_bad_ipv6_arpa: 'An ip6.arpa name has exactly 32 labels, one hexadecimal digit each.'
+      err_bad_ipv6_label: 'Each ip6.arpa label has to be a single hexadecimal digit (0-9, a-f).'
+      err_empty: 'Type an address above first.'
+      err_not_arpa: 'This is not an ARPA name: it has to end with in-addr.arpa or ip6.arpa.'
+      hint_arpa: 'For example 4.3.2.1.in-addr.arpa, or the 32 nibble ip6.arpa form'
+      hint_ip: 'For example 1.2.3.4 or 2001:db8::1'
+      label_arpa: 'ARPA name'
+      label_direction: 'Direction'
+      label_ip: 'IP address'
+      note_expanded: 'The ARPA name is fully expanded: the 32 nibbles of an IPv6 address are never compressed.'
+      note_rfc5952: 'The IPv6 address is compressed as described in RFC 5952.'
+      opt_decode: 'ARPA name to IP address'
+      opt_encode: 'IP address to ARPA name'
+      output_title: 'Result'
+      placeholder_arpa: '4.3.2.1.in-addr.arpa'
+      placeholder_ip: '1.2.3.4'
     ascii-text-drawer:
       ascii_art_text: 'Ascii Art text:'
       download: 'Download'
@@ -681,6 +854,36 @@ ui:
       suite_values: 'Suite values'
       unit: 'Unit'
       unit_hint: 'Appended to every mean and variance, eg: ms'
+    bimi-dns-generator:
+      copy_host: 'Copy hostname'
+      copy_record: 'Copy record'
+      copy_value: 'Copy value'
+      err_authority_invalid: 'The authority evidence must be an HTTPS URL or an email address.'
+      err_domain_invalid: 'That is not a valid domain name.'
+      err_domain_required: 'Please fill in the domain.'
+      err_logo_charset: 'The logo URL must not contain a space, a ";" or a quote: they would break the tag syntax of the record.'
+      err_logo_invalid: 'The logo URL must be an absolute URL, for example https://example.com/logo.svg.'
+      err_logo_required: 'Please fill in the logo URL.'
+      err_logo_scheme: 'The logo URL must use https:// - the BIMI specification requires HTTPS.'
+      err_unknown: 'The BIMI record could not be generated.'
+      hint_authority: 'Optional. Either the URL of a Verified Mark Certificate (VMC), or an email address - mailto: is added for you. Gmail and Microsoft 365 only show the logo when a VMC is present.'
+      hint_domain: 'The domain that sends the mail. The record lives under the "default" selector, at default._bimi.<domain>.'
+      hint_logo: 'The logo location. It must be an absolute HTTPS URL: the BIMI specification asks for https, and recipients ignore an insecure logo.'
+      hint_zone: 'The zone file form ends the name with a dot, which is what makes it absolute.'
+      label_authority: 'Authority evidence (a=)'
+      label_domain: 'Domain'
+      label_logo: 'Logo URL (l=)'
+      note_authority_insecure: 'The authority evidence is not served over HTTPS: some verifiers refuse it.'
+      note_no_authority: 'No a= tag: recipients that demand a VMC (Gmail, Microsoft 365) will not display the logo.'
+      note_svg: 'Most recipients only display the logo when it is an SVG (SVG Tiny P/S).'
+      out_host: 'Hostname'
+      out_record: 'Full record'
+      out_title: 'Generated BIMI record'
+      out_value: 'Value (TXT)'
+      out_zone: 'Zone file'
+      ph_authority: 'https://example.com/vmc.pem or compliance@example.com'
+      ph_domain: 'e.g. example.com'
+      ph_logo: 'https://example.com/logo.svg'
     bip39-generator:
       copy_entropy: 'Copy entropy'
       copy_mnemonic: 'Copy mnemonic'
@@ -948,6 +1151,19 @@ ui:
       mode_js: 'JavaScript'
       output: 'Formatted code'
       preserve_newlines: 'Preserve blank lines'
+    css-minifier:
+      clear: 'Clear'
+      copy_css: 'Copy CSS'
+      download_css: 'Download .css'
+      err_minify: 'CSS minification failed: {error}'
+      hint_empty: 'Paste some CSS to minify.'
+      input: 'Your CSS to minify'
+      input_hint: 'Comments are removed and whitespace is collapsed. Strings, urls and !important are kept intact.'
+      input_ph: 'Paste your CSS here...'
+      minify: 'Minify'
+      output: 'Minified CSS'
+      sample: 'Load sample'
+      status_size: 'Shrunk from {before} to {after} characters ({percent}% smaller).'
     csv-to-json:
       copy_json: 'Copy JSON'
       delimiter: 'Delimiter'
@@ -1074,6 +1290,97 @@ ui:
       section_screen: 'Screen'
       unknown: 'unknown'
       'yes': 'yes'
+    distinct-words:
+      col_count: 'Occurrences'
+      col_word: 'Word'
+      copy_all: 'Copy all'
+      download: 'Download'
+      ignore_case: 'Ignore case'
+      input: 'Your text:'
+      input_ph: 'Paste the text you want to count the words in.'
+      note_options: 'Words are split on whitespace. "Also split on punctuation" additionally splits on Unicode punctuation (.,;:!?…), but not on symbols such as $ or +. With "Ignore case" on, words are lower-cased and listed in lower case.'
+      result: 'Word frequencies'
+      split_punctuation: 'Also split on punctuation'
+      status_empty: 'Type or paste some text to count the words.'
+      status_found: '{count} distinct word(s) out of {total} word(s).'
+    dkim-dns-generator:
+      copy_full: 'Copy full record'
+      copy_name: 'Copy name'
+      copy_value: 'Copy value'
+      copy_zone: 'Copy zone file'
+      desc: 'DKIM signs every outgoing mail with a private key and publishes the matching public key in DNS. Paste the public key and publish the record at <selector>._domainkey.<domain>.'
+      hint_domain: 'The domain that signs the mail, e.g. example.com'
+      hint_public_key: 'Paste the base64 of the DER-encoded SubjectPublicKeyInfo, that is the body of the PEM block printed by `openssl rsa -pubout`. The OpenSSH format `ssh-rsa AAAA…` cannot be used here'
+      hint_selector: 'The part in front of ._domainkey. Any name works, a date or a purpose is common, e.g. default / mail / 20260101'
+      label_domain: 'Domain'
+      label_full_record: 'Full record'
+      label_public_key: 'Public key'
+      label_record_name: 'Record name'
+      label_record_value: 'Record value (TXT)'
+      label_selector: 'Selector'
+      label_zone: 'Zone file snippet'
+      note_bad_base64: 'The public key is not valid base64: check that nothing but the base64 body was pasted'
+      note_no_domain: 'Fill in the domain to get the name of the record'
+      note_no_key: 'No public key yet: this record is incomplete, paste the public key in before publishing'
+      note_no_selector: 'Fill in the selector: the record has to be published at <selector>._domainkey.{domain}'
+      note_not_der: 'This base64 does not decode to a DER structure: DKIM needs the DER SubjectPublicKeyInfo, not an OpenSSH or raw key'
+      note_not_rsa: 'This does not look like an RSA SubjectPublicKeyInfo: check that the key really is the RSA key pair that signs your mail'
+      note_openssh: 'This is an OpenSSH public key (ssh-rsa …): DKIM needs the base64 of the DER SubjectPublicKeyInfo instead. Convert it with `openssl rsa -pubout -outform PEM` and paste the body of the PEM block'
+      note_pem_label: 'This PEM block is not a public key: DKIM needs the `PUBLIC KEY` block printed by `openssl rsa -pubout`'
+      note_pkcs1: 'This is a PKCS#1 RSA public key: DKIM needs the SubjectPublicKeyInfo form. Convert it with `openssl rsa -pubout`'
+      note_too_long: 'The record value is {bytes} bytes, over the 255-byte limit of a single DNS string: the zone snippet below is already split into several strings, most DNS panels split it for you'
+      zone_comment: 'DKIM public key for {name}'
+    dmarc-dns-generator:
+      copy_full: 'Copy full record'
+      copy_name: 'Copy name'
+      copy_value: 'Copy value'
+      copy_zone: 'Copy zone file'
+      desc: 'DMARC tells the recipients what to do with the mail that fails SPF or DKIM. Publish the record at _dmarc.<domain>.'
+      fo_0: '0: report when the authentication fails'
+      fo_1: '1: report when any of the checks fails'
+      fo_d: 'd: report when DKIM fails'
+      fo_s: 's: report when SPF fails'
+      hint_aggregate_reports: 'Comma separated; mailto: is added automatically when it is missing'
+      hint_domain: 'The domain the DMARC record is published on, e.g. example.com'
+      hint_failure_options: 'Which failures make the recipient send a report'
+      hint_forensic_reports: 'Needs an extra authorization from the recipient, most free mail providers do not give it, so you may never receive them'
+      hint_percentage: '0-100, decimals allowed. Start with a small percentage and ramp it up later'
+      hint_policy: 'What the recipient does with a mail that fails DMARC'
+      hint_reporting_interval: 'In seconds, at least 3600. Left out of the record when it is empty, the default is 86400'
+      hint_subdomain_policy: 'The policy for the subdomains: left out of the record when it is the same as p'
+      label_aggregate_reports: 'Aggregate reports (rua)'
+      label_dkim_alignment: 'DKIM alignment (adkim)'
+      label_domain: 'Domain'
+      label_failure_options: 'Failure options (fo)'
+      label_forensic_reports: 'Forensic reports (ruf)'
+      label_full_record: 'Full record'
+      label_percentage: 'Percentage (pct)'
+      label_policy: 'Policy (p)'
+      label_record_name: 'Record name'
+      label_record_value: 'Record value (TXT)'
+      label_reporting_interval: 'Reporting interval (ri)'
+      label_spf_alignment: 'SPF alignment (aspf)'
+      label_subdomain_policy: 'Subdomain policy (sp)'
+      label_zone: 'Zone file snippet'
+      note_alignment_r: '{key} is r (relaxed): SPF or DKIM aligned in **either** way is enough to pass'
+      note_alignment_s: '{key} is s (strict): SPF and DKIM must **both** be aligned'
+      note_bad_email: 'These report addresses do not look like email addresses: {list}'
+      note_no_domain: 'Fill in the domain to get the name of the record'
+      note_no_rua: 'rua is not set: nobody receives the authentication results, which is the same as not turning on DMARC monitoring'
+      note_pct_clamped: 'The percentage was clamped to {value}: it has to stay between 0 and 100'
+      note_pct_invalid: 'The percentage is not a number: it was left out of the record'
+      note_policy_none: 'p=none is only an observation mode: recipients will not reject any mail because of it'
+      note_ri_invalid: 'The reporting interval has to be a whole number of seconds, at least 3600: it was left out of the record'
+      note_too_long: 'The record value is {bytes} bytes, over the 255-byte limit of a single DNS string: split it into several strings before publishing'
+      opt_not_set: '(not set)'
+      opt_not_written: '(not written, r by default)'
+      opt_relaxed: 'r — relaxed'
+      opt_same_as_p: '(same as p)'
+      opt_strict: 's — strict'
+      policy_none: 'none (report only, no action - start with this one to observe)'
+      policy_quarantine: 'quarantine (send to the spam folder)'
+      policy_reject: 'reject (reject outright)'
+      zone_comment: 'DMARC record for {domain}'
     dns-record-generator:
       add_mechanism: '+ Add mechanism'
       all_fail: '-all (fail: reject strictly)'
@@ -1280,6 +1587,20 @@ ui:
       note_not_translatable: 'These options are not translatable to docker-compose'
       note_other: 'Other messages from the converter'
       sample: 'Sample'
+    duplicate-line-finder:
+      col_count: 'Occurrences'
+      col_line: 'Line'
+      copy_all: 'Copy all lines'
+      download: 'Download'
+      ignore_case: 'Ignore case'
+      ignore_whitespace: 'Ignore leading and trailing whitespace'
+      input: 'Your text:'
+      input_ph: 'Paste the text whose lines you want to check for duplicates.'
+      note_options: 'Empty lines are ignored. With the options on, lines that differ only by surrounding whitespace or letter case count as the same line; the first occurrence is the one listed.'
+      result: 'Duplicated lines'
+      status_empty: 'Type or paste some text to find duplicated lines.'
+      status_found: '{count} duplicated line(s) found.'
+      status_none: 'No duplicated line found.'
     email-header-parser:
       age_ago: '{n} {unit} ago'
       age_in: 'in {n} {unit}'
@@ -1509,6 +1830,59 @@ ui:
       select_all: 'Remove all'
       select_none: 'Keep all'
       title: 'Remove metadata from an image'
+    folder-structure-diagram:
+      hint: 'Indent each level by two or four spaces (or use tabs), or list the paths one per line (a/b/c). The tree is drawn with the box-drawing characters.'
+      input_label: 'Folder structure:'
+      input_ph: 'Paste the indented structure or the list of paths here...'
+      output_label: 'Tree diagram'
+      status_count: '{n} entries'
+      status_empty: 'Nothing to draw: the input is empty.'
+    gitattributes-generator:
+      btn_clear: 'Clear selection'
+      btn_download: 'Download'
+      btn_generate: 'Generate'
+      btn_select_all: 'Select all shown'
+      cmd_hint: 'The links below point to the same snapshot commit as the preview above, so the files you fetch match what you see — minus the "# <name>" header lines.'
+      cmd_title: 'Fetch the same templates with curl'
+      err_no_selection: 'Select at least one template first.'
+      err_nothing_to_download: 'Nothing to download yet.'
+      hint_search: 'Type to filter the list, then tick every template you want to merge. The file is built in the order you tick them.'
+      label_templates: 'Templates'
+      load_failed: 'Failed to load the template snapshot: {error}'
+      nothing_matches: 'No template matches "{query}".'
+      out_empty: 'Nothing generated yet — tick some templates and press Generate.'
+      ph_search: 'Search templates (e.g. visualstudio, python, vim)…'
+      snapshot_count: '{count} templates from {repo}'
+      snapshot_label: 'Template snapshot:'
+      snapshot_link_title: 'Open the template repository at this commit'
+      snapshot_loading: 'Template snapshot: loading…'
+      status_downloaded: 'Saved {name}.'
+      status_generated: 'Merged {count} templates.'
+      status_loading: 'Loading templates…'
+      status_selected: '{count} selected'
+    gitignore-generator:
+      btn_clear: 'Clear selection'
+      btn_download: 'Download'
+      btn_generate: 'Generate'
+      btn_select_all: 'Select all shown'
+      cmd_hint: 'The links below point to the same snapshot commit as the preview above, so the files you fetch match what you see — minus the "# <name>" header lines.'
+      cmd_title: 'Fetch the same templates with curl'
+      err_no_selection: 'Select at least one template first.'
+      err_nothing_to_download: 'Nothing to download yet.'
+      hint_search: 'Type to filter the list, then tick every template you want to merge. The file is built in the order you tick them.'
+      label_templates: 'Templates'
+      load_failed: 'Failed to load the template snapshot: {error}'
+      nothing_matches: 'No template matches "{query}".'
+      out_empty: 'Nothing generated yet — tick some templates and press Generate.'
+      ph_search: 'Search templates (e.g. node, python, vue)…'
+      snapshot_count: '{count} templates from {repo}'
+      snapshot_label: 'Template snapshot:'
+      snapshot_link_title: 'Open the template repository at this commit'
+      snapshot_loading: 'Template snapshot: loading…'
+      status_downloaded: 'Saved {name}.'
+      status_generated: 'Merged {count} templates.'
+      status_loading: 'Loading templates…'
+      status_selected: '{count} selected'
     har-sanitizer:
       cat_body_keys: 'Response body keys'
       cat_cookies: 'Cookies'
@@ -1555,6 +1929,40 @@ ui:
       title_escape: 'Escape html entities'
       title_unescape: 'Unescape html entities'
       unescaped: 'Your string unescaped'
+    html-formatter:
+      clear: 'Clear'
+      copy_html: 'Copy HTML'
+      download_html: 'Download .html'
+      err_format: 'HTML formatting failed: {error}'
+      err_lib: 'The HTML formatter library failed to load. Please refresh the page and try again.'
+      extra_liners: 'Extra line before tags'
+      extra_liners_hint: 'Comma-separated tag names; empty = none'
+      format: 'Format'
+      hint_empty: 'Paste some HTML to format.'
+      indent_inner_html: 'Indent inner HTML'
+      indent_size: 'Indent size'
+      input: 'Your HTML to format'
+      input_hint: 'The content of script and style blocks is formatted too.'
+      input_ph: 'Paste your HTML here...'
+      output: 'Formatted HTML'
+      preserve_newlines: 'Preserve blank lines'
+      sample: 'Load sample'
+      warn_not_html: 'This does not look like HTML — the text was passed through unchanged.'
+      wrap_line_length: 'Wrap line length'
+      wrap_line_length_hint: '0 = no wrapping'
+    html-minifier:
+      clear: 'Clear'
+      copy_html: 'Copy HTML'
+      download_html: 'Download .html'
+      err_minify: 'HTML minification failed: {error}'
+      hint_empty: 'Paste some HTML to minify.'
+      input: 'Your HTML to minify'
+      input_hint: 'Comments are removed and whitespace is collapsed. The content of script, style, textarea and pre blocks is kept as it is.'
+      input_ph: 'Paste your HTML here...'
+      minify: 'Minify'
+      output: 'Minified HTML'
+      sample: 'Load sample'
+      status_size: 'Shrunk from {before} to {after} characters ({percent}% smaller).'
     html-to-markdown:
       copy_md: 'Copy Markdown'
       download_md: 'Download .md'
@@ -1611,6 +2019,26 @@ ui:
       no_match: 'No matching status codes.'
       search: 'Search http status...'
       total_n: 'Total {n} status codes'
+    i-and-l-checker:
+      col_class: 'Character'
+      col_count: 'Occurrences'
+      hint: 'Every character is rendered on its own, so the text stays selectable and copyable. Turn a category off to leave its characters alone.'
+      input_label: 'Text to check:'
+      input_ph: 'Paste the text to check here...'
+      opt_braces: 'Curly braces ({ })'
+      opt_brackets: 'Square brackets ([ ])'
+      opt_lower_l: 'Lowercase L (l)'
+      opt_one: 'Number 1 (1)'
+      opt_parens: 'Round brackets (( ))'
+      opt_pipe: 'Vertical bar (|)'
+      opt_upper_i: 'Uppercase I (I)'
+      opt_upper_o: 'Uppercase O (O)'
+      opt_zero: 'Number 0 (0)'
+      output_label: 'Highlighted text'
+      summary_many: 'This text contains {n} confusable characters.'
+      summary_none: 'No confusable character found in this text.'
+      summary_one: 'This text contains 1 confusable character.'
+      total: 'Total'
     iban-validator-and-parser:
       cls_digits: 'digits'
       cls_other: 'characters in [{cls}]'
@@ -1940,12 +2368,62 @@ ui:
       omit_empty: 'Omit empty'
       output: 'Your Go String'
       status_empty: 'Type or paste some JSON above.'
+    json-to-protobuf:
+      copy_proto: 'Copy protobuf'
+      err_invalid: 'Provided JSON is not valid. {message}'
+      hint: 'Generates a protobuf3 message definition from JSON. Booleans become bool, whole numbers int32 or int64, decimals double, and strings stay string. Arrays become repeated fields and nested objects become nested messages.'
+      input: 'Your JSON'
+      input_ph: 'Put your JSON here...'
+      output: 'Your protobuf definition'
+      package_name: 'Package name (optional)'
+      root_name: 'Root message name'
+      status_empty: 'Type or paste some JSON above.'
+    json-to-schema:
+      copy_schema: 'Copy schema'
+      err_invalid: 'Provided JSON is not valid. {message}'
+      fmt_bigquery: 'Google BigQuery schema'
+      fmt_clickhouse: 'ClickHouse table schema'
+      fmt_generic: 'Generic'
+      fmt_json: 'JSON Schema'
+      fmt_mongoose: 'Mongoose schema'
+      fmt_mysql: 'MySQL table schema'
+      format: 'Target schema format'
+      hint: 'Generates a schema from JSON. The same inferred types drive every format, so the JSON Schema, the SQL table and the BigQuery schema always agree on what a field is. Table name is used as the JSON Schema title and as the SQL table name.'
+      input: 'Your JSON'
+      input_ph: 'Put your JSON here...'
+      output: 'Your schema'
+      status_empty: 'Type or paste some JSON above.'
+      table_name: 'Table name'
+    json-to-sql-insert:
+      copy_sql: 'Copy SQL'
+      err_invalid: 'Provided JSON is not valid. {message}'
+      hint: 'Generates SQL INSERT statements from JSON. Nested objects become dotted column names, arrays are stored as JSON text, null becomes NULL and booleans become TRUE / FALSE. Strings are escaped by doubling single quotes.'
+      input: 'Your JSON'
+      input_ph: 'Put your JSON here...'
+      output: 'Your SQL code'
+      status_empty: 'Type or paste some JSON above.'
+      table_name: 'Table name'
     json-to-toml:
       download: 'Download'
       hint: 'Accepts JSON and JSON5: comments, trailing commas, single quotes and unquoted keys are all fine. The top level of a TOML document must be a table, and values cannot be null (TOML has no null).'
       input: 'Your JSON'
       input_ph: 'Paste your JSON here...'
       output: 'TOML from your JSON'
+    json-to-typescript:
+      camel_case: 'camelCase property names'
+      copy_ts: 'Copy TypeScript'
+      decl_interface: 'interface'
+      decl_kind: 'Declaration'
+      decl_type: 'type'
+      err_invalid: 'Provided JSON is not valid. {message}'
+      hint: 'Generates TypeScript types from JSON. Booleans become boolean, numbers become number, and strings that look like ISO-8601 dates stay string. Objects become their own interface and arrays become T[]. A top-level array is exported as a type alias over the element type.'
+      input: 'Your JSON'
+      input_ph: 'Put your JSON here...'
+      optional_props: 'Make all properties optional'
+      output: 'Your TypeScript code'
+      readonly_members: 'Readonly members'
+      root_name: 'Root type name'
+      status_empty: 'Type or paste some JSON above.'
     json-to-xml:
       err_convert: 'Conversion failed: {msg}'
       err_json5: 'JSON5 parse failed: {msg}'
@@ -2047,6 +2525,37 @@ ui:
       value_no: 'no'
       value_yes: 'yes'
       waiting: 'waiting…'
+    levenshtein-calculator:
+      align_hint: 'A gap is written as -, the two columns are separated by |.'
+      align_too_long: 'The strings are too long to align — only the distance is shown.'
+      alignment: 'Alignment'
+      both_empty: 'Both strings are empty, so they are identical.'
+      col_metric: 'Metric'
+      col_value: 'Value'
+      copy_alignment: 'Copy alignment'
+      copy_result: 'Copy result'
+      distance: 'Levenshtein distance'
+      lcs_length: 'Longest common subsequence'
+      result: 'Result'
+      similarity: 'Similarity'
+      string_a: 'First string'
+      string_b: 'Second string'
+      string_ph: 'Type something...'
+    list-comparer:
+      copy: 'Copy'
+      count_item: '{n} item'
+      count_items: '{n} items'
+      group_both: 'In both lists'
+      group_only_a: 'Only in the first list'
+      group_only_b: 'Only in the second list'
+      hint_case: 'When case is ignored, the spelling of the first list is shown.'
+      list_a: 'First list'
+      list_b: 'Second list'
+      list_ph: 'One item per line'
+      none: '(none)'
+      opt_dedupe: 'Remove duplicates'
+      opt_ignore_case: 'Ignore case'
+      opt_trim: 'Trim whitespace'
     list-converter:
       download: 'Download'
       input_data: 'Your input data'
@@ -2542,6 +3051,29 @@ ui:
       type_voip: 'VoIP'
       unknown: 'Unknown'
       'yes': 'Yes'
+    ptr-dns-generator:
+      copy_host: 'Copy name'
+      copy_record: 'Copy record'
+      copy_value: 'Copy value'
+      err_ip_invalid: 'That is not a valid IPv4 or IPv6 address.'
+      err_ip_required: 'Please fill in an IP address.'
+      err_target_invalid: 'That is not a valid hostname.'
+      err_target_required: 'Please fill in the hostname the PTR record points to.'
+      err_unknown: 'The PTR record could not be generated.'
+      hint_ip: 'The address to look up. IPv4 gives 4.3.2.1.in-addr.arpa, IPv6 gives the 32 nibbles under ip6.arpa.'
+      hint_target: 'The hostname the PTR record points to. It should have its own forward (A/AAAA) record.'
+      hint_zone: 'The zone file form ends the names with a dot, which is what makes them absolute.'
+      label_ip: 'IP address (IPv4 or IPv6)'
+      label_target: 'PTR target hostname'
+      note_ipv6_full: 'The IPv6 reverse name uses all 32 nibbles, uncompressed: RFC 3596 requires it and the compressed form is not valid in a zone file.'
+      note_zone_owner: 'This record belongs to the {zone} zone (the usual /24 delegation for IPv4, /32 for IPv6), which is delegated to whoever holds the IP block - your host or the RIR. The domain registrar usually will not let you add it.'
+      out_host: 'Reverse name'
+      out_record: 'Full record'
+      out_title: 'Generated PTR record'
+      out_value: 'PTR value'
+      out_zone: 'Zone file'
+      ph_ip: 'e.g. 1.2.3.4 or 2001:db8::1'
+      ph_target: 'e.g. mail.example.com'
     punycode-converter:
       copy_decoded: 'Copy decoded'
       copy_encoded: 'Copy encoded'
@@ -2578,6 +3110,18 @@ ui:
       qr_code: 'QR code:'
       size: 'Size (px):'
       size_hint: '21–4096'
+    random-line-picker:
+      copy: 'Copy'
+      count: 'Number of lines to pick:'
+      input: 'Your text:'
+      input_ph: 'Paste the lines you want to pick from.'
+      note_count: 'Picked lines never repeat.'
+      pick_again: 'Pick again'
+      result: 'Picked lines'
+      status_bad_count: 'Enter how many lines to pick (at least 1).'
+      status_empty: 'Type or paste some text to pick lines from.'
+      status_picked: 'Picked {count} of {total} line(s).'
+      status_too_many: 'The text only has {total} line(s), so all of them were picked.'
     random-port-generator:
       refresh: 'Refresh'
     regex-tester:
@@ -2675,6 +3219,41 @@ ui:
       input_ph: 'Your input Outlook SafeLink Url...'
       output: 'Output decoded URL'
       warn_not_http: 'not an http(s) URL — click with care'
+    shell-formatter:
+      btn_format: 'Format'
+      hint_command: 'Quotes, pipes, redirections and $( ) are understood: the result is the same command, only laid out over several lines.'
+      indent_2: '2 spaces'
+      indent_4: '4 spaces'
+      input_ph: 'Paste a shell command here...'
+      label_command: 'Shell command'
+      label_indent: 'Indentation'
+      label_mode: 'Splitting'
+      mode_args: 'One argument per line'
+      mode_operators: 'Split on operators only'
+      note_ok: 'The quotes and the operators are kept as they are: the result runs the same command.'
+      output_title: 'Formatted command'
+      warn_backtick: 'There is an unclosed backquote in the input.'
+      warn_double_quote: 'There is an unclosed double quote in the input.'
+      warn_heredoc: 'There is an unclosed heredoc in the input: its ending marker is missing.'
+      warn_single_quote: 'There is an unclosed single quote in the input.'
+      warn_substitution: 'There is an unclosed $( ) in the input.'
+    shell-linearizer:
+      btn_linearize: 'Linearize'
+      hint_command: 'The backslash line continuations are removed and the whitespace between the lines is folded into a single space. Newlines inside quotes are kept: they are part of the text.'
+      input_ph: 'Paste a multiline shell command here...'
+      label_command: 'Shell command'
+      label_sep: 'Between two commands'
+      note_comment: 'The comments were removed: on a single line a comment would comment out the rest of the command.'
+      note_heredoc: 'The heredoc body is kept as it is, so the result still spans several lines.'
+      note_ok: 'The line continuations are gone and the quotes are kept as they are.'
+      output_title: 'Linearized command'
+      sep_semicolon: 'A semicolon (;)'
+      sep_space: 'A single space'
+      warn_backtick: 'There is an unclosed backquote in the input.'
+      warn_double_quote: 'There is an unclosed double quote in the input.'
+      warn_heredoc: 'There is an unclosed heredoc in the input: its ending marker is missing.'
+      warn_single_quote: 'There is an unclosed single quote in the input.'
+      warn_substitution: 'There is an unclosed $( ) in the input.'
     slugify-string:
       input: 'Your string to slugify'
       input_ph: 'Put your string here (ex: My file path)'
@@ -2683,6 +3262,75 @@ ui:
       output_ph: 'Your slug will be generated here (ex: my-file-path)'
       separator: 'Separator'
       separator_hint: 'Defaults to the hyphen -; you can also use _ or several characters'
+    smart-text-replacer:
+      btn_replace_all: 'Replace all'
+      btn_replace_one: 'Replace'
+      btn_reset: 'Reset'
+      col_action: 'Action'
+      col_context: 'Context'
+      col_index: 'No.'
+      err_invalid_regex: 'Invalid regular expression: {message}'
+      find_label: 'Find what:'
+      find_ph: 'Text or regular expression to look for'
+      hint_mode: 'Replace all at once rewrites the whole text as you type. Replace one by one lists every match with its surroundings, and each one gets its own Replace button.'
+      hint_regex: 'In regular expression mode the replacement may use $1, $2 and $& to refer to the captured groups. With the switch off the replacement is taken literally.'
+      hint_split_lines: 'Split into lines searches the text line by line: a match never spans two lines, and ^ and $ match at the start and the end of every line.'
+      input_label: 'Text to search and replace:'
+      input_ph: 'Paste the text you want to search in...'
+      mode_all: 'Replace all at once'
+      mode_label: 'Replace mode:'
+      mode_one: 'Replace one by one'
+      opt_match_case: 'Match case'
+      opt_regex: 'Regular expression'
+      opt_split_lines: 'Split into lines'
+      output_label: 'Result'
+      replace_label: 'Replace with:'
+      replace_ph: 'Replacement text'
+      status_matches: '{n} matches found'
+      status_matches_one: '1 match found'
+      status_pending: '{n} matches left to replace'
+      status_pending_one: '1 match left to replace'
+    spf-dns-generator:
+      all_fail: '-all (fail: reject the mail outright)'
+      all_neutral: '?all (neutral: leave the decision to the recipient)'
+      all_pass: '+all (pass: the same as not setting SPF at all)'
+      all_softfail: '~all (softfail: mark it, but do not reject)'
+      copy_full: 'Copy full record'
+      copy_name: 'Copy name'
+      copy_value: 'Copy value'
+      copy_zone: 'Copy zone file'
+      desc: 'SPF declares which hosts may send mail for your domain. Fill in the allowed sources, then publish the record on the domain itself.'
+      hint_allowed_domains: 'Comma separated. a:example.com allows the IPs in the A record of example.com'
+      hint_allowed_ipv4: 'Comma separated. A CIDR suffix is allowed, e.g. 192.0.2.0/24'
+      hint_allowed_ipv6: 'Comma separated. A CIDR suffix is allowed, e.g. 2001:db8::/32'
+      hint_domain: 'The domain the SPF record is published on: it sits on the domain itself, e.g. example.com'
+      hint_include_domains: 'Comma separated. include: delegates to the SPF record of the other side, e.g. _spf.google.com'
+      hint_other_mechanisms: 'One term per line, e.g. exists:%{i}.example.com or ptr:example.com. exists and ptr must carry a value'
+      hint_policy: 'Only this term decides what happens to the senders that are not listed'
+      hint_redirect: 'Leave it empty unless the whole policy is delegated elsewhere: RFC 7208 forbids redirect and all at the same time'
+      label_allowed_domains: 'Allowed domains (a:)'
+      label_allowed_ipv4: 'Allowed IPv4 addresses (ip4:)'
+      label_allowed_ipv6: 'Allowed IPv6 addresses (ip6:)'
+      label_domain: 'Domain'
+      label_full_record: 'Full record'
+      label_include_domains: 'Included domains (include:)'
+      label_other_mechanisms: 'Other mechanisms'
+      label_policy: 'Policy for everyone else (all)'
+      label_record_name: 'Record name'
+      label_record_value: 'Record value (TXT)'
+      label_redirect: 'Redirect to (redirect=)'
+      label_zone: 'Zone file snippet'
+      note_bad_values: 'Left out because the syntax is wrong or a value is missing: {list}'
+      note_no_domain: 'Fill in the domain to get the name of the record'
+      note_no_mechanism: 'No mechanism is listed: this record authorizes nobody, it only states the policy'
+      note_plus_all: '+all authorizes every sender: it is the same as not setting SPF at all'
+      note_redirect_in_custom: 'redirect is not a mechanism but a modifier: fill in the "Redirect to" field instead, it is put at the end and replaces the all term'
+      note_softfail: '~all only marks the mail, it does not reject it: switch to -all once the configuration is confirmed'
+      note_too_long: 'The record value is {bytes} bytes, over the 255-byte limit of a single DNS string: the zone snippet below is already split into several strings, most DNS panels split it for you'
+      note_too_many_lookups: 'This record has {count} mechanisms that need a DNS query, RFC 7208 allows at most 10'
+      opt_mech_a: 'a: the A record of the domain itself'
+      opt_mech_mx: 'mx: the MX records of the domain itself'
+      zone_comment: 'SPF record for {domain}'
     sql-prettify:
       case_lower: 'lowercase'
       case_preserve: 'Preserve'
@@ -2770,6 +3418,18 @@ ui:
       text_color: 'Text color:'
       text_ph: 'Default is {w}x{h}'
       width: 'Width (in px):'
+    tab-to-spaces:
+      copy: 'Copy'
+      dir_spaces_to_tabs: 'Spaces to tabs'
+      dir_tabs_to_spaces: 'Tabs to spaces'
+      direction: 'Direction'
+      download: 'Download'
+      err_width: 'The indent width must be a whole number between 1 and 16.'
+      input: 'Text to convert'
+      input_hint: 'A tab advances to the next multiple of the indent width, so a tab after one character at width 4 becomes three spaces.'
+      input_ph: 'Paste text with tabs (or spaces) here...'
+      output: 'Converted text'
+      width: 'Spaces per indent level'
     temperature-converter:
       below_absolute_zero: 'This temperature is below absolute zero (0 K), which is physically impossible — the converted result has been clamped to 0 K.'
       celsius: 'Celsius'
@@ -3263,6 +3923,21 @@ field:
   record_type: 'Record type'
   dns_server: 'DNS server (leave empty for the system one)'
   timeout: 'Timeout (seconds)'
+  base_block: 'Base block'
+  test_block: 'Block to test'
+  curve: 'Curve'
+  key_format: 'Key format'
+  private_key: 'Private key (PEM)'
+  public_key: 'Public key (PEM)'
+  signature: 'Signature (base64 or hex)'
+  file_to_hash: 'File to hash'
+  ip_block: 'IP block (CIDR, address range or address)'
+  include_ranges: 'Included ranges'
+  exclude_ranges: 'Excluded ranges'
+  ip_range: 'Address range (start-end, CIDR or a single address)'
+  subnet_prefix: 'Subnet prefix length (blank = every size)'
+  padding: 'Padding scheme'
+  ssid: 'SSID (network name)'
 result:
   # API 工具结果区的标题。原版的结果区各有各的名字，不是笼统的「Output」。
   converted: 'Converted date time'
@@ -3345,6 +4020,8 @@ opt:
     'date-to-week': 'Date → Week'
     'iso-week-to-date': 'ISO Week → Dates'
     'month-week-to-date': 'Month Week → Dates'
+    'sign': 'Sign'
+    'verify': 'Verify'
   bits:
     '2048': '2048 bits'
     '4096': '4096 bits'
@@ -3364,6 +4041,8 @@ opt:
     'utc': 'UTC format'
     'mongo-objectid': 'Mongo ObjectID'
     'excel': 'Excel date/time'
+    'pem': 'PEM'
+    'raw': 'Raw bytes (hex)'
   output:
     encoding:
       'hex': 'Hex'
@@ -3392,6 +4071,14 @@ opt:
       'ptr': 'PTR — reverse lookup'
       'caa': 'CAA — CA authorization'
       'any': 'ANY — every cached record'
+  curve:
+    'p256': 'P-256'
+    'p384': 'P-384'
+    'p521': 'P-521'
+  padding:
+    'pkcs1v15': 'RSAES-PKCS1-v1_5'
+    'oaep-sha1': 'RSAES-OAEP (SHA-1)'
+    'oaep-sha256': 'RSAES-OAEP (SHA-256)'
 # Labels used in the result panel of server-side (API) tools.
 # These keys are referenced from Rust code in src/tools/, not from the front end,
 # so they live outside the `ui:` section (which is shipped to the browser).
@@ -3808,6 +4495,29 @@ out:
     'missing_field': 'Missing field `{field}`'
     'ipv6_empty': 'Enter an IPv6 address'
     'ipv6_bad_address': '`{address}` is not a valid IPv6 address'
+    cidr:
+      kind:
+        'this_network': 'This network (0.0.0.0/8)'
+        'private': 'Private network'
+        'shared': 'Shared address space (CGNAT)'
+        'loopback': 'Loopback'
+        'link_local': 'Link-local'
+        'documentation': 'Documentation'
+        'sixtofour_relay': '6to4 relay anycast'
+        'benchmark': 'Benchmarking'
+        'multicast': 'Multicast'
+        'reserved': 'Reserved'
+        'broadcast': 'Broadcast address'
+        'public': 'Public'
+      err:
+        'bad_value': '`{value}` is not a valid address, address range or CIDR block'
+        'mixed_family': 'The two ends of `{value}` are not the same IP version'
+        'reversed': 'The end of `{value}` is smaller than its start'
+        'different_families': 'The base block and the block being tested are not the same IP version'
+        'ipv4_only': 'This tool only works with IPv4'
+        'prefix_too_long': 'The prefix length {prefix} cannot go beyond /32'
+        'prefix_too_short': 'The target prefix /{target} is shorter than the block''s own /{prefix}'
+        'too_many': 'That would be {count} entries — over the limit of {limit}'
   date-converter:
     err:
       'unknown_timezone': 'Unknown time zone: {timezone}'
@@ -3924,3 +4634,104 @@ out:
       'no_system_config': 'Could not read the system DNS configuration: {reason}'
       'lookup_failed': 'Query failed: {reason}'
       'nxdomain': 'That domain does not exist (NXDOMAIN).'
+  cidr-in-cidr:
+    'base': 'Base block'
+    'test': 'Block to test'
+    'result': 'Result'
+    'included': 'Included'
+    'not_included': 'Not included'
+  ecdsa-key-pair-generator:
+    'private_key': 'Private key (PKCS#8 PEM)'
+    'private_key_sec1': 'Private key (SEC1 PEM)'
+    'public_key': 'Public key (PEM)'
+    'private_key_raw': 'Private key (raw hex)'
+    'public_key_raw': 'Public key (raw hex)'
+    err:
+      'unknown_curve': 'Unknown curve `{curve}` (allowed: p256 / p384 / p521)'
+      'unknown_format': 'Unknown output format `{format}` (allowed: pem / raw)'
+  ecdsa-signing:
+    'signature_hex': 'Signature (hex)'
+    'curve': 'Curve'
+    'digest': 'Digest'
+    'verification_result': 'Verification result'
+    'valid': 'Valid'
+    'invalid': 'Invalid'
+    err:
+      'unknown_mode': 'Unknown mode: {mode} (allowed: sign / verify)'
+      'unknown_curve': 'Unknown curve: {curve} (allowed: p256 / p384 / p521)'
+      'bad_private_key': 'Not a valid EC private key (expected a PEM PKCS#8 or SEC1 private key)'
+      'bad_public_key': 'Not a valid EC public key (expected a PEM SPKI public key)'
+      'curve_mismatch': 'This key is on {actual}, but {expected} was selected'
+      'bad_signature_encoding': 'The signature is neither valid base64 nor valid hex'
+      'bad_signature': 'The signature is not a valid ASN.1 DER ECDSA signature'
+      'input_too_long': 'The input is {size} units long, above the limit of {max}'
+      'encrypted_key_unsupported': 'Encrypted private keys are not supported: this tool does not take a passphrase'
+  ed25519-key-pair-generator:
+    'private_key': 'Private key (PEM)'
+    'public_key': 'Public key (PEM)'
+    'private_key_raw': 'Private key (raw hex)'
+    'public_key_raw': 'Public key (raw hex)'
+    err:
+      'unknown_format': 'Unknown output format `{format}` (allowed: pem / raw)'
+  file-hasher:
+    err:
+      'file_too_large': 'The file is too large ({size} bytes); the limit is {max} bytes'
+      'invalid_base64': 'The uploaded file is not valid base64'
+  ip-cidr-to-range:
+    'cidr': 'CIDR block'
+    'network': 'Network address'
+    'prefix': 'Prefix length'
+    'first': 'First address'
+    'last': 'Last address'
+    'broadcast': 'Broadcast address'
+    'netmask': 'Netmask'
+    'wildcard': 'Wildcard mask'
+    'total': 'Total addresses'
+    'usable': 'Usable hosts'
+    'type': 'Address type'
+  ip-include-exclude:
+    'included': 'Included ranges'
+    'excluded': 'Excluded ranges'
+    'remaining': 'Remaining blocks'
+    'total_addresses': 'Remaining addresses'
+    'effective_excludes': 'Exclusions that applied'
+    err:
+      'no_include': 'Enter at least one included range in `{field}`'
+  ip-range-to-cidr:
+    'first': 'First address'
+    'last': 'Last address'
+    'addresses': 'Addresses in the range'
+    'cidrs': 'CIDR blocks'
+  ipv4-subnets-list:
+    'network': 'Network'
+    'count': 'Subnets'
+  rsa-encryption:
+    'mode': 'Mode'
+    'padding': 'Padding scheme'
+    'key_size': 'Key size (bits)'
+    err:
+      'unknown_mode': 'Unknown mode `{mode}` (allowed: encrypt / decrypt)'
+      'unknown_padding': 'Unknown padding scheme `{padding}` (allowed: pkcs1v15 / oaep-sha1 / oaep-sha256)'
+      'missing_public_key': 'Please enter the public key to encrypt with'
+      'missing_private_key': 'Please enter the private key to decrypt with'
+      'bad_public_key': 'The public key could not be read: it must be a PEM `PUBLIC KEY` (SPKI) or `RSA PUBLIC KEY` (PKCS#1) block'
+      'bad_private_key': 'The private key could not be read: it must be a PEM `RSA PRIVATE KEY` (PKCS#1) or `PRIVATE KEY` (PKCS#8) block'
+      'encrypted_private_key_unsupported': 'PKCS#8 encrypted private keys (`ENCRYPTED PRIVATE KEY`) are not supported: convert it to the traditional OpenSSL format first (`openssl rsa -traditional -aes256`)'
+      'missing_passphrase': 'This private key is encrypted: please enter the passphrase'
+      'private_key_decrypt_failed': 'The private key could not be decrypted: the passphrase is wrong or the file is damaged'
+      'unsupported_dek_cipher': 'Unsupported PEM encryption cipher `{cipher}`'
+      'bad_base64': 'The ciphertext is not valid base64'
+      'decrypt_failed': 'Decryption failed: the private key does not match the ciphertext, the padding scheme is wrong, or the ciphertext has been tampered with'
+      'encrypt_failed': 'Encryption failed'
+      'text_too_long': 'The text is too long for this key and padding scheme: at most `{max}` bytes'
+      'not_utf8': 'The decrypted bytes are not valid UTF-8 text'
+  wpa-psk-generator:
+    'ssid': 'SSID'
+    'psk': 'PSK (hex)'
+    'key_length': 'Key length (bits)'
+    'algorithm': 'Algorithm'
+    'iterations': 'Iterations'
+    'salt': 'Salt'
+    'passphrase_length': 'Passphrase length'
+    warn:
+      'passphrase_length': 'The passphrase is {length} characters; WPA-PSK wants 8 to 63'

@@ -19,14 +19,25 @@
 
 pub mod argon2;
 pub mod bcrypt;
+pub mod cidr;
+pub mod cidr_in_cidr;
+pub mod crc_calculator;
 pub mod csr_generator;
 pub mod date_time_converter;
 pub mod dns_query;
+pub mod ecdsa_key_pair_generator;
+pub mod ecdsa_signing;
+pub mod ed25519_key_pair_generator;
 pub mod encryption;
+pub mod file_hasher;
 pub mod hash_text;
 pub mod hmac_generator;
 pub mod htpasswd;
 pub mod iana_timezone_index;
+pub mod ip_cidr_to_range;
+pub mod ip_include_exclude;
+pub mod ip_range_to_cidr;
+pub mod ipv4_subnets_list;
 pub mod ipv6;
 pub mod ipv6_address_converter;
 pub mod ipv6_subnet_calculator;
@@ -36,6 +47,7 @@ pub mod mac_address_lookup;
 pub mod otp_generator;
 pub mod pdf_signature_checker;
 pub mod pki;
+pub mod rsa_encryption;
 pub mod rsa_formats;
 pub mod rsa_key_pair_generator;
 pub mod ssh_key;
@@ -43,6 +55,7 @@ pub mod ssh_key_pair_generator;
 pub mod ssl_certificate_decoder;
 pub mod util;
 pub mod week_number_converter;
+pub mod wpa_psk_generator;
 pub mod x509_certificate_generator;
 
 use serde_json::Value;
@@ -138,6 +151,18 @@ pub async fn dispatch(endpoint: &str, payload: Value) -> Option<ToolResult> {
         "x509-certificate-generator" => Some(x509_certificate_generator::handle(payload).await),
         "csr-generator" => Some(csr_generator::handle(payload).await),
         "dns-query" => Some(dns_query::handle(payload).await),
+        "rsa-encryption" => Some(rsa_encryption::handle(payload).await),
+        "ecdsa-signing" => Some(ecdsa_signing::handle(payload).await),
+        "ecdsa-key-pair-generator" => Some(ecdsa_key_pair_generator::handle(payload).await),
+        "ed25519-key-pair-generator" => Some(ed25519_key_pair_generator::handle(payload).await),
+        "file-hasher" => Some(file_hasher::handle(payload).await),
+        "crc-calculator" => Some(crc_calculator::handle(payload).await),
+        "ip-cidr-to-range" => Some(ip_cidr_to_range::handle(payload).await),
+        "ip-range-to-cidr" => Some(ip_range_to_cidr::handle(payload).await),
+        "ipv4-subnets-list" => Some(ipv4_subnets_list::handle(payload).await),
+        "cidr-in-cidr" => Some(cidr_in_cidr::handle(payload).await),
+        "ip-include-exclude" => Some(ip_include_exclude::handle(payload).await),
+        "wpa-psk-generator" => Some(wpa_psk_generator::handle(payload).await),
         _ => None,
     }
 }
@@ -168,4 +193,16 @@ pub const IMPLEMENTED: &[&str] = &[
     "x509-certificate-generator",
     "csr-generator",
     "dns-query",
+    "rsa-encryption",
+    "ecdsa-signing",
+    "ecdsa-key-pair-generator",
+    "ed25519-key-pair-generator",
+    "file-hasher",
+    "crc-calculator",
+    "ip-cidr-to-range",
+    "ip-range-to-cidr",
+    "ipv4-subnets-list",
+    "cidr-in-cidr",
+    "ip-include-exclude",
+    "wpa-psk-generator",
 ];

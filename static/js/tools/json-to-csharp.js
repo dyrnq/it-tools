@@ -50,6 +50,8 @@
   var D = window.ItTools.dom;
   var U = window.ItTools.util;
   var t = window.ItTools.t('json-to-csharp');
+  /** 与语言无关的 JSON 类型推断内核（app.js 里）—— 几个 JSON 转代码的工具共用。 */
+  var J = window.ItTools.jsonInfer;
 
   /* ==================================================================
      常量
@@ -84,103 +86,29 @@
    *   YYYY-MM-DD
    *   YYYY-MM-DDTHH:MM[ :SS[.fff]][Z|±hh:mm]
    */
-  var ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,7})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
-
   /* ==================================================================
      名字：切词、大小写、标识符清洗
-     ================================================================== */
+     ==================================================================
+
+     切词与大小写转换是**与语言无关**的，已经挪到 app.js 的
+     `ItTools.jsonInfer` —— json-to-typescript / json-to-protobuf /
+     json-to-schema 要用同一套规则。两边各写一份，迟早会漂移：同一个键在
+     C# 里叫 UserName、在 TypeScript 里叫 userName 那还算好的；漂到两边
+     切词规则不一样（比如一边把 HTTPServer 切成 HTTP|Server、另一边不切），
+     生成出来的类型名就再也对不上了。
+
+     这里只留 C# 特有的那一步：关键字加 @ 前缀。 */
+
+  var splitWords = J.splitWords;
+  var toPascalCase = J.toPascalCase;
+  var toCamelCase = J.toCamelCase;
 
   /**
-   * 切词：把一个原始键名拆成一个个词。PascalCase / camelCase 都基于它。
-   *
-   * 切词规则：
-   *   1. 分隔符：连字符、下划线、空格、点…… 一律不是 [A-Za-z0-9] 的字符都是分隔符；
-   *   2. 驼峰边界：小写或数字后面跟一个大写 → 断开（fooBar → foo | Bar）；
-   *   3. 缩写边界：大写 + 大写 + 小写 → 在后一个大写前断开（HTTPServer → HTTP | Server）；
-   *   4. 数字边界：字母 ↔ 数字之间断开（foo2bar → foo | 2 | bar）。
-   *
-   * @param {string} str
-   * @returns {string[]}
-   */
-  function splitWords(str) {
-    var s = String(str == null ? '' : str);
-    var words = [];
-    var cur = '';
-    for (var i = 0; i < s.length; i++) {
-      var ch = s.charAt(i);
-      if (!/[A-Za-z0-9]/.test(ch)) {
-        if (cur) { words.push(cur); cur = ''; }
-        continue;
-      }
-      if (cur) {
-        var prev = s.charAt(i - 1);
-        var next = i + 1 < s.length ? s.charAt(i + 1) : '';
-        var boundary = false;
-        if (/[a-z0-9]/.test(prev) && /[A-Z]/.test(ch)) {
-          boundary = true;                                    // 驼峰边界
-        } else if (/[A-Z]/.test(prev) && /[A-Z]/.test(ch) && /[a-z]/.test(next)) {
-          boundary = true;                                    // 缩写边界
-        } else if (/[0-9]/.test(prev) !== /[0-9]/.test(ch)) {
-          boundary = true;                                    // 数字边界
-        }
-        if (boundary) { words.push(cur); cur = ''; }
-      }
-      cur += ch;
-    }
-    if (cur) words.push(cur);
-    return words;
-  }
-
-  /**
-   * PascalCase：每个词首字母大写、其余小写。
-   * 数字开头的词保持数字开头（2fa → 2 | fa → 2Fa），后面再由 sanitizeIdentifier 补 _ 前缀。
-   *
-   * @param {string} str
-   * @returns {string}
-   */
-  function toPascalCase(str) {
-    var words = splitWords(str);
-    var out = '';
-    for (var i = 0; i < words.length; i++) {
-      var w = words[i];
-      var head = w.charAt(0);
-      var tail = w.substr(1).toLowerCase();
-      out += (head >= '0' && head <= '9') ? head + tail : head.toUpperCase() + tail;
-    }
-    return out;
-  }
-
-  /**
-   * camelCase：跟 PascalCase 同样的切词，首词首字母小写。
-   * 用来生成构造函数参数名 —— C# 的参数名是 camelCase 的。
-   *
-   * @param {string} str
-   * @returns {string}
-   */
-  function toCamelCase(str) {
-    var p = toPascalCase(str);
-    if (!p) return p;
-    var head = p.charAt(0);
-    if (head >= '0' && head <= '9') return p;    // 数字开头没法小写开头
-    return head.toLowerCase() + p.substr(1);
-  }
-
-  /**
-   * 洗成合法的 C# 标识符：[A-Za-z_][A-Za-z0-9_]*。
-   *
-   *   1. 不是标识符字符的一律换成 _（连字符、点、空格、中文……）；
-   *   2. 数字开头 → 加 _ 前缀；
-   *   3. C# 关键字 → 加 @ 前缀。
-   *
-   * 空串给个 '_'，免得生成的东西没名字。
-   *
-   * @param {string} name
-   * @returns {string}
+   * C# 的标识符清洗：先把不合法的字符换掉（通用那步在核心里），
+   * 再给关键字加 @ 前缀（@class 指的还是 class）。
    */
   function sanitizeIdentifier(name) {
-    var s = String(name == null ? '' : name).replace(/[^A-Za-z0-9_]/g, '_');
-    if (!s) s = '_';
-    if (s.charAt(0) >= '0' && s.charAt(0) <= '9') s = '_' + s;
+    var s = J.sanitizeIdentifier(name);
     if (CSHARP_KEYWORDS.indexOf(s) !== -1) s = '@' + s;
     return s;
   }
@@ -193,11 +121,41 @@
 
   /* ==================================================================
      类型推断
-     ================================================================== */
+     ==================================================================
 
-  /** 是不是一个普通的 JSON 对象（不是数组、不是 null） */
-  function isPlainObject(value) {
-    return Object.prototype.toString.call(value) === '[object Object]';
+     推断本身已经挪到 app.js 的 `ItTools.jsonInfer` —— 那是一棵**与语言无关**的
+     类型树（标量 / 数组 / 对象），节点形状见 app.js 里那一段的注释。
+
+     C# 这一侧只做翻译：把中立类型映射成 C# 的类型名，并说清哪些是值类型
+     （可空引用类型那个 ? 只给引用类型加）。 */
+
+  var isPlainObject = J.isPlainObject;
+  var isIsoDate = J.isIsoDate;
+
+  /** 中立的标量类型 → C# 类型名 */
+  function csharpTypeName(type) {
+    switch (type.type) {
+      case 'boolean': return 'bool';
+      case 'integer':
+        if (type.width === 'int32') return 'int';
+        if (type.width === 'int64') return 'long';
+        return 'decimal';
+      case 'number': return 'double';
+      case 'string': return 'string';
+      case 'date': return 'DateTime';
+      case 'null': return 'object';
+      default: return 'object';
+    }
+  }
+
+  /**
+   * 是不是**值类型**（可空引用类型那个 ? 只给引用类型加）。
+   * DateTime / int / bool / double 都是值类型 —— 给它们加 ? 变成的是
+   * Nullable<T>，语义完全不是一回事。
+   */
+  function csharpIsValueType(type) {
+    if (type.kind !== 'scalar') return false;
+    return type.type !== 'string' && type.type !== 'null';
   }
 
   /**
@@ -206,46 +164,9 @@
    * int 的范围是 int32；超出用 long；再超出（JSON 的双精度已经装不下 long 了）用 decimal。
    * 注意 long 的上界写的是 < 2^63：JS 的 number 是双精度，2^63 正好可表示，
    * 而 long.MaxValue 是 2^63-1，所以要用「小于 2^63」而不是「小于等于 long.MaxValue」。
-   *
-   * @param {number} n
-   * @returns {string}
    */
   function numberType(n) {
-    if (!Number.isInteger(n)) return 'double';
-    if (n >= -2147483648 && n <= 2147483647) return 'int';
-    if (n >= -9223372036854775808 && n < 9223372036854775808) return 'long';
-    return 'decimal';
-  }
-
-  /** 字符串是不是 ISO-8601 日期/日期时间的形状 */
-  function isIsoDate(str) {
-    return ISO_DATE_RE.test(String(str == null ? '' : str));
-  }
-
-  /**
-   * 标量值 → C# 类型。
-   * reference 表示它是不是**引用类型**（可空引用类型开关只给引用类型加 ?）。
-   * DateTime / int / bool / double 都是值类型，不能加 ?。
-   *
-   * @param {*} value
-   * @returns {{kind: string, type: string, reference: boolean}}
-   */
-  function inferValueType(value) {
-    if (value === null) return { kind: 'scalar', type: 'object', reference: true };
-    switch (typeof value) {
-      case 'boolean':
-        return { kind: 'scalar', type: 'bool', reference: false };
-      case 'number':
-        return { kind: 'scalar', type: numberType(value), reference: false };
-      case 'string':
-        // DateTime 是**值类型**（不是可空引用类型那个 DateTime?），
-        // 所以可空引用类型开关不能给它加 ?。
-        return isIsoDate(value)
-          ? { kind: 'scalar', type: 'DateTime', reference: false }
-          : { kind: 'scalar', type: 'string', reference: true };
-      default:
-        return { kind: 'scalar', type: 'object', reference: true };
-    }
+    return csharpTypeName(J.inferScalar(n));
   }
 
   /* ==================================================================
@@ -269,159 +190,78 @@
     };
   }
 
-  /**
-   * 开一个新类：名字洗成合法标识符，跟已有的重名就加数字后缀。
-   *
-   * 重名是必然的：两个不同的键（"user-name" 与 "user_name"）转成同一个类名，
-   * 生成两份一模一样的 class 编译不过。
-   *
-   * @param {{classes: Array, usedClassNames: Object}} ctx
-   * @param {string} nameHint
-   * @returns {{name: string, members: Array}}
-   */
-  function newClass(ctx, nameHint) {
-    var base = sanitizeIdentifier(toPascalCase(nameHint));
-    if (!base || base === '_') base = 'Root';
-    var name = base;
-    var i = 2;
-    while (ctx.usedClassNames[name]) { name = base + i; i++; }
-    ctx.usedClassNames[name] = true;
-    var cls = { name: name, members: [] };
-    ctx.classes.push(cls);
-    return cls;
-  }
-
   /** 同一个类里的成员名不能重样（C# 不允许），撞了就加数字后缀 */
-  function uniqueMemberName(name, used) {
-    var candidate = name;
-    var i = 2;
-    while (used[candidate]) { candidate = name + i; i++; }
-    used[candidate] = true;
-    return candidate;
-  }
+  var uniqueMemberName = J.uniqueMemberName;
 
   /**
-   * 一个 JSON 值对应的 C# 类型。
-   * 对象在这里被展开成一个新 class（类名用属性名做提示）。
+   * 把推断出来的类型树翻译成 C# 的类列表。
    *
-   * @param {object} ctx
-   * @param {*} value
-   * @param {string} nameHint 生成类名时的提示（一般是属性名）
-   * @param {object} opts
-   * @returns {{kind: string, type: string, elementType: string, reference: boolean}}
+   * 顶层是数组或标量时，C# 没有「根类型」这个东西 —— 得造一个类把它装起来：
+   * 数组装成 `T[] Items`，标量装成 `T Value`。但**顶层数组的元素本身是对象
+   * 时**，那个元素类直接当根类（不另造一个 Items 壳）—— 跟上游一个口径。
    */
-  function buildType(ctx, value, nameHint, opts) {
-    if (value === null) return { kind: 'scalar', type: 'object', reference: true };
+  function buildClasses(doc, opts) {
+    var classes = doc.defs.slice();
 
-    if (Array.isArray(value)) {
-      if (!value.length) {
-        // 空数组：元素类型无从推断 → object[]
-        return { kind: 'array', elementType: 'object', reference: true };
-      }
-      // 只看**第一个**元素：数组里元素类型不一致时没有公共类型可取，
-      // 上游也是按第一个元素算的。与其编一个 object[]，不如给出最可能的类型。
-      var elem = buildType(ctx, value[0], nameHint, opts);
-      // 嵌套数组的元素类型固定写成 T[]（不跟只读列表开关走）——
-      // 否则 IReadOnlyList<IReadOnlyList<T>> 的初始化 new List<…>() 没法写对。
-      var elemName = elem.kind === 'array' ? elem.elementType + '[]' : elem.type;
-      return { kind: 'array', elementType: elemName, reference: true };
+    // 顶层就是对象 → 它自己就是根类
+    if (doc.root.kind === 'object') {
+      return { classes: classes, root: doc.root };
     }
 
-    if (isPlainObject(value)) {
-      var cls = buildClass(ctx, value, nameHint, opts);
-      return { kind: 'class', type: cls.name, reference: true };
+    // 顶层是数组、元素是对象 → 元素类就是根类
+    if (doc.root.kind === 'array' && doc.root.element.kind === 'object') {
+      return { classes: classes, root: doc.root.element };
     }
 
-    return inferValueType(value);
-  }
-
-  /**
-   * 把一个 JSON 对象展开成一个 class。
-   *
-   * @param {object} ctx
-   * @param {object} obj
-   * @param {string} nameHint
-   * @param {object} opts
-   * @returns {{name: string, members: Array}}
-   */
-  function buildClass(ctx, obj, nameHint, opts) {
-    var cls = newClass(ctx, nameHint);
-    var usedNames = Object.create(null);
-    var keys = Object.keys(obj);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      var type = buildType(ctx, obj[key], key, opts);
-      var raw = opts.pascalCase ? toPascalCase(key) : String(key);
-      var name = uniqueMemberName(sanitizeIdentifier(raw), usedNames);
-      cls.members.push({
-        jsonKey: key,
-        name: name,
-        type: type
-      });
-    }
-    return cls;
-  }
-
-  /**
-   * 顶层是一个数组时，按上游的约定把「元素类型」当根：
-   * 元素是对象 → 元素类直接当根类；元素是标量 → 根类里放一个 T[] 的容器属性。
-   *
-   * @param {object} ctx
-   * @param {*} data
-   * @param {object} opts
-   * @returns {{name: string, members: Array}}
-   */
-  function buildRoot(ctx, data, opts) {
-    if (Array.isArray(data)) {
-      if (!data.length) {
-        var empty = newClass(ctx, opts.rootName);
-        empty.members.push({
-          jsonKey: null,
-          name: 'Items',
-          type: { kind: 'array', elementType: 'object', reference: true }
-        });
-        return empty;
-      }
-      if (isPlainObject(data[0])) {
-        return buildClass(ctx, data[0], opts.rootName, opts);
-      }
-      var cls = newClass(ctx, opts.rootName);
-      var elem = buildType(ctx, data[0], opts.rootName, opts);
-      cls.members.push({
-        jsonKey: null,
+    var rootClass = {
+      kind: 'object',
+      name: doc.newTypeName(opts.rootName),
+      members: []
+    };
+    if (doc.root.kind === 'array') {
+      rootClass.members.push({
+        key: null,
         name: 'Items',
-        type: { kind: 'array', elementType: elem.type, reference: true }
+        type: { kind: 'array', element: doc.root.element }
       });
-      return cls;
+    } else {
+      rootClass.members.push({ key: null, name: 'Value', type: doc.root });
     }
-
-    if (isPlainObject(data)) {
-      return buildClass(ctx, data, opts.rootName, opts);
-    }
-
-    // 顶层是标量：根类里放一个标量属性
-    var scalar = newClass(ctx, opts.rootName);
-    scalar.members.push({
-      jsonKey: null,
-      name: 'Value',
-      type: inferValueType(data)
-    });
-    return scalar;
+    classes.unshift(rootClass);
+    return { classes: classes, root: rootClass };
   }
 
   /* ---------- 渲染 ---------- */
 
-  /** 类型名（数组按开关写成 T[] 或 IReadOnlyList<T>） */
+  /**
+   * 类型名。
+   *
+   * 数组按开关写成 `T[]` 或 `IReadOnlyList<T>`。
+   */
   function typeNameOf(type, opts) {
-    if (type.kind !== 'array') return type.type;
-    if (opts.useReadonlyLists) return 'IReadOnlyList<' + type.elementType + '>';
-    return type.elementType + '[]';
+    if (type.kind === 'array') {
+      var inner = plainTypeName(type.element, opts);
+      return opts.useReadonlyLists ? 'IReadOnlyList<' + inner + '>' : inner + '[]';
+    }
+    if (type.kind === 'object') return type.name;
+    return csharpTypeName(type);
+  }
+
+  /**
+   * 数组的「元素类型名」（不带 []）。
+   *
+   * 嵌套的数组在这里被拍成 `T[]` —— 只读列表**不**跟着嵌套：
+   * 否则 IReadOnlyList<IReadOnlyList<T>> 的初始化 new List<…>() 没法写对。
+   */
+  function plainTypeName(type, opts) {
+    if (type.kind === 'array') return plainTypeName(type.element, opts) + '[]';
+    return typeNameOf(type, opts);
   }
 
   /** 可空引用类型：只给引用类型加 ?（值类型加了就是 Nullable<T>，语义完全不同） */
   function nullableSuffix(type, opts) {
     if (!opts.useNullable) return '';
-    return type.reference ? '?' : '';
+    return csharpIsValueType(type) ? '' : '?';
   }
 
   /** 带 ? 的类型名 */
@@ -435,7 +275,7 @@
    */
   function listInitializer(type, opts) {
     if (type.kind !== 'array' || !opts.useReadonlyLists) return '';
-    return ' = new List<' + type.elementType + '>()';
+    return ' = new List<' + plainTypeName(type.element, opts) + '>()';
   }
 
   /** C# 字符串字面量里的转义 */
@@ -466,8 +306,8 @@
    */
   function renderAttributes(member, opts, isRecordParam) {
     var attrs = [];
-    if (member.jsonKey === null || member.jsonKey === undefined) return attrs;
-    var escaped = escapeCSharpString(member.jsonKey);
+    if (member.key === null || member.key === undefined) return attrs;
+    var escaped = escapeCSharpString(member.key);
     if (opts.addJsonProperty) {
       if (opts.nullValueHandlingIgnore) {
         attrs.push('[JsonProperty("' + escaped + '", NullValueHandling = NullValueHandling.Ignore)]');
@@ -609,12 +449,18 @@
 
     var data = JSON.parse(src);
 
-    var ctx = { classes: [], usedClassNames: Object.create(null) };
-    buildRoot(ctx, data, options);
+    var doc = J.infer(data, {
+      rootName: options.rootName,
+      pascalCase: options.pascalCase,
+      sanitizeMember: sanitizeIdentifier,
+      sanitizeType: sanitizeIdentifier
+    });
+
+    var built = buildClasses(doc, options);
 
     var out = [];
-    for (var i = 0; i < ctx.classes.length; i++) {
-      out.push(renderClass(ctx.classes[i], options));
+    for (var i = 0; i < built.classes.length; i++) {
+      out.push(renderClass(built.classes[i], options));
     }
     return out.join('\n\n');
   }

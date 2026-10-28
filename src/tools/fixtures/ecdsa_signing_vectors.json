@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "ECDSA 测试向量 —— 全部由 OpenSSL 3.5.7 生成（外部参照，不是本实现自己的输出）。",
+    "生成方法见同目录的 generate-ecdsa-vectors.sh。",
+    "产物里只有公开材料：公钥（SPKI）、被签名的消息、OpenSSL 签出来的 DER 签名。",
+    "私钥不在这儿 —— 仓库是公开的，GitHub 对公开仓库默认开着 push protection。"
+  ],
+  "message": "ECDSA 签名测试 — hello 世界\n第二行\n",
+  "vectors": {
+    "p256": {
+      "curve": "p256",
+      "digest": "sha256",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPYSYrnoogisjB75IaoIB7tw+ZDD6\nLrV7K7/S/syuo/ZevL0c56ZoEjYnG0+KBk/lS1CwrRTf2IWeXEJKL9z82A==\n-----END PUBLIC KEY-----\n",
+      "signatureHex": "304502202ebef95de7786523e7c8f64e0a613c3425a0017b5494d9a1ee21cbe810408a0a022100c29970786273d559a9346970f3990258d695b6630256a20cad21f7affe675f08"
+    },
+    "p384": {
+      "curve": "p384",
+      "digest": "sha384",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEe0Tv+4OoSYU2npIReyMBRWFYBONDC0MZ\nRm7wVPghoTKfX92QQk0K4CUo2lsGiuydXom7Y4lz80airfKWzvn2Ih6VDGwgqGNn\npdlXmNX7oGo/W8VG3yo4KQ3btRlOYN4O\n-----END PUBLIC KEY-----\n",
+      "signatureHex": "3066023100c36aab765d3333397fd8dc35a07fee679c0e35f921a9b8ed8c4203404c27dd409b38707ef5eddc8b722d3314ba11130d023100bf3fbdfe08c62eee8aa8ac8cf06f8d36da03be8e0b0f31680bdd331b9ff48aa25884e9d885fa8465229e5345028ceb44"
+    },
+    "p521": {
+      "curve": "p521",
+      "digest": "sha512",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAXAgSXfCFDjIJKqXyEUG1YrT/dE3k\nXXZRNKmkcQ0xdBWwvEm9urSWfOMG7pvFod2K9MeMAByJ6XaRAilihpHtv5EAjkOw\nB9LD70OjO1ra/8HwupUiztDBc0ghuwbHS7cBOexRPl9Z5zoHmvMkw4cBnYwXN/Xq\nd1ePpGSg/lEzjX1A7+4=\n-----END PUBLIC KEY-----\n",
+      "signatureHex": "3081870242008682da574e7169452e019ace3258d0a7ee0121d523869d92e42268af55b7bcc6443fac2fe08a29d24ab3b0f13a0642b98e0b22fe3b50ef3ae541ea535ad4d433b4024133a85253aa6a3b49f54ab3e16fd67d75aa8e21723fcb2ecfc1ff6eecf38d8d709c9d61cc546b205609c61688504cebb5d99686d9c58eb79b06a2ab177838801c0c"
+    }
+  }
+}

@@ -48,6 +48,8 @@ html-to-markdown	turndown/lib/turndown.browser.umd.js,turndown-plugin-gfm/dist/t
 # 后者是 Node 入口，会拉 glob / nopt / editorconfig，浏览器里加载不了。
 # 挂出的全局是**对象**：beautifier.js(...) / beautifier.css(...) / beautifier.html(...)。
 css-js-formatter	js-beautify/js/lib/beautifier.js
+# html-formatter 用的是同一份 js-beautify 产物（beautifier.html）
+html-formatter	js-beautify/js/lib/beautifier.js
 
 # ---- 图片元数据 ----
 # exifreader 4.x 的 dist/exif-reader.js 是自包含 UMD（整库打进一个文件），

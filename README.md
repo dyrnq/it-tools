@@ -163,10 +163,12 @@ image and writes `docker/Dockerfile.<base>` before building. The layout in the b
 │   ├── js/app.js          # theme / sidebar / search / favourites / generic API form
 │   ├── js/tools/<slug>.js # one module per JS tool
 │   ├── content/*.md       # the static "memo" pages (git-memo, regex-memo, …)
+│   ├── data/*.json        # data files the JS tools fetch on demand (gitignore templates, …)
 │   └── lib/               # vendored third-party libraries (layui and friends)
 │                          #   + manifest.tsv (slug → artifact path)
 ├── scripts/bump-layui.sh  # downloads layui into static/lib/layui
 ├── scripts/build-oui.sh   # regenerates data/oui.txt
+├── scripts/build-git-templates.sh  # regenerates static/data/git{ignore,attributes}-templates.json
 ├── scripts/vendor-js-libs.sh  # downloads the vendored JS libraries
 ├── scripts/i18n/          # translation work orders and merging (see below)
 ├── scripts/new-tool/      # scripts that merge in tools built in parallel (see below)

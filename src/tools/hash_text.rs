@@ -38,7 +38,7 @@ const ALL_PSEUDO: &str = "all";
 /// 这里没有的话，用户能单独选到某个算法，却在默认的并排视图里找不到它
 /// （sha3-224 / sha3-384 就这样漏过一次）。`all_algorithms_match_the_registry`
 /// 这条单测盯着这件事。
-const ALL: &[&str] = &[
+pub(crate) const ALL: &[&str] = &[
     "md5",
     "sha1",
     "sha224",
@@ -67,7 +67,7 @@ const ALL: &[&str] = &[
     "crc32c",
 ];
 
-fn hex(algorithm: &str, data: &[u8]) -> Option<String> {
+pub(crate) fn hex(algorithm: &str, data: &[u8]) -> Option<String> {
     let out = match algorithm {
         "md5" => hex::encode(Md5::digest(data)),
         "sha1" => hex::encode(Sha1::digest(data)),

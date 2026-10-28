@@ -206,6 +206,12 @@ impl Tool {
                 | "ipv6-subnet-calculator"
                 | "week-number-converter"
                 | "pdf-signature-checker"
+                | "crc-calculator"
+                | "ip-cidr-to-range"
+                | "ip-range-to-cidr"
+                | "ipv4-subnets-list"
+                | "cidr-in-cidr"
+                | "ip-include-exclude"
         )
     }
 

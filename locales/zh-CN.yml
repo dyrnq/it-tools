@@ -527,6 +527,158 @@ tools:
   markdown-table-formatter:
     title: Markdown 表格格式化
     description: 把 Markdown 表格的列排整齐：每一列按最宽的那一格补空格，分隔行跟着重建，对齐标记原样保留。
+
+  arpa-decoder:
+    title: ARPA 地址解码
+    description: 把 IPv4 与 IPv6 的 ARPA（反向 DNS）地址解回 IP 地址，也能把 IP 地址转成 ARPA 名字。
+
+  bimi-dns-generator:
+    title: BIMI DNS 记录生成器
+    description: 生成把品牌标识与域名关联起来的 BIMI TXT 记录。
+
+  cidr-in-cidr:
+    title: 网段包含判断
+    description: 判断一个网段是不是完全落在另一个网段里。
+
+  crc-calculator:
+    title: CRC 计算器
+    description: 一次算出一段文本的 13 种 CRC 变体（CRC-1、CRC-8、CRC-16、CRC-24、CRC-32、MODBUS、KERMIT、CCITT、MPEG-2、JAMCRC）。
+
+  distinct-words:
+    title: 去重词频统计
+    description: 提取文本里每个不同词的出现次数。
+
+  dkim-dns-generator:
+    title: DKIM DNS 记录生成器
+    description: 根据公钥生成 DKIM TXT 记录。
+
+  dmarc-dns-generator:
+    title: DMARC DNS 记录生成器
+    description: 根据策略与报告地址生成 DMARC TXT 记录。
+
+  duplicate-line-finder:
+    title: 重复行查找
+    description: 找出文本里重复出现的行。
+
+  ecdsa-key-pair-generator:
+    title: ECDSA 密钥对生成器
+    description: 在 NIST P-256 / P-384 / P-521 上生成 ECDSA 密钥对。私钥给 PKCS#8 与 SEC1 两种 PEM，公钥给 SPKI PEM，也可以两份都给原始字节的 hex。
+
+  ecdsa-signing:
+    title: ECDSA 签名与验签
+    description: 用 ECDSA 私钥（P-256、P-384 或 P-521）给一段文本签名，再用对应的公钥验签。摘要由曲线决定：SHA-256、SHA-384 或 SHA-512。
+
+  ed25519-key-pair-generator:
+    title: Ed25519 密钥对生成器
+    description: 生成 Ed25519 密钥对。私钥给 PKCS#8 PEM，公钥给 SPKI PEM，也可以两份都给原始字节的 hex。
+
+  file-hasher:
+    title: 文件哈希
+    description: 一次算出上传文件的所有摘要（MD5、SHA-1、SHA-2、SHA-3、BLAKE2、BLAKE3、Keccak、RIPEMD-160、xxHash、Adler-32、CRC-32）。
+
+  folder-structure-diagram:
+    title: 目录结构图
+    description: 生成目录结构的树状 ASCII 图。
+
+  gitattributes-generator:
+    title: .gitattributes 生成器
+    description: 用常见模板生成 .gitattributes 文件。
+
+  gitignore-generator:
+    title: .gitignore 生成器
+    description: 用常见模板生成 .gitignore 文件。
+
+  html-formatter:
+    title: HTML 格式化
+    description: 格式化 HTML 源码并做好缩进。
+
+  i-and-l-checker:
+    title: 形近字符检查
+    description: 高亮那些容易混淆的字符，比如 1、l、I、0、O。
+
+  ip-cidr-to-range:
+    title: CIDR 网段转地址区间
+    description: 把一个 CIDR 网段算成地址区间，一并给出网络地址、子网掩码、反掩码、地址总数与可用主机数。
+
+  ip-include-exclude:
+    title: IP 包含与排除
+    description: 给一段允许的网段，扣掉要排除的那些，剩下的以 CIDR 列出来。
+
+  ip-range-to-cidr:
+    title: 地址区间转 CIDR
+    description: 把一段地址区间拆成数量最少的几个 CIDR 网段（IPv4 与 IPv6 都能用）。
+
+  ipv4-subnets-list:
+    title: IPv4 子网清单
+    description: 列出一个 IPv4 网段下的子网：可以一级级往下切，也可以指定前缀长度，每个子网都给出可用主机区间。
+
+  json-to-protobuf:
+    title: JSON 转 Protobuf
+    description: 从一份 JSON 生成 protobuf3 的 message 定义。
+
+  json-to-schema:
+    title: JSON 转 Schema
+    description: 从 JSON 推出 schema —— JSON Schema、MySQL、Mongoose、BigQuery、ClickHouse，或者一份人能看懂的缩进大纲。
+
+  json-to-sql-insert:
+    title: JSON 转 SQL INSERT
+    description: 把一份 JSON 变成 SQL INSERT 语句。
+
+  json-to-typescript:
+    title: JSON 转 TypeScript
+    description: 从一份 JSON 生成 TypeScript 类型（interface 或 type 别名）。
+
+  levenshtein-calculator:
+    title: 编辑距离计算器
+    description: 计算两个字符串之间的编辑距离。
+
+  list-comparer:
+    title: 列表对比
+    description: 对比两个列表，给出只在第一份、只在第二份、以及两份都有的条目。
+
+  ptr-dns-generator:
+    title: PTR DNS 记录生成器
+    description: 为 IP 地址生成反向 DNS 的 PTR 记录。
+
+  random-line-picker:
+    title: 随机抽行
+    description: 从输入的文本里随机抽出若干行。
+
+  rsa-encryption:
+    title: RSA 加解密
+    description: 用 RSA 密钥对给文本加解密。支持 PKCS#1 v1.5 与 OAEP（SHA-1 或 SHA-256），也能读带口令保护的私钥。
+
+  shell-formatter:
+    title: Shell 命令格式化
+    description: 把一条 shell 命令拆成按参数分行的多行命令。
+
+  shell-linearizer:
+    title: Shell 命令单行化
+    description: 把多行的 shell 命令压成一行。
+
+  smart-text-replacer:
+    title: 智能文本替换
+    description: 查找并替换文本，支持正则表达式与按行拆分。
+
+  spf-dns-generator:
+    title: SPF DNS 记录生成器
+    description: 根据允许与禁止的来源生成 SPF TXT 记录。
+
+  tab-to-spaces:
+    title: 制表符转空格
+    description: 在制表符与空格之间互转，宽度可调。
+
+  wpa-psk-generator:
+    title: WPA-PSK 密钥生成器
+    description: 用口令与 SSID 派生 256 位的 WPA-PSK 原始密钥（PBKDF2-HMAC-SHA1，迭代 4096 轮，与 IEEE 802.11i 一致）。
+
+  css-minifier:
+    title: CSS 压缩器
+    description: 压缩一段样式表：去掉注释、收拢空白、删掉多余的符号 —— 字符串、url() 与 !important 原样不动。
+
+  html-minifier:
+    title: HTML 压缩器
+    description: 压缩一段 HTML：去掉注释、收拢空白、删掉多余的引号 —— script、style、textarea 与 pre 里的内容逐字节保留。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -581,6 +733,27 @@ ui:
   # JS 工具自己的界面文案。键的约定是 ui.tool.<slug>.<用途>，
   # 前端用 ItTools.t('<slug>')('<用途>', '英文兜底') 取。
   tool:
+    arpa-decoder:
+      btn_swap: '反向切换'
+      err_bad_ip: '这不是一个合法的 IP 地址。'
+      err_bad_ipv4_arpa: 'in-addr.arpa 名字必须正好是 4 段数字标签，例如 4.3.2.1.in-addr.arpa。'
+      err_bad_ipv4_label: 'in-addr.arpa 的每一段标签都必须是 0 到 255 之间的数字。'
+      err_bad_ipv6_arpa: 'ip6.arpa 名字必须正好是 32 段标签，每段一个十六进制数字。'
+      err_bad_ipv6_label: 'ip6.arpa 的每一段标签都必须是单个十六进制数字（0-9、a-f）。'
+      err_empty: '先在上面填一个地址。'
+      err_not_arpa: '这不是 ARPA 名字：结尾必须是 in-addr.arpa 或 ip6.arpa。'
+      hint_arpa: '例如 4.3.2.1.in-addr.arpa，或者 32 段 nibble 的 ip6.arpa 形式'
+      hint_ip: '例如 1.2.3.4 或 2001:db8::1'
+      label_arpa: 'ARPA 名字'
+      label_direction: '方向'
+      label_ip: 'IP 地址'
+      note_expanded: 'ARPA 名字是全展开的：IPv6 的 32 个 nibble 一律不压缩。'
+      note_rfc5952: 'IPv6 地址按 RFC 5952 压缩。'
+      opt_decode: 'ARPA 名字 → IP 地址'
+      opt_encode: 'IP 地址 → ARPA 名字'
+      output_title: '结果'
+      placeholder_arpa: '4.3.2.1.in-addr.arpa'
+      placeholder_ip: '1.2.3.4'
     ascii-text-drawer:
       ascii_art_text: 'ASCII 艺术字：'
       download: '下载'
@@ -677,6 +850,36 @@ ui:
       suite_values: '测试数据'
       unit: '单位'
       unit_hint: '会附在每个平均值和方差后面，例如：ms'
+    bimi-dns-generator:
+      copy_host: '复制主机名'
+      copy_record: '复制完整记录'
+      copy_value: '复制记录值'
+      err_authority_invalid: '权威证据必须是一个 HTTPS 网址或一个邮箱地址。'
+      err_domain_invalid: '这不是一个合法的域名。'
+      err_domain_required: '请填写域名。'
+      err_logo_charset: 'logo 地址里不能有空格、分号或引号 —— 它们会破坏记录的标签语法。'
+      err_logo_invalid: 'logo 必须是一个绝对地址，例如 https://example.com/logo.svg。'
+      err_logo_required: '请填写 logo 地址。'
+      err_logo_scheme: 'logo 地址必须用 https:// —— BIMI 规范要求 HTTPS。'
+      err_unknown: 'BIMI 记录生成失败。'
+      hint_authority: '可选。填 VMC（Verified Mark Certificate）证书的网址，或者一个邮箱地址 —— mailto: 会自动补上。Gmail 与 Microsoft 365 只有在有 VMC 时才显示 logo。'
+      hint_domain: '发信的那个域名。记录挂在 default 选择器下，也就是 default._bimi.<域名>。'
+      hint_logo: 'logo 的位置。必须是绝对 HTTPS 地址：BIMI 规范要求 https，不安全的 logo 收件方会直接忽略。'
+      hint_zone: 'zone 文件的写法在名字后面带一个点，那才表示绝对名。'
+      label_authority: '权威证据（a=）'
+      label_domain: '域名'
+      label_logo: 'Logo 地址（l=）'
+      note_authority_insecure: '权威证据不是用 HTTPS 提供的：有些校验方会拒收。'
+      note_no_authority: '没有 a= 标签：要求 VMC 的收件方（Gmail、Microsoft 365）不会显示 logo。'
+      note_svg: '多数收件方只在 logo 是 SVG（SVG Tiny P/S）时才显示。'
+      out_host: '主机名'
+      out_record: '完整记录'
+      out_title: '生成的 BIMI 记录'
+      out_value: '记录值（TXT）'
+      out_zone: 'zone 文件'
+      ph_authority: 'https://example.com/vmc.pem 或 compliance@example.com'
+      ph_domain: '例如 example.com'
+      ph_logo: 'https://example.com/logo.svg'
     bip39-generator:
       copy_entropy: '复制熵'
       copy_mnemonic: '复制助记词'
@@ -944,6 +1147,19 @@ ui:
       mode_js: 'JavaScript'
       output: '格式化后的代码'
       preserve_newlines: '保留空行'
+    css-minifier:
+      clear: '清空'
+      copy_css: '复制 CSS'
+      download_css: '下载 .css'
+      err_minify: '压缩 CSS 失败：{error}'
+      hint_empty: '粘一段 CSS 进来。'
+      input: '要压缩的 CSS'
+      input_hint: '注释会被去掉、空白会被收拢。字符串、url() 与 !important 保持原样。'
+      input_ph: '把 CSS 粘到这里……'
+      minify: '压缩'
+      output: '压缩后的 CSS'
+      sample: '载入样例'
+      status_size: '从 {before} 个字符压到 {after} 个字符（小了 {percent}%）。'
     csv-to-json:
       copy_json: '复制 JSON'
       delimiter: '分隔符'
@@ -1070,6 +1286,97 @@ ui:
       section_screen: '屏幕'
       unknown: '未知'
       'yes': '是'
+    distinct-words:
+      col_count: '出现次数'
+      col_word: '词'
+      copy_all: '复制全部'
+      download: '下载'
+      ignore_case: '忽略大小写'
+      input: '要统计的文本：'
+      input_ph: '把要统计词的文本粘贴到这里…'
+      note_options: '默认按空白分词。打开「标点也切」后，Unicode 标点（. , ; : ! ? …）也会切分，但 $ 、 + 这类符号不会。打开「忽略大小写」后，词条统一转成小写显示。'
+      result: '词频统计'
+      split_punctuation: '标点也切'
+      status_empty: '输入点文本，这里就会统计词频。'
+      status_found: '{total} 个词里有 {count} 个不同的词。'
+    dkim-dns-generator:
+      copy_full: '复制完整记录'
+      copy_name: '复制记录名'
+      copy_value: '复制记录值'
+      copy_zone: '复制 zone 文件'
+      desc: 'DKIM 给每封发出去的邮件用私钥签名，并把对应的公钥发布到 DNS。贴上公钥，再把记录发布到 <selector>._domainkey.<domain>。'
+      hint_domain: '签发邮件的域名，如 example.com'
+      hint_public_key: '贴 base64 编码的 DER SubjectPublicKeyInfo，也就是 `openssl rsa -pubout` 打印的那段 PEM 的正文。OpenSSH 格式（`ssh-rsa AAAA…`）在这里用不了'
+      hint_selector: '._domainkey. 前面那一段。名字随意，常见做法是日期或用途，如 default / mail / 20260101'
+      label_domain: '域名'
+      label_full_record: '完整记录'
+      label_public_key: '公钥'
+      label_record_name: '记录名'
+      label_record_value: '记录值（TXT）'
+      label_selector: '选择符'
+      label_zone: 'zone 文件片段'
+      note_bad_base64: '这段公钥不是合法的 base64：确认只贴了 base64 正文'
+      note_no_domain: '填上域名才有记录名'
+      note_no_key: '还没填公钥 —— 现在这条是不完整的，把公钥贴进来再发布'
+      note_no_selector: '填上选择符：记录要发布在 <selector>._domainkey.{domain}'
+      note_not_der: '这段 base64 解出来不是 DER 结构：DKIM 要的是 DER SubjectPublicKeyInfo，不是 OpenSSH 格式也不是裸密钥'
+      note_not_rsa: '这把看起来不像 RSA 的 SubjectPublicKeyInfo：确认贴进来的确实是给邮件签名的那把 RSA 密钥的公钥'
+      note_openssh: '这是 OpenSSH 公钥（ssh-rsa …）：DKIM 要的是 DER SubjectPublicKeyInfo 的 base64。用 `openssl rsa -pubout -outform PEM` 转一下，贴那段 PEM 的正文'
+      note_pem_label: '这段 PEM 不是公钥：DKIM 要的是 `openssl rsa -pubout` 打印的 `PUBLIC KEY` 块'
+      note_pkcs1: '这是 PKCS#1 的 RSA 公钥：DKIM 要的是 SubjectPublicKeyInfo 形式，用 `openssl rsa -pubout` 转一下'
+      note_too_long: '该记录值 {bytes} 字节，超过 DNS 单字符串 255 字节的上限：下面的 zone 片段已经拆成多条字符串了，多数 DNS 面板粘贴时会自动拆'
+      zone_comment: '{name} 的 DKIM 公钥'
+    dmarc-dns-generator:
+      copy_full: '复制完整记录'
+      copy_name: '复制记录名'
+      copy_value: '复制记录值'
+      copy_zone: '复制 zone 文件'
+      desc: 'DMARC 告诉收件方，没通过 SPF 或 DKIM 的邮件该怎么办。把记录发布在 _dmarc.<域名> 上。'
+      fo_0: '0：认证失败就报告'
+      fo_1: '1：任何一项不通过都报告'
+      fo_d: 'd：DKIM 不通过就报告'
+      fo_s: 's：SPF 不通过就报告'
+      hint_aggregate_reports: '逗号分隔；没写 mailto: 会自动补'
+      hint_domain: 'DMARC 记录发布在哪个域名上，如 example.com'
+      hint_failure_options: '哪些失败会让收件方发报告'
+      hint_forensic_reports: '需要接收方额外授权，多数免费邮箱不给，填了可能收不到'
+      hint_percentage: '0-100，可填小数。先用小数字灰度再拉满'
+      hint_policy: '邮件没通过 DMARC 时收件方怎么处理'
+      hint_reporting_interval: '单位是秒，至少 3600。留空就不写进记录，默认值是 86400'
+      hint_subdomain_policy: '子域的策略；与 p 相同时不写进记录'
+      label_aggregate_reports: '汇总报告（rua）'
+      label_dkim_alignment: 'DKIM 对齐方式（adkim）'
+      label_domain: '域名'
+      label_failure_options: '失败选项（fo）'
+      label_forensic_reports: '取证报告（ruf）'
+      label_full_record: '完整记录'
+      label_percentage: '百分比（pct）'
+      label_policy: '策略（p）'
+      label_record_name: '记录名'
+      label_record_value: '记录值（TXT）'
+      label_reporting_interval: '上报间隔（ri）'
+      label_spf_alignment: 'SPF 对齐方式（aspf）'
+      label_subdomain_policy: '子域策略（sp）'
+      label_zone: 'zone 文件片段'
+      note_alignment_r: '{key} 选了 r（relaxed）：SPF 或 DKIM **任一**对齐即通过'
+      note_alignment_s: '{key} 选了 s（strict）：SPF 和 DKIM 必须**都**对齐'
+      note_bad_email: '这些报告地址看起来不像邮箱：{list}'
+      note_no_domain: '填上域名才有记录名'
+      note_no_rua: '没填 rua：认证结果就没人收，等于没开 DMARC 监控'
+      note_pct_clamped: '百分比被夹到了 {value}：它得在 0 到 100 之间'
+      note_pct_invalid: '百分比不是数字：没有写进记录'
+      note_policy_none: 'p=none 只是「观察模式」：接收方不会因此拒收任何邮件'
+      note_ri_invalid: '上报间隔得是 3600 以上的整秒数：没有写进记录'
+      note_too_long: '该记录值 {bytes} 字节，超过 DNS 单字符串 255 字节的上限：发布前需要拆成多条字符串'
+      opt_not_set: '（不填）'
+      opt_not_written: '（不写，默认 r）'
+      opt_relaxed: 'r — relaxed'
+      opt_same_as_p: '（与 p 相同）'
+      opt_strict: 's — strict'
+      policy_none: 'none（只报告，不处置 —— 上线时先用这个观察）'
+      policy_quarantine: 'quarantine（进垃圾箱）'
+      policy_reject: 'reject（直接拒收）'
+      zone_comment: '{domain} 的 DMARC 记录'
     dns-record-generator:
       add_mechanism: '+ 添加机制'
       all_fail: '-all（fail：严格拒绝）'
@@ -1276,6 +1583,20 @@ ui:
       note_not_translatable: '以下选项无法转换成 docker-compose'
       note_other: '转换器的其它消息'
       sample: '示例'
+    duplicate-line-finder:
+      col_count: '出现次数'
+      col_line: '行'
+      copy_all: '复制全部行'
+      download: '下载'
+      ignore_case: '忽略大小写'
+      ignore_whitespace: '忽略首尾空白'
+      input: '要检查的文本：'
+      input_ph: '把要查重复行的文本粘贴到这里…'
+      note_options: '空行不参与统计。打开上面的开关后，只有首尾空白或字母大小写不同的行算同一行，列出的是第一次出现的那一行。'
+      result: '重复的行'
+      status_empty: '输入点文本，这里就会找出重复的行。'
+      status_found: '找到 {count} 行重复的行。'
+      status_none: '没有找到重复的行。'
     email-header-parser:
       age_ago: '{n} {unit}前'
       age_in: '{n} {unit}后'
@@ -1505,6 +1826,59 @@ ui:
       select_all: '全删'
       select_none: '全留'
       title: '去除图片元数据'
+    folder-structure-diagram:
+      hint: '每一层缩进两格或四格（也可以用制表符），或者一行一个路径（a/b/c）。树是用制表符号画的。'
+      input_label: '目录结构：'
+      input_ph: '把缩进式目录结构或路径列表粘贴到这里…'
+      output_label: '树状图'
+      status_count: '共 {n} 个条目'
+      status_empty: '没东西可画：输入是空的。'
+    gitattributes-generator:
+      btn_clear: '清空选择'
+      btn_download: '下载'
+      btn_generate: '生成'
+      btn_select_all: '全选当前列表'
+      cmd_hint: '下面的链接与上面的预览指向同一个快照 commit，所以拉下来的文件跟你看到的内容一致 —— 只是少了 "# <名称>" 那些抬头行。'
+      cmd_title: '用 curl 拉同样的模板'
+      err_no_selection: '先至少选一个模板。'
+      err_nothing_to_download: '还没有可下载的内容。'
+      hint_search: '输入关键字过滤列表，然后勾选要合并的模板。文件按你勾选的顺序拼起来。'
+      label_templates: '模板'
+      load_failed: '模板快照加载失败：{error}'
+      nothing_matches: '没有匹配 "{query}" 的模板。'
+      out_empty: '还没生成内容 —— 勾几个模板再点「生成」。'
+      ph_search: '搜索模板（如 visualstudio、python、vim）…'
+      snapshot_count: '{count} 个模板，来自 {repo}'
+      snapshot_label: '模板快照：'
+      snapshot_link_title: '打开模板仓库在这个 commit 上的页面'
+      snapshot_loading: '模板快照：加载中…'
+      status_downloaded: '已保存 {name}。'
+      status_generated: '已合并 {count} 个模板。'
+      status_loading: '加载模板中…'
+      status_selected: '已选 {count} 个'
+    gitignore-generator:
+      btn_clear: '清空选择'
+      btn_download: '下载'
+      btn_generate: '生成'
+      btn_select_all: '全选当前列表'
+      cmd_hint: '下面的链接与上面的预览指向同一个快照 commit，所以拉下来的文件跟你看到的内容一致 —— 只是少了 "# <名称>" 那些抬头行。'
+      cmd_title: '用 curl 拉同样的模板'
+      err_no_selection: '先至少选一个模板。'
+      err_nothing_to_download: '还没有可下载的内容。'
+      hint_search: '输入关键字过滤列表，然后勾选要合并的模板。文件按你勾选的顺序拼起来。'
+      label_templates: '模板'
+      load_failed: '模板快照加载失败：{error}'
+      nothing_matches: '没有匹配 "{query}" 的模板。'
+      out_empty: '还没生成内容 —— 勾几个模板再点「生成」。'
+      ph_search: '搜索模板（如 node、python、vue）…'
+      snapshot_count: '{count} 个模板，来自 {repo}'
+      snapshot_label: '模板快照：'
+      snapshot_link_title: '打开模板仓库在这个 commit 上的页面'
+      snapshot_loading: '模板快照：加载中…'
+      status_downloaded: '已保存 {name}。'
+      status_generated: '已合并 {count} 个模板。'
+      status_loading: '加载模板中…'
+      status_selected: '已选 {count} 个'
     har-sanitizer:
       cat_body_keys: '响应正文里的键'
       cat_cookies: 'Cookie'
@@ -1551,6 +1925,40 @@ ui:
       title_escape: 'HTML 实体转义'
       title_unescape: 'HTML 实体反转义'
       unescaped: '反转义后的字符串'
+    html-formatter:
+      clear: '清空'
+      copy_html: '复制 HTML'
+      download_html: '下载 .html'
+      err_format: 'HTML 格式化失败：{error}'
+      err_lib: 'HTML 格式化库没能加载上，刷新页面再试。'
+      extra_liners: '另起一行的标签'
+      extra_liners_hint: '用逗号分隔；留空表示不要'
+      format: '格式化'
+      hint_empty: '把 HTML 粘进来就能排版。'
+      indent_inner_html: '缩进内层标签'
+      indent_size: '缩进宽度'
+      input: '你要格式化的 HTML'
+      input_hint: 'script 与 style 块里的内容也会一起排版。'
+      input_ph: '把你的 HTML 粘到这里…'
+      output: '格式化后的 HTML'
+      preserve_newlines: '保留空行'
+      sample: '载入样例'
+      warn_not_html: '这段输入里没有 HTML 标签，原样返回了。'
+      wrap_line_length: '行宽上限'
+      wrap_line_length_hint: '0 表示不换行'
+    html-minifier:
+      clear: '清空'
+      copy_html: '复制 HTML'
+      download_html: '下载 .html'
+      err_minify: '压缩 HTML 失败：{error}'
+      hint_empty: '粘一段 HTML 进来。'
+      input: '要压缩的 HTML'
+      input_hint: '注释会被去掉、空白会被收拢。script、style、textarea 与 pre 里的内容原样不动。'
+      input_ph: '把 HTML 粘到这里……'
+      minify: '压缩'
+      output: '压缩后的 HTML'
+      sample: '载入样例'
+      status_size: '从 {before} 个字符压到 {after} 个字符（小了 {percent}%）。'
     html-to-markdown:
       copy_md: '复制 Markdown'
       download_md: '下载 .md'
@@ -1607,6 +2015,26 @@ ui:
       no_match: '没有匹配的状态码。'
       search: '搜索 HTTP 状态码…'
       total_n: '共 {n} 条状态码'
+    i-and-l-checker:
+      col_class: '字符'
+      col_count: '出现次数'
+      hint: '每个字符都是单独渲染的，所以文本照样能选中、能复制。关掉某一类，那一类的字符就不再标色。'
+      input_label: '要检查的文本：'
+      input_ph: '把要检查的文本（密码、标识符…）粘贴到这里…'
+      opt_braces: '花括号（{ }）'
+      opt_brackets: '方括号（[ ]）'
+      opt_lower_l: '小写字母 l（l）'
+      opt_one: '数字 1（1）'
+      opt_parens: '圆括号（( )）'
+      opt_pipe: '竖线（|）'
+      opt_upper_i: '大写字母 I（I）'
+      opt_upper_o: '大写字母 O（O）'
+      opt_zero: '数字 0（0）'
+      output_label: '高亮后的文本'
+      summary_many: '这段文本里有 {n} 处形近字符。'
+      summary_none: '这段文本里没有形近字符。'
+      summary_one: '这段文本里有 1 处形近字符。'
+      total: '合计'
     iban-validator-and-parser:
       cls_digits: '位数字'
       cls_other: '属于 [{cls}] 的字符'
@@ -1936,12 +2364,62 @@ ui:
       omit_empty: '省略空值'
       output: '你的 Go 代码'
       status_empty: '在上面输入或粘贴 JSON。'
+    json-to-protobuf:
+      copy_proto: '复制 protobuf'
+      err_invalid: '给的 JSON 解析不了。{message}'
+      hint: '从 JSON 生成 protobuf3 的 message 定义。布尔值变成 bool，整数变成 int32 或 int64，小数变成 double，字符串仍然是 string。数组变成 repeated 字段，嵌套对象变成嵌套的 message。'
+      input: '你的 JSON'
+      input_ph: '把 JSON 粘贴到这里…'
+      output: '生成的 protobuf 定义'
+      package_name: 'package 名（可留空）'
+      root_name: '根 message 名'
+      status_empty: '在上面输入点 JSON，这里就生成 protobuf 定义。'
+    json-to-schema:
+      copy_schema: '复制 schema'
+      err_invalid: '给的 JSON 解析不了。{message}'
+      fmt_bigquery: 'Google BigQuery schema'
+      fmt_clickhouse: 'ClickHouse 建表语句'
+      fmt_generic: '通用'
+      fmt_json: 'JSON Schema'
+      fmt_mongoose: 'Mongoose schema'
+      fmt_mysql: 'MySQL 建表语句'
+      format: '目标 schema 格式'
+      hint: '从 JSON 生成 schema。几种格式共用同一套类型推断，所以 JSON Schema、SQL 建表语句和 BigQuery schema 对「某个字段是什么类型」的说法永远一致。表名会用作 JSON Schema 的 title 和 SQL 的表名。'
+      input: '你的 JSON'
+      input_ph: '把 JSON 粘贴到这里…'
+      output: '生成的 schema'
+      status_empty: '在上面输入点 JSON，这里就生成 schema。'
+      table_name: '表名'
+    json-to-sql-insert:
+      copy_sql: '复制 SQL'
+      err_invalid: '给的 JSON 解析不了。{message}'
+      hint: '从 JSON 生成 SQL INSERT 语句。嵌套对象变成点号连起来的列名，数组整体存成 JSON 文本，null 变成 NULL，布尔变成 TRUE / FALSE。字符串里的单引号会写成两个。'
+      input: '你的 JSON'
+      input_ph: '把 JSON 粘贴到这里…'
+      output: '生成的 SQL 语句'
+      status_empty: '在上面输入点 JSON，这里就生成 INSERT 语句。'
+      table_name: '表名'
     json-to-toml:
       download: '下载'
       hint: '接受 JSON 与 JSON5：注释、尾逗号、单引号、无引号键都行。TOML 的顶层必须是一张表，且值不能是 null（TOML 没有 null）。'
       input: '你的 JSON'
       input_ph: '把你的 JSON 粘贴到这里…'
       output: '由 JSON 生成的 TOML'
+    json-to-typescript:
+      camel_case: '属性名用驼峰'
+      copy_ts: '复制 TypeScript'
+      decl_interface: 'interface'
+      decl_kind: '声明形式'
+      decl_type: 'type'
+      err_invalid: '给的 JSON 解析不了。{message}'
+      hint: '从 JSON 生成 TypeScript 类型。布尔值变成 boolean，数字变成 number，像 ISO-8601 日期的字符串仍然是 string。对象会生成自己的 interface，数组变成 T[]。顶层是数组时给的是元素类型的 type 别名。'
+      input: '你的 JSON'
+      input_ph: '把 JSON 粘贴到这里…'
+      optional_props: '所有属性可选'
+      output: '生成的 TypeScript 代码'
+      readonly_members: '成员只读'
+      root_name: '根类型名'
+      status_empty: '在上面输入点 JSON，这里就生成 TypeScript 类型。'
     json-to-xml:
       err_convert: '转换失败：{msg}'
       err_json5: 'JSON5 解析失败：{msg}'
@@ -2043,6 +2521,37 @@ ui:
       value_no: '否'
       value_yes: '是'
       waiting: '等待中…'
+    levenshtein-calculator:
+      align_hint: '空缺写成 -，两列之间用 | 分栏。'
+      align_too_long: '两个串太长，做不了对齐，只给距离。'
+      alignment: '对齐对照'
+      both_empty: '两个串都是空的，它们是一样的。'
+      col_metric: '指标'
+      col_value: '值'
+      copy_alignment: '复制对照'
+      copy_result: '复制结果'
+      distance: '编辑距离'
+      lcs_length: '最长公共子序列长度'
+      result: '结果'
+      similarity: '相似度'
+      string_a: '第一个字符串'
+      string_b: '第二个字符串'
+      string_ph: '在这里输入…'
+    list-comparer:
+      copy: '复制'
+      count_item: '{n} 项'
+      count_items: '{n} 项'
+      group_both: '两份都有'
+      group_only_a: '只在第一份'
+      group_only_b: '只在第二份'
+      hint_case: '忽略大小写时，显示的是第一份里的写法。'
+      list_a: '第一份列表'
+      list_b: '第二份列表'
+      list_ph: '一行一个条目'
+      none: '（空）'
+      opt_dedupe: '去重'
+      opt_ignore_case: '忽略大小写'
+      opt_trim: '忽略首尾空白'
     list-converter:
       download: '下载'
       input_data: '输入数据'
@@ -2538,6 +3047,29 @@ ui:
       type_voip: '网络电话（VoIP）'
       unknown: '未知'
       'yes': '是'
+    ptr-dns-generator:
+      copy_host: '复制反向名'
+      copy_record: '复制完整记录'
+      copy_value: '复制记录值'
+      err_ip_invalid: '这不是一个合法的 IPv4 或 IPv6 地址。'
+      err_ip_required: '请填写 IP 地址。'
+      err_target_invalid: '这不是一个合法的主机名。'
+      err_target_required: '请填写这条 PTR 记录指向的主机名。'
+      err_unknown: 'PTR 记录生成失败。'
+      hint_ip: '要查的那个地址。IPv4 得到 4.3.2.1.in-addr.arpa，IPv6 得到 ip6.arpa 下的 32 个 nibble。'
+      hint_target: '这条 PTR 记录指向的主机名。它自己应当有对应的正向（A/AAAA）记录。'
+      hint_zone: 'zone 文件的写法在名字后面带一个点，那才表示绝对名。'
+      label_ip: 'IP 地址（IPv4 或 IPv6）'
+      label_target: 'PTR 目标主机名'
+      note_ipv6_full: 'IPv6 的反向名用完整的 32 个 nibble、不压缩：RFC 3596 就是这么要求的，压缩写法在 zone 文件里不合法。'
+      note_zone_owner: '这条记录属于 {zone} 区（IPv4 按常规的 /24 委派，IPv6 按 /32），那一段是分给持有这段 IP 的人（你的主机商或者 RIR）的 —— 域名注册商一般不让加。'
+      out_host: '反向名'
+      out_record: '完整记录'
+      out_title: '生成的 PTR 记录'
+      out_value: 'PTR 值'
+      out_zone: 'zone 文件'
+      ph_ip: '例如 1.2.3.4 或 2001:db8::1'
+      ph_target: '例如 mail.example.com'
     punycode-converter:
       copy_decoded: '复制解码结果'
       copy_encoded: '复制编码结果'
@@ -2574,6 +3106,18 @@ ui:
       qr_code: '二维码：'
       size: '尺寸（px）：'
       size_hint: '21–4096'
+    random-line-picker:
+      copy: '复制'
+      count: '要抽几行：'
+      input: '要抽行的文本：'
+      input_ph: '把要抽行的文本粘贴到这里…'
+      note_count: '抽出的行不会重复。'
+      pick_again: '再抽一次'
+      result: '抽出的行'
+      status_bad_count: '请填要抽的行数（至少 1 行）。'
+      status_empty: '输入点文本，这里就可以抽行了。'
+      status_picked: '从 {total} 行里抽出了 {count} 行。'
+      status_too_many: '文本里只有 {total} 行，已经全抽走了。'
     random-port-generator:
       refresh: '刷新'
     regex-tester:
@@ -2671,6 +3215,41 @@ ui:
       input_ph: '要输入的 Outlook SafeLink URL…'
       output: '解码后的 URL'
       warn_not_http: '不是 http(s) URL —— 点击前请当心'
+    shell-formatter:
+      btn_format: '格式化'
+      hint_command: '引号、管道、重定向和 $( ) 都能认：结果还是同一条命令，只是排成了多行。'
+      indent_2: '2 个空格'
+      indent_4: '4 个空格'
+      input_ph: '把一条 shell 命令粘到这里……'
+      label_command: 'Shell 命令'
+      label_indent: '缩进'
+      label_mode: '拆分粒度'
+      mode_args: '按参数拆（每行一个参数）'
+      mode_operators: '只按操作符拆'
+      note_ok: '引号和操作符都原样保留：结果跑起来是同一条命令。'
+      output_title: '格式化后的命令'
+      warn_backtick: '输入里有没闭合的反引号。'
+      warn_double_quote: '输入里有没闭合的双引号。'
+      warn_heredoc: '输入里有没闭合的 heredoc：找不到结束标记。'
+      warn_single_quote: '输入里有没闭合的单引号。'
+      warn_substitution: '输入里有没闭合的 $( )。'
+    shell-linearizer:
+      btn_linearize: '单行化'
+      hint_command: '反斜杠续行符会被去掉，行与行之间的空白折成一个空格。引号里的换行会保留：那是正文的一部分。'
+      input_ph: '把多行的 shell 命令粘到这里……'
+      label_command: 'Shell 命令'
+      label_sep: '两条命令之间'
+      note_comment: '注释被删掉了：压成一行之后，注释会把后面的命令也一起吃掉。'
+      note_heredoc: 'heredoc 的正文原样保留，所以结果仍是多行的。'
+      note_ok: '续行符去掉了，引号原样保留。'
+      output_title: '单行化的命令'
+      sep_semicolon: '换成 ;'
+      sep_space: '折成一个空格'
+      warn_backtick: '输入里有没闭合的反引号。'
+      warn_double_quote: '输入里有没闭合的双引号。'
+      warn_heredoc: '输入里有没闭合的 heredoc：找不到结束标记。'
+      warn_single_quote: '输入里有没闭合的单引号。'
+      warn_substitution: '输入里有没闭合的 $( )。'
     slugify-string:
       input: '要转成 slug 的字符串'
       input_ph: '把你的字符串放这里（例如：My file path）'
@@ -2679,6 +3258,75 @@ ui:
       output_ph: '生成的 slug 会显示在这里（例如：my-file-path）'
       separator: '分隔符'
       separator_hint: '默认是连字符 -，也可以填 _ 或多个字符'
+    smart-text-replacer:
+      btn_replace_all: '全部替换'
+      btn_replace_one: '替换'
+      btn_reset: '重置'
+      col_action: '操作'
+      col_context: '上下文'
+      col_index: '序号'
+      err_invalid_regex: '正则表达式不合法：{message}'
+      find_label: '查找：'
+      find_ph: '要查找的文本或正则表达式'
+      hint_mode: '「一次性全部替换」随着输入实时改写整段文本；「逐个替换」把每一处命中的上下文列出来，每处自带一个替换按钮。'
+      hint_regex: '正则模式下替换串可以用 $1、$2、$& 引用捕获组；关掉这个开关时替换串按字面量处理。'
+      hint_split_lines: '「按行拆分」会逐行搜索：命中不会跨行，^ 和 $ 匹配每一行的开头与结尾。'
+      input_label: '要查找并替换的文本：'
+      input_ph: '把要查找并替换的文本粘贴到这里…'
+      mode_all: '一次性全部替换'
+      mode_label: '替换方式：'
+      mode_one: '逐个替换'
+      opt_match_case: '区分大小写'
+      opt_regex: '正则表达式'
+      opt_split_lines: '按行拆分'
+      output_label: '结果'
+      replace_label: '替换为：'
+      replace_ph: '替换成的文本'
+      status_matches: '找到 {n} 处命中'
+      status_matches_one: '找到 1 处命中'
+      status_pending: '还剩 {n} 处命中没替换'
+      status_pending_one: '还剩 1 处命中没替换'
+    spf-dns-generator:
+      all_fail: '-all（fail：直接拒收）'
+      all_neutral: '?all（neutral：交给收件方判断）'
+      all_pass: '+all（pass：等于没配 SPF）'
+      all_softfail: '~all（softfail：标记但不拒收）'
+      copy_full: '复制完整记录'
+      copy_name: '复制记录名'
+      copy_value: '复制记录值'
+      copy_zone: '复制 zone 文件'
+      desc: 'SPF 声明哪些主机可以用你的域名发信。填好允许的来源，再把记录发布在域名自己身上。'
+      hint_allowed_domains: '逗号分隔。a:example.com 表示放行 example.com 的 A 记录里的 IP'
+      hint_allowed_ipv4: '逗号分隔。可以带 CIDR 后缀，如 192.0.2.0/24'
+      hint_allowed_ipv6: '逗号分隔。可以带 CIDR 后缀，如 2001:db8::/32'
+      hint_domain: 'SPF 记录发布在哪个域名上：它就挂在域名自己身上，如 example.com'
+      hint_include_domains: '逗号分隔。include: 是把判断交给对方的 SPF 记录，如 _spf.google.com'
+      hint_other_mechanisms: '一行一个机制项，如 exists:%{i}.example.com 或 ptr:example.com。exists 和 ptr 必须带取值'
+      hint_policy: '只有这一项决定「没列到的发信方怎么办」'
+      hint_redirect: '除非把整个策略委托给别人，否则留空：RFC 7208 不允许 redirect 与 all 同时出现'
+      label_allowed_domains: '允许的域名（a:）'
+      label_allowed_ipv4: '允许的 IPv4（ip4:）'
+      label_allowed_ipv6: '允许的 IPv6（ip6:）'
+      label_domain: '域名'
+      label_full_record: '完整记录'
+      label_include_domains: 'include 的域名（include:）'
+      label_other_mechanisms: '其它机制'
+      label_policy: '其余发信方的策略（all）'
+      label_record_name: '记录名'
+      label_record_value: '记录值（TXT）'
+      label_redirect: '重定向到（redirect=）'
+      label_zone: 'zone 文件片段'
+      note_bad_values: '这些取值因为语法不对或缺取值被略过了：{list}'
+      note_no_domain: '填上域名才有记录名'
+      note_no_mechanism: '一个机制都没有：这条记录谁都不放行，只是声明了策略'
+      note_plus_all: '+all 放行所有发信方：等于没配 SPF'
+      note_redirect_in_custom: 'redirect 不是机制而是修饰符：请填进「重定向到」那个字段，它会排在最后并顶替 all 项'
+      note_softfail: '~all 只做标记、不拒收：配置确认无误后换成 -all'
+      note_too_long: '该记录值 {bytes} 字节，超过 DNS 单字符串 255 字节的上限：下面的 zone 片段已经拆成多条字符串了，多数 DNS 面板粘贴时会自动拆'
+      note_too_many_lookups: '这条记录里有 {count} 个需要查 DNS 的机制，RFC 7208 最多允许 10 个'
+      opt_mech_a: 'a：放行域名自己的 A 记录'
+      opt_mech_mx: 'mx：放行域名自己的 MX 记录'
+      zone_comment: '{domain} 的 SPF 记录'
     sql-prettify:
       case_lower: '小写'
       case_preserve: '保持原样'
@@ -2766,6 +3414,18 @@ ui:
       text_color: '文字颜色：'
       text_ph: '默认是 {w}x{h}'
       width: '宽度（像素）：'
+    tab-to-spaces:
+      copy: '复制'
+      dir_spaces_to_tabs: '空格 → Tab'
+      dir_tabs_to_spaces: 'Tab → 空格'
+      direction: '转换方向'
+      download: '下载'
+      err_width: '每级缩进的空格数必须是 1 到 16 之间的整数。'
+      input: '要转换的文本'
+      input_hint: '制表符走到下一个「缩进宽度」的整数倍：在宽度 4 时，a 后面的一个 tab 会变成 3 个空格。'
+      input_ph: '把带 tab（或空格）的文本粘到这里…'
+      output: '转换结果'
+      width: '每级缩进几个空格'
     temperature-converter:
       below_absolute_zero: '这个温度低于绝对零度（0 K），物理上不可能 —— 换算结果已钳到 0 K。'
       celsius: '摄氏度'
@@ -3259,6 +3919,21 @@ field:
   record_type: '记录类型'
   dns_server: 'DNS 服务器（留空则用系统的）'
   timeout: '超时（秒）'
+  base_block: '基段'
+  test_block: '被测网段'
+  curve: '曲线'
+  key_format: '密钥格式'
+  private_key: '私钥（PEM）'
+  public_key: '公钥（PEM）'
+  signature: '签名（base64 或 hex）'
+  file_to_hash: '要计算摘要的文件'
+  ip_block: 'IP 网段（CIDR、地址区间或地址）'
+  include_ranges: '包含的网段'
+  exclude_ranges: '排除的网段'
+  ip_range: '地址区间（起始-结束、CIDR 或单个地址）'
+  subnet_prefix: '子网前缀长度（留空 = 每一级都列）'
+  padding: '填充方案'
+  ssid: 'SSID（网络名）'
 result:
   # API 工具结果区的标题。原版的结果区各有各的名字，不是笼统的「Output」。
   converted: '换算后的日期时间'
@@ -3341,6 +4016,8 @@ opt:
     'date-to-week': '日期 → 周数'
     'iso-week-to-date': 'ISO 周 → 日期'
     'month-week-to-date': '月内周 → 日期'
+    'sign': '签名'
+    'verify': '验签'
   bits:
     '2048': '2048 位'
     '4096': '4096 位'
@@ -3360,6 +4037,8 @@ opt:
     'utc': 'UTC 格式'
     'mongo-objectid': 'Mongo ObjectID'
     'excel': 'Excel 日期/时间'
+    'pem': 'PEM'
+    'raw': '原始字节（hex）'
   output:
     encoding:
       'hex': '十六进制'
@@ -3388,6 +4067,14 @@ opt:
       'ptr': 'PTR —— 反向解析'
       'caa': 'CAA —— CA 授权'
       'any': 'ANY —— 全部缓存记录'
+  curve:
+    'p256': 'P-256'
+    'p384': 'P-384'
+    'p521': 'P-521'
+  padding:
+    'pkcs1v15': 'RSAES-PKCS1-v1_5'
+    'oaep-sha1': 'RSAES-OAEP (SHA-1)'
+    'oaep-sha256': 'RSAES-OAEP (SHA-256)'
 # 服务端（API）工具结果区里用的文案。
 # 这些键是在 src/tools/ 的 Rust 代码里引用的，不在前端，所以放在 `ui:` 段之外
 # （`ui:` 那一段会下发给浏览器）。
@@ -3804,6 +4491,29 @@ out:
     'missing_field': '缺少字段 `{field}`'
     'ipv6_empty': '请输入一个 IPv6 地址'
     'ipv6_bad_address': '`{address}` 不是合法的 IPv6 地址'
+    cidr:
+      kind:
+        'this_network': '本网络（0.0.0.0/8）'
+        'private': '私有网络'
+        'shared': '共享地址空间（CGNAT）'
+        'loopback': '环回地址'
+        'link_local': '链路本地地址'
+        'documentation': '文档用途'
+        'sixtofour_relay': '6to4 中继任播'
+        'benchmark': '基准测试'
+        'multicast': '组播'
+        'reserved': '保留'
+        'broadcast': '广播地址'
+        'public': '公网地址'
+      err:
+        'bad_value': '`{value}` 不是合法的地址、地址区间或 CIDR 网段'
+        'mixed_family': '`{value}` 的两端不是同一个 IP 版本'
+        'reversed': '`{value}` 的结束地址比起始地址小'
+        'different_families': '基段与被测段不是同一个 IP 版本'
+        'ipv4_only': '这个工具只处理 IPv4'
+        'prefix_too_long': '前缀长度 {prefix} 不能超过 /32'
+        'prefix_too_short': '目标前缀 /{target} 比本段自己的 /{prefix} 还短'
+        'too_many': '这样会有 {count} 项 —— 超过上限 {limit}'
   date-converter:
     err:
       'unknown_timezone': '不认识的时区: {timezone}'
@@ -3920,3 +4630,104 @@ out:
       'no_system_config': '读不到系统 DNS 配置：{reason}'
       'lookup_failed': '查询失败：{reason}'
       'nxdomain': '这个域名不存在（NXDOMAIN）。'
+  cidr-in-cidr:
+    'base': '基段'
+    'test': '被测网段'
+    'result': '结果'
+    'included': '包含'
+    'not_included': '不包含'
+  ecdsa-key-pair-generator:
+    'private_key': '私钥（PKCS#8 PEM）'
+    'private_key_sec1': '私钥（SEC1 PEM）'
+    'public_key': '公钥（PEM）'
+    'private_key_raw': '私钥（原始 hex）'
+    'public_key_raw': '公钥（原始 hex）'
+    err:
+      'unknown_curve': '未知的曲线 `{curve}`（可选：p256 / p384 / p521）'
+      'unknown_format': '未知的输出格式 `{format}`（可选：pem / raw）'
+  ecdsa-signing:
+    'signature_hex': '签名（hex）'
+    'curve': '曲线'
+    'digest': '摘要算法'
+    'verification_result': '验签结果'
+    'valid': '有效'
+    'invalid': '无效'
+    err:
+      'unknown_mode': '未知的模式：{mode}（可选：sign / verify）'
+      'unknown_curve': '未知的曲线：{curve}（可选：p256 / p384 / p521）'
+      'bad_private_key': '不是合法的 EC 私钥（应当是 PEM 的 PKCS#8 或 SEC1 私钥）'
+      'bad_public_key': '不是合法的 EC 公钥（应当是 PEM 的 SPKI 公钥）'
+      'curve_mismatch': '这把密钥在 {actual} 上，但选的是 {expected}'
+      'bad_signature_encoding': '签名既不是合法的 base64，也不是合法的 hex'
+      'bad_signature': '签名不是合法的 ASN.1 DER ECDSA 签名'
+      'input_too_long': '输入有 {size} 个单位，超过上限 {max}'
+      'encrypted_key_unsupported': '不支持加密的私钥：本工具不收口令'
+  ed25519-key-pair-generator:
+    'private_key': '私钥（PEM）'
+    'public_key': '公钥（PEM）'
+    'private_key_raw': '私钥（原始 hex）'
+    'public_key_raw': '公钥（原始 hex）'
+    err:
+      'unknown_format': '未知的输出格式 `{format}`（可选：pem / raw）'
+  file-hasher:
+    err:
+      'file_too_large': '文件太大（{size} 字节），上限 {max} 字节'
+      'invalid_base64': '上传的文件不是合法的 base64'
+  ip-cidr-to-range:
+    'cidr': 'CIDR 网段'
+    'network': '网络地址'
+    'prefix': '前缀长度'
+    'first': '第一个地址'
+    'last': '最后一个地址'
+    'broadcast': '广播地址'
+    'netmask': '子网掩码'
+    'wildcard': '反掩码'
+    'total': '地址总数'
+    'usable': '可用主机数'
+    'type': '地址类型'
+  ip-include-exclude:
+    'included': '包含的网段'
+    'excluded': '排除的网段'
+    'remaining': '剩下的网段数'
+    'total_addresses': '剩下的地址数'
+    'effective_excludes': '生效的排除项'
+    err:
+      'no_include': '`{field}` 里至少要有一段包含的地址'
+  ip-range-to-cidr:
+    'first': '第一个地址'
+    'last': '最后一个地址'
+    'addresses': '区间内的地址数'
+    'cidrs': '网段数'
+  ipv4-subnets-list:
+    'network': '网段'
+    'count': '子网数'
+  rsa-encryption:
+    'mode': '模式'
+    'padding': '填充方案'
+    'key_size': '密钥长度（位）'
+    err:
+      'unknown_mode': '未知的模式 `{mode}`（可选值：encrypt / decrypt）'
+      'unknown_padding': '未知的填充方案 `{padding}`（可选值：pkcs1v15 / oaep-sha1 / oaep-sha256）'
+      'missing_public_key': '请输入用于加密的公钥'
+      'missing_private_key': '请输入用于解密的私钥'
+      'bad_public_key': '公钥读不出来：必须是 PEM 的 `PUBLIC KEY`（SPKI）或 `RSA PUBLIC KEY`（PKCS#1）块'
+      'bad_private_key': '私钥读不出来：必须是 PEM 的 `RSA PRIVATE KEY`（PKCS#1）或 `PRIVATE KEY`（PKCS#8）块'
+      'encrypted_private_key_unsupported': '不支持 PKCS#8 的加密私钥（`ENCRYPTED PRIVATE KEY`）：请先转成传统的 OpenSSL 格式（`openssl rsa -traditional -aes256`）'
+      'missing_passphrase': '这把私钥是加密的：请输入口令'
+      'private_key_decrypt_failed': '私钥解不开：口令不对，或者文件已经损坏'
+      'unsupported_dek_cipher': '不支持的 PEM 加密算法 `{cipher}`'
+      'bad_base64': '密文不是合法的 base64'
+      'decrypt_failed': '解密失败：私钥与密文不配对、填充方案选错，或者密文已被篡改'
+      'encrypt_failed': '加密失败'
+      'text_too_long': '文本太长：这把密钥配这个填充方案最多装 `{max}` 字节'
+      'not_utf8': '解出来的字节不是合法的 UTF-8 文本'
+  wpa-psk-generator:
+    'ssid': 'SSID'
+    'psk': 'PSK（十六进制）'
+    'key_length': '密钥长度（位）'
+    'algorithm': '算法'
+    'iterations': '迭代次数'
+    'salt': '盐'
+    'passphrase_length': '口令长度'
+    warn:
+      'passphrase_length': '口令有 {length} 个字符；WPA-PSK 要求 8 到 63 个'

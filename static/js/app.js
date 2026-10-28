@@ -2397,6 +2397,295 @@
     getIpClass: ipClass
   };
 
+  /* ==================================================================
+     JSON 类型推断 —— 几个「JSON 转某种语言」的工具共用的一套内核
+     ==================================================================
+
+     为什么要有这一层：json-to-csharp / json-to-typescript / json-to-protobuf /
+     json-to-schema 干的是同一件事 —— 把一份 JSON 变成一棵类型树，再按各自的
+     语言把这棵树写出来。**类型推断**（这个值是整数还是字符串、这个对象该叫什么
+     名字、两个键撞名了怎么办）是**与语言无关**的，摊开写四遍就是四份会各自
+     漂移的实现 —— 改一条推断规则要改四处，漏一处就出现「C# 里是 int、
+     TypeScript 里是 number」这种说不清的东西。所以推断放这里，各语言只留
+     「怎么把这个节点写成那种语言」。
+
+     节点形状：
+
+         标量  { kind: 'scalar', type: 'boolean'|'integer'|'number'|'string'|'date'|'null',
+                 width: 'int32'|'int64'|'bigint'|'float64' }
+         数组  { kind: 'array', element: <节点> }
+         对象  { kind: 'object', name: 'User',
+                 members: [ { key: '原始的 JSON 键', name: '成员名', type: <节点> } ] }
+
+     `width` 只在 integer / number 上有意义（整数放不放得进 int32、要不要 64 位）。
+     `date` 是「字符串但形状像 ISO-8601」这一路 —— 认不认它是日期由各个语言
+     自己决定（C# 认 DateTime，protobuf 的 proto3 只有 string）。
+     ================================================================== */
+
+  /**
+   * ISO-8601 日期 / 日期时间的形状。
+   *
+   * 只看形状不看真实性 —— 2024-13-45 这种不存在的日子也算日期形状。
+   * 要的是「像不像时间戳」，不是「是不是存在的时刻」。
+   *
+   *   YYYY-MM-DD
+   *   YYYY-MM-DDTHH:MM[ :SS[.fff]][Z|±hh:mm]
+   */
+  var JSON_ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,7})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+  /**
+   * 切词：把一个原始键名拆成一个个词。PascalCase / camelCase / snake_case 都基于它。
+   *
+   * 切词规则：
+   *   1. 分隔符：连字符、下划线、空格、点…… 一律不是 [A-Za-z0-9] 的字符都是分隔符；
+   *   2. 驼峰边界：小写或数字后面跟一个大写 → 断开（fooBar → foo | Bar）；
+   *   3. 缩写边界：大写 + 大写 + 小写 → 在后一个大写前断开（HTTPServer → HTTP | Server）；
+   *   4. 数字边界：字母 ↔ 数字之间断开（foo2bar → foo | 2 | bar）。
+   *
+   * @param {string} str
+   * @returns {string[]}
+   */
+  function jsonSplitWords(str) {
+    var s = String(str == null ? '' : str);
+    var words = [];
+    var cur = '';
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (!/[A-Za-z0-9]/.test(ch)) {
+        if (cur) { words.push(cur); cur = ''; }
+        continue;
+      }
+      if (cur) {
+        var prev = s.charAt(i - 1);
+        var next = i + 1 < s.length ? s.charAt(i + 1) : '';
+        var boundary = false;
+        if (/[a-z0-9]/.test(prev) && /[A-Z]/.test(ch)) {
+          boundary = true;                                    // 驼峰边界
+        } else if (/[A-Z]/.test(prev) && /[A-Z]/.test(ch) && /[a-z]/.test(next)) {
+          boundary = true;                                    // 缩写边界
+        } else if (/[0-9]/.test(prev) !== /[0-9]/.test(ch)) {
+          boundary = true;                                    // 数字边界
+        }
+        if (boundary) { words.push(cur); cur = ''; }
+      }
+      cur += ch;
+    }
+    if (cur) words.push(cur);
+    return words;
+  }
+
+  /**
+   * PascalCase：每个词首字母大写、其余小写。
+   * 数字开头的词保持数字开头（2fa → 2 | fa → 2Fa），后面再由 sanitizeIdentifier 补 _ 前缀。
+   */
+  function jsonToPascalCase(str) {
+    var words = jsonSplitWords(str);
+    var out = '';
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      var head = w.charAt(0);
+      var tail = w.substr(1).toLowerCase();
+      out += (head >= '0' && head <= '9') ? head + tail : head.toUpperCase() + tail;
+    }
+    return out;
+  }
+
+  /** camelCase：跟 PascalCase 同样的切词，首词首字母小写。 */
+  function jsonToCamelCase(str) {
+    var p = jsonToPascalCase(str);
+    if (!p) return p;
+    var head = p.charAt(0);
+    return head.toLowerCase() + p.substr(1);
+  }
+
+  /**
+   * 标识符清洗（与语言无关的那部分）：非 [A-Za-z0-9_] 的字符换成 _，
+   * 数字开头补 _ 前缀，空串给个占位。
+   *
+   * 各语言自己还要做的事（关键字加前缀、类型名不许与某个词撞……）由调用方
+   * 在这之后接着做 —— 这一层只管「变成一个合法标识符的形状」。
+   */
+  function jsonSanitizeIdentifier(name) {
+    var s = String(name == null ? '' : name).replace(/[^A-Za-z0-9_]/g, '_');
+    if (!s) s = '_';
+    if (s.charAt(0) >= '0' && s.charAt(0) <= '9') s = '_' + s;
+    return s;
+  }
+
+  /** 是不是一个普通的 JSON 对象（不是数组、不是 null） */
+  function jsonIsPlainObject(value) {
+    return Object.prototype.toString.call(value) === '[object Object]';
+  }
+
+  /** 字符串是不是 ISO-8601 日期/日期时间的形状 */
+  function jsonIsIsoDate(str) {
+    return JSON_ISO_DATE_RE.test(String(str == null ? '' : str));
+  }
+
+  /**
+   * 标量值 → 中立的类型标签。
+   *
+   * 整数按大小分三档：int32 放得下、int64 放得下、再大就是 bigint
+   * （JSON 的双精度到 2^53 就到头了，再往上的整数解析时已经丢过精度，
+   * 这里只是把「很大」如实标出来，不假装精确）。
+   */
+  function jsonInferScalar(value) {
+    if (value === null) return { kind: 'scalar', type: 'null' };
+    switch (typeof value) {
+      case 'boolean':
+        return { kind: 'scalar', type: 'boolean' };
+      case 'number': {
+        if (!Number.isInteger(value)) return { kind: 'scalar', type: 'number', width: 'float64' };
+        if (value >= -2147483648 && value <= 2147483647) {
+          return { kind: 'scalar', type: 'integer', width: 'int32' };
+        }
+        // long 的上界写的是 < 2^63：JS 的 number 是双精度，2^63 正好可表示，
+        // 而 long.MaxValue 是 2^63-1，所以要用「小于 2^63」而不是「小于等于」。
+        if (value >= -9223372036854775808 && value < 9223372036854775808) {
+          return { kind: 'scalar', type: 'integer', width: 'int64' };
+        }
+        return { kind: 'scalar', type: 'integer', width: 'bigint' };
+      }
+      case 'string':
+        return jsonIsIsoDate(value)
+          ? { kind: 'scalar', type: 'date' }
+          : { kind: 'scalar', type: 'string' };
+      default:
+        return { kind: 'scalar', type: 'null' };
+    }
+  }
+
+  /**
+   * 开一个新类型：名字洗成合法标识符，跟已有的重名就加数字后缀。
+   *
+   * 重名是必然的：两个不同的键（"user-name" 与 "user_name"）转成同一个类型名，
+   * 生成两份一模一样的类型就编译不过。
+   */
+  function jsonNewTypeName(ctx, nameHint, opts) {
+    var base = opts.sanitizeType(jsonToPascalCase(nameHint));
+    if (!base || base === '_') base = opts.sanitizeType(jsonToPascalCase(opts.rootName));
+    var name = base;
+    var i = 2;
+    while (ctx.usedTypeNames[name]) { name = base + i; i++; }
+    ctx.usedTypeNames[name] = true;
+    return name;
+  }
+
+  /** 同一个对象里的成员名不能重样，撞了就加数字后缀 */
+  function jsonUniqueMemberName(name, used) {
+    var candidate = name;
+    var i = 2;
+    while (used[candidate]) { candidate = name + i; i++; }
+    used[candidate] = true;
+    return candidate;
+  }
+
+  /**
+   * 一个 JSON 值对应的类型节点。
+   *
+   * 对象在这里被展开成一个新类型（类型名用属性名做提示）。
+   *
+   * @param {object} ctx
+   * @param {*} value
+   * @param {string} nameHint 生成类型名时的提示（一般是属性名）
+   * @param {object} opts
+   * @returns {object} 节点
+   */
+  function jsonBuildType(ctx, value, nameHint, opts) {
+    if (value === null) return { kind: 'scalar', type: 'null' };
+
+    if (Array.isArray(value)) {
+      if (!value.length) {
+        // 空数组：元素类型无从推断 → 元素按「未知对象」算
+        return { kind: 'array', element: { kind: 'scalar', type: 'null' } };
+      }
+      // 只看**第一个**元素：数组里元素类型不一致时没有公共类型可取。
+      // 与其编一个「object」，不如给出最可能的类型。
+      return { kind: 'array', element: jsonBuildType(ctx, value[0], nameHint, opts) };
+    }
+
+    if (jsonIsPlainObject(value)) {
+      return jsonBuildObject(ctx, value, nameHint, opts);
+    }
+
+    return jsonInferScalar(value);
+  }
+
+  /**
+   * 把一个 JSON 对象展开成一个类型节点。
+   *
+   * @returns {{kind: 'object', name: string, members: Array}}
+   */
+  function jsonBuildObject(ctx, obj, nameHint, opts) {
+    var node = { kind: 'object', name: jsonNewTypeName(ctx, nameHint, opts), members: [] };
+    ctx.defs.push(node);
+    var usedNames = Object.create(null);
+    var keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var raw = opts.pascalCase ? jsonToPascalCase(key) : String(key);
+      var name = jsonUniqueMemberName(opts.sanitizeMember(raw), usedNames);
+      node.members.push({
+        key: key,
+        name: name,
+        type: jsonBuildType(ctx, obj[key], key, opts)
+      });
+    }
+    return node;
+  }
+
+  /**
+   * 推断整份 JSON 的类型树。
+   *
+   * @param {*} data 解析好的 JSON 值
+   * @param {object} [opts]
+   * @param {string} [opts.rootName] 顶层是数组/标量时的根类型名
+   * @param {boolean} [opts.pascalCase] 成员名用 PascalCase（默认 true）
+   * @param {function} [opts.sanitizeMember] 成员名的语言相关清洗
+   * @param {function} [opts.sanitizeType] 类型名的语言相关清洗
+   * @returns {{root: object, defs: Array}} defs 是全部对象类型（按生成顺序）
+   */
+  function jsonInferDocument(data, opts) {
+    opts = opts || {};
+    if (opts.rootName === undefined) opts.rootName = 'Root';
+    if (opts.pascalCase === undefined) opts.pascalCase = true;
+    if (!opts.sanitizeMember) opts.sanitizeMember = jsonSanitizeIdentifier;
+    if (!opts.sanitizeType) opts.sanitizeType = jsonSanitizeIdentifier;
+
+    var ctx = { defs: [], usedTypeNames: Object.create(null) };
+    var root;
+    if (Array.isArray(data)) {
+      if (!data.length) {
+        root = { kind: 'array', element: { kind: 'scalar', type: 'null' } };
+      } else {
+        root = { kind: 'array', element: jsonBuildType(ctx, data[0], opts.rootName, opts) };
+      }
+    } else if (jsonIsPlainObject(data)) {
+      root = jsonBuildObject(ctx, data, opts.rootName, opts);
+    } else {
+      root = jsonInferScalar(data);
+    }
+    return {
+      root: root,
+      defs: ctx.defs,
+      /** 预留一个唯一的类型名 —— 调用方要自己造一个包装类型时用（比如 C# 的根类）。 */
+      newTypeName: function (hint) { return jsonNewTypeName(ctx, hint, opts); }
+    };
+  }
+
+  /** 对外暴露的 JSON 类型推断内核。 */
+  var JsonInfer = {
+    splitWords: jsonSplitWords,
+    toPascalCase: jsonToPascalCase,
+    toCamelCase: jsonToCamelCase,
+    sanitizeIdentifier: jsonSanitizeIdentifier,
+    isPlainObject: jsonIsPlainObject,
+    isIsoDate: jsonIsIsoDate,
+    inferScalar: jsonInferScalar,
+    uniqueMemberName: jsonUniqueMemberName,
+    infer: jsonInferDocument
+  };
+
   /* ---------- 对外接口 ----------
      必须放在所有 helper 定义之后：`var` 会提升，若在这里赋值，
      ItTools.dom / ItTools.util 会捕获到尚未初始化的 undefined。 */
@@ -2410,6 +2699,8 @@
     util: Util,
     /** 两个 IPv4 工具共用的换算与 IANA 特殊用途地址登记表。 */
     ip: Ip,
+    /** 几个「JSON 转某种语言」的工具共用的类型推断内核。 */
+    jsonInfer: JsonInfer,
     /** 各工具把纯逻辑挂到这里，node 侧的 jsdom 测试直接调用（见 test/js/）。 */
     logic: {},
     i18n: i18n,

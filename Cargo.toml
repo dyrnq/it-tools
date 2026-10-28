@@ -68,6 +68,10 @@ twox-hash = "2.1"
 adler32 = "1.2"
 crc32fast = "1.5"
 crc32c = "0.6"
+# CRC 计算器（fork 的 crc-calculator）：一次算出十几个 CRC 变体。
+# `crc-catalog` 里是现成的多项式定义（CRC-16/IBM-3740、CRC-32/MPEG-2 …），
+# 自己记多项式容易记错一个常数 —— 记错的话结果长度对、值全错。
+crc = "3.4"
 hex = "0.4"
 actix-multipart = "0.8.5"
 base64 = "0.23.1"
@@ -94,6 +98,10 @@ totp-rs = "6.0.0"
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
 hmac = "0.13"
+# WPA-PSK 原始密钥派生：PBKDF2-HMAC-SHA1（IEEE 802.11i 规定的那个算法）。
+# pbkdf2 0.13 跟本仓库的 digest 0.11 / hmac 0.13 是同一代 —— 0.12 那版
+# 停在 digest 0.10 上，两代混用会让 `EagerHash` 的 trait 解析不上。
+pbkdf2 = "0.13"
 # JWT 签名/验签（上游 PR #1453）的三条 ECDSA 曲线。
 # 这三个 crate 各自带一份 ecdsa 实现（0.14 系列的 elliptic-curve → ecdsa 0.17，
 # 走的正是 digest 0.11 / signature 3，跟上面那组摘要和 rsa 0.10 是同一代）。
@@ -115,10 +123,14 @@ futures-util = "0.3.34"
 # 纯 UDP/TCP 查询，不需要 TLS 栈 —— 我们的部署目标是内网，
 # 上游那套 DoH + RDAP 要引入整套 HTTP/TLS 依赖，代价与收益不成比例。
 hickory-resolver = { version = "0.26", default-features = false, features = ["system-config", "tokio"] }
-# IPv6 子网计算：ipnet 负责前缀与网络，num-bigint 负责 128 位主机位算术
-# （2^128 这类值放不进 u64，但放得进 u128 —— 只有 2^64 以上才需要 BigInt，
-#  实际用 BigInt 是因为「总地址数」要写成十进制字符串，u128 的十进制转换够用，
-#  但掩码与首末地址的中间运算在 u128 里做更直观）。
+# 网段算术：ipnet 负责**解析**（地址的写法千奇百怪 —— IPv6 的 `::` 压缩、
+# 前缀写成点分掩码…… 自己 split('/') 会漏掉一堆非法输入），
+# num-bigint 负责 128 位的主机位运算。
+#
+# 为什么用 BigUint 而不是 u128：IPv6 的 `/0` 有 2^128 个地址 ——
+# 「最后一个地址 + 1」在 u128 里会溢出，而这个 +1 在「相邻区间合并」
+# 「区间减法」里是家常便饭；「区间里有多少个地址」在 `/0` 时是 2^128，
+# u128 也装不下（最大 2^128-1）。BigUint 让「加一」永远不溢出。
 ipnet = "2.12"
 num-bigint = "0.5"
 # OpenSSH 私钥（openssh-key-v1 容器）要 ed25519 的**种子**（32 字节），
