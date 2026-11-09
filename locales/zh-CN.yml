@@ -693,6 +693,10 @@ tools:
   image-converter-heic:
     title: 转换成 HEIC
     description: 在浏览器里把图片转成 HEIC，或者把 iPhone 拍的 HEIC 照片转成 JPEG、PNG、WebP。图片一个字节都不出本机。
+
+  image-splitter:
+    title: 切割图片
+    description: 把图片切成等分的小块 —— 选 2×2、3×3、4×4 或自己填行列数，然后单独下载某一块，或者整组打包成 ZIP。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2335,6 +2339,30 @@ ui:
       warn_animation: '动图只能导出第一帧 —— 这张图有 {n} 帧，后面的帧没了。'
       warn_fallback: '这个浏览器不能编码 {format}，图片已经存成 {actual} 了。'
       warn_too_large: '这张图对这个尺寸来说太大了，浏览器只能缩到 {width} × {height} 再处理。'
+    image-splitter:
+      btn_split: '切割图片'
+      btn_zip: '下载全部小块（ZIP）'
+      choose_file: '选择图片文件'
+      drop_hint: '也可以把文件拖进这个框。图片在你的浏览器里处理，不会上传。'
+      err_decode: '这个文件解码不成图片。'
+      err_read: '文件读不出来。'
+      err_split: '图片切割失败：{reason}'
+      hint_clamped: '网格已经收成 {rows} × {cols} —— 一块至少要有一个像素。'
+      hint_click: '点预览里的任意一块，就能单独下载那一块。'
+      hint_order: '小块按从左到右、从上到下编号。发 Instagram 的话，从右下角往上传。'
+      hint_output: '每块都存成 PNG，没有缩放也没有重采样。图片一个字节都不出本机。'
+      hint_remainder: '图片切不匀：多出来的像素分给了最后几行、最后几列，各块之间会差一个像素。'
+      label_cols: '列数'
+      label_grid: '网格大小'
+      label_rows: '行数'
+      preview_title: '预览'
+      settings_title: '网格'
+      status_reading: '正在读取文件…'
+      status_splitting: '正在切割图片…'
+      summary_tile_size: '每块至少 {width} × {height} 像素'
+      summary_tiles: '{n} 块'
+      summary_zip: 'ZIP 包 {size}'
+      title: '切割图片'
     integer-base-converter:
       base64: 'Base64 (64)'
       binary: '二进制 (2)'

@@ -697,6 +697,10 @@ tools:
   image-converter-heic:
     title: Convert an image to HEIC
     description: Convert an image to HEIC in your browser, or turn an iPhone HEIC photo into JPEG, PNG or WebP. The picture never leaves your machine.
+
+  image-splitter:
+    title: Split an image
+    description: Cut an image into equal tiles — pick a 2×2, 3×3 or 4×4 grid or set your own, then download one tile or the whole set as a ZIP. Everything happens in your browser.
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -2339,6 +2343,30 @@ ui:
       warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
       warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
       warn_too_large: 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'
+    image-splitter:
+      btn_split: 'Split the image'
+      btn_zip: 'Download all tiles (ZIP)'
+      choose_file: 'Choose an image file'
+      drop_hint: 'You can also drop the file into this box. The file is processed in your browser, nothing is uploaded.'
+      err_decode: 'This file could not be decoded as an image.'
+      err_read: 'Could not read the file.'
+      err_split: 'The image could not be split: {reason}'
+      hint_clamped: 'The grid was reduced to {rows} × {cols} — a tile cannot be smaller than one pixel.'
+      hint_click: 'Click any tile in the preview to download it on its own.'
+      hint_order: 'Tiles are numbered from left to right, top to bottom. For Instagram, upload them from the bottom right upwards.'
+      hint_output: 'Every tile is saved as PNG, without resampling. The picture never leaves your machine.'
+      hint_remainder: 'The image does not divide evenly: the extra pixels go to the last rows and columns, so the tiles differ by one pixel.'
+      label_cols: 'Columns'
+      label_grid: 'Grid size'
+      label_rows: 'Rows'
+      preview_title: 'Preview'
+      settings_title: 'Grid'
+      status_reading: 'Reading the file…'
+      status_splitting: 'Splitting the image…'
+      summary_tile_size: 'Each tile is at least {width} × {height} px'
+      summary_tiles: '{n} tiles'
+      summary_zip: 'The ZIP is {size}'
+      title: 'Split an image'
     integer-base-converter:
       base64: 'Base64 (64)'
       binary: 'Binary (2)'
