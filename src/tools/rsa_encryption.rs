@@ -1,8 +1,7 @@
 //! RSA 加解密（endpoint `rsa-encryption`）。
 //!
-//! 参考实现是 `it-tools2/src/tools/rsa-encryption/rsa-encryption.vue`
-//! （Vue + node-forge）。**当参考，不当目标** —— 只借它的**方案清单**，
-//! 算法实现全部用 `rsa` crate 重写。
+//! 参考实现是 sharevb/it-tools 的 `rsa-encryption` 工具（Vue + node-forge）。
+//! **当参考，不当目标** —— 只借它的**方案清单**，算法实现全部用 `rsa` crate 重写。
 //!
 //! ## 与参考实现最大的差别：私钥要经过服务端
 //!

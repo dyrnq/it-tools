@@ -10,7 +10,7 @@
 #   所以这里把 commit 写死在脚本里，生成的 JSON 里也写同一个 commit，
 #   工具界面上显示的下载链接同样指这个 commit：预览、命令、数据三者永远一致。
 #
-#   （fork it-tools2 的 scripts/update-git-templates.mjs 也是这么做的：
+#   （sharevb/it-tools 的 scripts/update-git-templates.mjs 也是这么做的：
 #   先用 API 把分支头解成 commit sha，再按那个 sha 抓内容。）
 #
 # 为什么不用 raw.githubusercontent 一个个抓：

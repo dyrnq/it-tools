@@ -4,7 +4,7 @@
    把反向 DNS（ARPA）名字与 IP 地址互转。
 
    ---- 上游那版是什么 ----
-   上游（it-tools2 的 arpa-decoder）只有**一个方向**：ARPA → IP。
+   上游（sharevb/it-tools 的 arpa-decoder）只有**一个方向**：ARPA → IP。
    它把输入丢给 `Address4.fromArpa()` / `Address6.fromArpa()`，
    解析失败时把 catch 到的异常原文塞进输出区（`# Error: ...`）。
 

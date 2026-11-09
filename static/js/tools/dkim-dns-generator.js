@@ -4,7 +4,7 @@
    贴一段公钥 → 出一条能直接贴进 DNS 的 DKIM TXT 记录。
 
    ---- 上游那版是什么 ----
-   sharevb/it-tools2 的 dkim-dns-generator.vue：它不让人贴公钥，而是在浏览器里
+   上游（sharevb/it-tools）的 dkim-dns-generator：它不让人贴公钥，而是在浏览器里
    现生成一对 RSA 密钥（1024 / 2048 / 4096，可加口令），然后把公钥 PEM 剥掉
    头尾拼成 `v=DKIM1; k=rsa; p=…`，输出
    `<selector>._domainkey.<domain> IN TXT "…"`，顺带把私钥也显示出来。

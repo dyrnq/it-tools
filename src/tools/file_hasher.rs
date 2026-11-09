@@ -1,6 +1,6 @@
 //! File hasher —— 上传文件的全部摘要（endpoint `file-hasher`）。
 //!
-//! 参考实现是 it-tools2 的 `file-hasher`：它在浏览器里用 `hash-wasm` 一次算出
+//! 参考实现是 sharevb/it-tools 的 `file-hasher`：它在浏览器里用 `hash-wasm` 一次算出
 //! 20 多种摘要并列表显示（md5 / sha1 / sha2 / sha3 / blake2 / keccak /
 //! sm3 / whirlpool / ripemd160 / adler32 / crc32 …）。
 //!

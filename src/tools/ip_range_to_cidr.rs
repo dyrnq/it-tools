@@ -1,7 +1,6 @@
 //! 一段地址 → 最少的几个 CIDR。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/ip-range-to-cidr/
-//! （sharevb/it-tools 的 fork）。它把区间里的**每一个地址**都放进一个
+//! 参考实现：sharevb/it-tools 的 `ip-range-to-cidr` 工具。它把区间里的**每一个地址**都放进一个
 //! `BigInt64Array`，再交给 `cidr-tools` 的 `mergeCidr` 合并。
 //!
 //! ## 与上游的差别

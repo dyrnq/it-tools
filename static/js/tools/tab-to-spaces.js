@@ -3,7 +3,7 @@
 
    在制表符与空格之间互转，宽度可调。方向：Tab → 空格、空格 → Tab。
 
-   参考实现：src/tools/tab-to-spaces/（it-tools2，Vue）
+   参考实现：sharevb/it-tools 的 `tab-to-spaces` 工具（Vue 写的）
    与上游那版的差别：
    1. 上游只有「Tab → 空格」一个方向，这里补上「空格 → Tab」。
    2. 上游按**显示宽度**算列（CJK 算两格，还带一张手工维护的半角/全角表）。

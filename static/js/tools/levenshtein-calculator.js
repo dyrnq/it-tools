@@ -4,7 +4,7 @@
    算两个字符串的 Levenshtein 距离（插入 / 删除 / 替换各算 1），
    给出相似度百分比、最长公共子序列的长度，以及把两串对齐后的对照。
 
-   参考实现：src/tools/levenshtein-calculator/（it-tools2，Vue）
+   参考实现：sharevb/it-tools 的 `levenshtein-calculator` 工具（Vue 写的）
    与上游那版的差别：
    1. 上游用的是 damerau-levenshtein —— 那是 **Damerau** 距离，
       相邻两个字符对调算 1 次（"ca" vs "ac" = 1），

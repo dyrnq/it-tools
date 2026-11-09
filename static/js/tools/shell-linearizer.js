@@ -4,7 +4,7 @@
    把多行的 shell 命令压成一行。
 
    ---- 上游那版是什么 ----
-   上游（it-tools2 的 shell-linearizer）直接调用 `collapseBackslashLines`：
+   上游（sharevb/it-tools 的 shell-linearizer）直接调用 `collapseBackslashLines`：
    ```ts
    const lines = input.trim().split(/\r?\n/);
    for (const raw of lines) {

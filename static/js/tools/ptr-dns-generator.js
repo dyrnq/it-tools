@@ -6,7 +6,7 @@
        1.2.3.4       → 4.3.2.1.in-addr.arpa
        2001:db8::1   → 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa
 
-   参考实现：/data/work/it-tools2/src/tools/ptr-dns-generator/（it-tools, GPLv3），
+   参考实现：上游 it-tools 的 `ptr-dns-generator` 工具（GPLv3），
    核心是上游的 src/utils/ip.ts 里的 toARPA()。上游那版改了五处：
 
    1. **名字带尾点**。上游两条路径都返回一个结尾有点的名字

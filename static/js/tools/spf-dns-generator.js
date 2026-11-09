@@ -4,7 +4,7 @@
    填一张表 → 出一条能直接贴进 DNS 的 SPF TXT 记录（记录名 + 值 + zone 片段）。
 
    ---- 上游那版是什么 ----
-   sharevb/it-tools2 的 spf-dns-generator.vue：naive-ui 的 n-dynamic-tags 四个
+   上游（sharevb/it-tools）的 spf-dns-generator：naive-ui 的 n-dynamic-tags 四个
    「允许来源」列表（a: 域名 / IPv4 / IPv6 / include: 域名）、五个机制复选框
    （a / mx / ptr / exists / redirect）、四个策略单选（+all / -all / ~all / ?all），
    输出只有一个裸记录串 —— 连记录名都没有。

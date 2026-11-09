@@ -3,7 +3,7 @@
 
    把一段文本切成词，统计每个不同的词出现了多少次，按次数降序列成表。
 
-   参考实现：src/tools/distinct-words/（it-tools2 的 fork，Vue 写的）
+   参考实现：sharevb/it-tools 的 `distinct-words` 工具（Vue 写的）
    与上游的差别：
    1. 上游只有一个输入框，标点是**永远**被清掉的，而且清理得不干净：
       它用的是 /\p{P}+\s|\s\p{P}+|\p{P}+$|^\p{P}+|\s+/gu —— 只有「紧挨着空白」

@@ -3,7 +3,7 @@
 
    找出一段文本里出现两次以上的行，列出每一行和它出现的次数。
 
-   参考实现：src/tools/duplicate-line-finder/（it-tools2 的 fork，Vue 写的）
+   参考实现：sharevb/it-tools 的 `duplicate-line-finder` 工具（Vue 写的）
    与上游的差别：
    1. 上游的第二个输入框是「清理用的正则」，而计算那一层把这个正则**原样**
       交给 new RegExp()：正则写错时整块工具的计算会抛异常（上游只在表单层

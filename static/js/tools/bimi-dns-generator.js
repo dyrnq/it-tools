@@ -5,7 +5,7 @@
 
        default._bimi.example.com IN TXT "v=BIMI1; l=https://example.com/logo.svg"
 
-   参考实现：/data/work/it-tools2/src/tools/bimi-dns-generator/（it-tools, GPLv3）。
+   参考实现：上游 it-tools 的 `bimi-dns-generator` 工具（GPLv3）。
    上游那版是三个输入框、一个输出框，这里修了五处：
 
    1. **l= 不检查 HTTPS**。BIMI 规范要求 logo 用 https 给出，上游照单全收，

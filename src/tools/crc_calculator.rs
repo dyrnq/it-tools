@@ -1,6 +1,6 @@
 //! CRC calculator —— 一段文本的各个 CRC 变体（endpoint `crc-calculator`）。
 //!
-//! 参考实现是 it-tools2 的 `crc-calculator`：它在浏览器里用 npm 的 `crc` 包
+//! 参考实现是 sharevb/it-tools 的 `crc-calculator`：它在浏览器里用 npm 的 `crc` 包
 //! （4.3.2）一次算出 13 个变体，界面上一行一个。
 //!
 //! 变体的名字（`crc1` / `crc8` / `crc81wire` / …）沿用参考实现的叫法 ——

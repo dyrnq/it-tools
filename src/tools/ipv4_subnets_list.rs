@@ -1,7 +1,6 @@
 //! IPv4 网段 → 它的子网清单。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/ipv4-subnets-list/
-//! （sharevb/it-tools 的 fork）。它给一个 IPv4 地址（可带掩码），
+//! 参考实现：sharevb/it-tools 的 `ipv4-subnets-list` 工具。它给一个 IPv4 地址（可带掩码），
 //! 从这个掩码开始，**一级一级往下切**（/24 → /25 → /26 … → /30），
 //! 每一级都列出全部子网，并给出每个子网的网络地址、第一个、最后一个与广播地址。
 //!

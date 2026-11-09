@@ -16,7 +16,7 @@
 //!
 //! ## 与参考实现的差别
 //!
-//! 参考实现（`it-tools2` 的 `ed25519-key-pair-generator`）用 npm 的 **sshpk**，
+//! 参考实现（sharevb/it-tools 的 `ed25519-key-pair-generator`）用 npm 的 **sshpk**，
 //! 默认档（`format = "ssh"`）给的是 **OpenSSH 格式**私钥
 //! （`-----BEGIN OPENSSH PRIVATE KEY-----`）加一行 authorized_keys 公钥，
 //! 外加 SHA256 / MD5 指纹。

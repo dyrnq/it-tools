@@ -4,7 +4,7 @@
    从 alexkaratarakis/gitattributes 的模板快照里挑几个，拼成一个能直接用的
    .gitattributes。
 
-   参考实现：src/tools/gitattributes-generator/（it-tools2 的 fork，Vue 写的）。
+   参考实现：sharevb/it-tools 的 `gitattributes-generator` 工具（Vue 写的）。
    与参考实现的差别：
 
    1. 参考实现是**在线**的：选项来自 GitHub API 的目录树，正文来自

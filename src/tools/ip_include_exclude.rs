@@ -1,8 +1,7 @@
 //! 包含一批地址、排除一批地址 → 剩下的是哪些。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/ip-include-exclude/
-//! （sharevb/it-tools 的 fork）。它用 `ip-matching` 把两边的输入拆成掩码，
-//! 再交给 `cidr-tools` 的 `excludeCidr` 算出「包含的里面扣掉排除的」。
+//! 参考实现：sharevb/it-tools 的 `ip-include-exclude` 工具。它用 `ip-matching` 把两边的输入
+//! 拆成掩码，再交给 `cidr-tools` 的 `excludeCidr` 算出「包含的里面扣掉排除的」。
 //!
 //! ## 与上游的差别
 //!

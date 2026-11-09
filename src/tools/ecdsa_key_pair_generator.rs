@@ -24,7 +24,7 @@
 //!
 //! ## 与参考实现的差别
 //!
-//! 参考实现（`it-tools2` 的 `ecdsa-key-pair-generator`）用 npm 的 **sshpk**，
+//! 参考实现（sharevb/it-tools 的 `ecdsa-key-pair-generator`）用 npm 的 **sshpk**，
 //! 曲线给的是 `nistp256` / `nistp384` / `nistp521`，输出是 **OpenSSH 格式**的私钥
 //! 加一行 authorized_keys 公钥，外加 SHA256 / MD5 指纹。
 //!

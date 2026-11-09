@@ -3,7 +3,7 @@
 
    从一段文本里随机抽出若干行，抽出的行互不重复。
 
-   参考实现：src/tools/random-line-picker/（it-tools2 的 fork，Vue 写的）
+   参考实现：sharevb/it-tools 的 `random-line-picker` 工具（Vue 写的）
    与上游的差别：
    1. 上游的随机数是 Math.random() —— 不是密码学安全的随机源。本仓库有
       一条硬规矩：随机数一律走 U.randomInt（crypto.getRandomValues）。

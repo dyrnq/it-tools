@@ -1,7 +1,7 @@
 /* ==========================================================================
    JSON 转 Protobuf 定义（json-to-protobuf）
 
-   参考实现：/data/work/it-tools2/src/tools/json-to-protobuf/（sharevb/it-tools 的 fork）
+   参考实现：sharevb/it-tools 的 `json-to-protobuf` 工具
    它的路子是「先生成 JSON Schema（generate-schema），再把 Schema 转成 protobuf
    （jsonschema-protobuf）」—— 中间绕了一圈，Schema 里表达不了的信息
    （比如 int32 还是 int64）到那一步已经丢了。

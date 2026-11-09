@@ -1,7 +1,6 @@
 //! CIDR 网段 → 地址区间。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/ip-cidr-to-range/
-//! （sharevb/it-tools 的 fork）。它用 `cidr-tools` 的 `expandCidr`
+//! 参考实现：sharevb/it-tools 的 `ip-cidr-to-range` 工具。它用 `cidr-tools` 的 `expandCidr`
 //! 把网段**展开成每一个地址**再取头尾。
 //!
 //! ## 与上游的差别

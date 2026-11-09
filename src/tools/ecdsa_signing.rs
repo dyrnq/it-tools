@@ -2,7 +2,7 @@
 //!
 //! ## 名字：上游叫 `rsa-ecdsa-signing`，这里叫 `ecdsa-signing`
 //!
-//! 参考实现是 `/data/work/it-tools2/src/tools/rsa-ecdsa-signing/rsa-ecdsa-signing.vue`
+//! 参考实现是上游 it-tools 的 `rsa-ecdsa-signing` 工具
 //! （Vue + sshpk）。它的 slug 叫 `rsa-ecdsa-signing`，**但它从头到尾没碰过 RSA** ——
 //! 界面里没有算法下拉，密钥靠 sshpk 的 `parsePrivateKey(…, 'auto')` 猜，
 //! 而签名那一步走的是 sshpk 的 `createSign()`，对 RSA 私钥也能签。

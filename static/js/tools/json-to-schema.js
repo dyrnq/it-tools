@@ -1,7 +1,7 @@
 /* ==========================================================================
    JSON 转 Schema（json-to-schema）
 
-   参考实现：/data/work/it-tools2/src/tools/json-to-schema/（sharevb/it-tools 的 fork）
+   参考实现：sharevb/it-tools 的 `json-to-schema` 工具
    它用 generate-schema 一个包出六种格式：generic / json / mysql / mongoose /
    bigquery / clickhouse。
 

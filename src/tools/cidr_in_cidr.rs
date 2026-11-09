@@ -1,7 +1,6 @@
 //! 一个网段是不是完全落在另一个网段里。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/cidr-in-cidr/
-//! （sharevb/it-tools 的 fork）。它用 `ip-matching` 把两边的输入都拆成
+//! 参考实现：sharevb/it-tools 的 `cidr-in-cidr` 工具。它用 `ip-matching` 把两边的输入都拆成
 //! 掩码，再逐个判断「测试的那段是不是基段的子集」。
 //!
 //! ## 与上游的差别

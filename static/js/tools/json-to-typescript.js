@@ -1,7 +1,7 @@
 /* ==========================================================================
    JSON 转 TypeScript 类型（json-to-typescript）
 
-   参考实现：/data/work/it-tools2/src/tools/json-to-typescript/（sharevb/it-tools 的 fork）
+   参考实现：sharevb/it-tools 的 `json-to-typescript` 工具
    它用的是 quicktype-core —— 一个能做「联合类型 / 枚举 / 交叉类型」的完整推断器。
 
    与上游的差别（本仓库自己写的，没引 quicktype）：

@@ -4,7 +4,7 @@
    填一张表 → 出一条能直接贴进 DNS 的 DMARC TXT 记录。
 
    ---- 上游那版是什么 ----
-   sharevb/it-tools2 的 dmarc-dns-generator.vue：域名 + 策略 + 子域策略 +
+   上游（sharevb/it-tools）的 dmarc-dns-generator：域名 + 策略 + 子域策略 +
    百分比 + rua + ruf + 对齐方式 + 上报间隔，输出只有一条裸记录串
    （`v=DMARC1; p=none; sp=none; rua=mailto:…`），连记录名都没有。
 

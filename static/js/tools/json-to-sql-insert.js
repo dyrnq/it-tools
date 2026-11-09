@@ -1,7 +1,7 @@
 /* ==========================================================================
    JSON 转 SQL INSERT 语句（json-to-sql-insert）
 
-   参考实现：/data/work/it-tools2/src/tools/json-to-sql-insert/（sharevb/it-tools 的 fork）
+   参考实现：sharevb/it-tools 的 `json-to-sql-insert` 工具
    它用 flatten-anything 把嵌套对象拍平，再用 objectArrayToData 的 'sql' 分支拼语句。
 
    与上游的差别：

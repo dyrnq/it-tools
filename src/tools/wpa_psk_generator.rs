@@ -1,7 +1,6 @@
 //! WPA-PSK 原始密钥（256 位）派生。
 //!
-//! 参考实现：/data/work/it-tools2/src/tools/wpa-psk-generator/
-//! （sharevb/it-tools 的 fork）。它用 `crypto-es` 的 `PBKDF2` 算一把
+//! 参考实现：sharevb/it-tools 的 `wpa-psk-generator` 工具。它用 `crypto-es` 的 `PBKDF2` 算一把
 //! 256 位的原始密钥：**口令是密码，SSID 是盐**，迭代 4096 轮，
 //! 伪随机函数是 HMAC-SHA1 —— 就是 IEEE 802.11i 规定的那个算法。
 //!
