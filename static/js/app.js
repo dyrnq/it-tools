@@ -3316,6 +3316,219 @@
   /** AVIF 编码器模块 —— 第一次真要编码时才去拉那个 2.6 MB 的 wasm。 */
   var imageAvifPromise = null;
 
+  /* ---------- 编码 worker ----------
+
+     两个 wasm 编码器都是**同步**的：调一次就把所在线程占住。
+     实测这台机器（AVIF，默认速度档）：3 MP 要 4 秒、12 MP 要 15 秒、
+     48 MP 要 62 秒。
+
+     在主线程上跑，页面就只剩一句「正在编码中」——
+     滚动条不动、按钮点不动、动画停住，跟卡死了没区别。
+     （这正是「AVIF 一直正在编码中」那个毛病的根因。）
+
+     所以编码搬到 Web Worker 里（static/js/image-encoder-worker.js）。
+     主线程只负责把像素交出去、把结果收回来，中间全程可交互。 */
+
+  /** 编码 worker 的地址。 */
+  var IMAGE_WORKER_URL = '/assets/js/image-encoder-worker.js';
+
+  /** 拉 wasm / 编解码库的超时。拉不动就该报错，不能一直挂着。 */
+  var IMAGE_FETCH_TIMEOUT = 120000;
+
+  /**
+   * worker 里一次任务的上限。
+   * 48 MP 的图 AVIF 要一分钟，慢机器上更久 —— 给得宽松点，
+   * 但不能没有：worker 卡死了界面得有个说法。
+   */
+  var IMAGE_WORKER_TIMEOUT = 600000;
+
+  /** 当前那个 worker。null 表示还没建起来。 */
+  var imageWorker = null;
+
+  /** worker 任务的编号。 */
+  var imageWorkerSeq = 0;
+
+  /** 在飞的任务：id → {resolve, reject, onPhase, timer}。 */
+  var imageWorkerPending = {};
+
+  /**
+   * 造一个「worker 这边不行」的错。
+   *
+   * 只有这一类错才值得退回主线程 —— 编码本身失败的话，
+   * 在主线程上再试一次就是再卡一分钟。
+   *
+   * @param {string} message
+   * @returns {Error}
+   */
+  function imageWorkerUnavailable(message) {
+    var err = new Error(message);
+    err.workerUnavailable = true;
+    return err;
+  }
+
+  /**
+   * 造一个「这个任务被换掉了」的错。
+   *
+   * 跟「worker 坏了」必须分开：被换掉的任务就该安静地结束。
+   * 要是把它当成「worker 坏了」退到主线程上再编一遍，
+   * 等于白等一分钟 —— 界面又卡住了。
+   *
+   * @returns {Error}
+   */
+  function imageWorkerSuperseded() {
+    var err = new Error('superseded');
+    err.superseded = true;
+    return err;
+  }
+
+  /**
+   * 这个浏览器有没有 Worker。
+   *
+   * 只判断「能不能建」，不真的建一个 ——
+   * 建了不用就白建，还得多terminate一次。
+   *
+   * @returns {boolean}
+   */
+  function imageWorkerSupported() {
+    return typeof Worker === 'function';
+  }
+
+  /**
+   * 拿到编码 worker。
+   *
+   * 没有 Worker（老浏览器、jsdom 测试）就返回 null ——
+   * 调用方退回主线程那条路，功能不缺，只是会卡住界面。
+   *
+   * @returns {Worker|null}
+   */
+  function imageWorkerGet() {
+    if (imageWorker) return imageWorker;
+    if (typeof Worker !== 'function') return null;
+    try {
+      imageWorker = new Worker(IMAGE_WORKER_URL);
+    } catch (e) {
+      return null;
+    }
+    imageWorker.onmessage = imageWorkerOnMessage;
+    imageWorker.onerror = function (ev) {
+      // 脚本层面的错（importScripts 拉不到胶水之类）。
+      // worker 里自己处理过的错会回一条消息，走不到这里。
+      imageWorkerReset(imageWorkerUnavailable(
+        'worker error: ' + (ev && ev.message ? ev.message : 'unknown')
+      ));
+    };
+    return imageWorker;
+  }
+
+  /**
+   * worker 回消息。
+   *
+   * 两种消息：带 phase 的是「进度」（还在拉库 / 开始编码了），
+   * 带 ok 的是「结果」。进度消息不影响 promise 的兑现。
+   *
+   * @param {MessageEvent} ev
+   */
+  function imageWorkerOnMessage(ev) {
+    var msg = ev.data || {};
+    var entry = imageWorkerPending[msg.id];
+    if (!entry) return;
+    if (msg.phase) {
+      if (entry.onPhase) entry.onPhase(msg.phase);
+      return;
+    }
+    delete imageWorkerPending[msg.id];
+    if (entry.timer) clearTimeout(entry.timer);
+    if (msg.ok) entry.resolve(msg);
+    else entry.reject(new Error(msg.error || 'encode'));
+  }
+
+  /**
+   * 把 worker 换掉：干掉现在的，拒掉所有在飞的任务。
+   *
+   * 为什么要换而不是等：wasm 编码是同步的，**编码中途停不下来** ——
+   * 唯一的办法是把 worker 整个终止掉。
+   *
+   * 换掉之后 wasm 会重新初始化（胶水重新 import、wasm 重新编译），
+   * 但 wasm 本体走 HTTP 协商缓存（304，不重下），
+   * 所以代价只有编译那几百毫秒。
+   *
+   * @param {Error} err 拒掉在飞任务时带的错
+   */
+  function imageWorkerReset(err) {
+    var pending = imageWorkerPending;
+    imageWorkerPending = {};
+    if (imageWorker) {
+      try { imageWorker.terminate(); } catch (e) { /* 已经死了就算了 */ }
+      imageWorker = null;
+    }
+    Object.keys(pending).forEach(function (id) {
+      var entry = pending[id];
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(err || imageWorkerUnavailable('worker reset'));
+    });
+  }
+
+  /**
+   * 让 worker 干一件事。
+   *
+   * @param {object} msg 任务（id 由这里补上）
+   * @param {Array} transfer 要转移（而不是拷贝）过去的缓冲区
+   * @param {function} onPhase 阶段回调
+   * @returns {Promise<object>}
+   */
+  function imageWorkerCall(msg, transfer, onPhase) {
+    // 上一次的任务还没完 —— 干掉它。
+    // 换了设置就得重编，等旧的编完再编新的等于白等一分钟。
+    // （作废的活儿会被 `ticket` 拦掉，不会把界面写成「出错」。）
+    if (Object.keys(imageWorkerPending).length > 0) {
+      imageWorkerReset(imageWorkerSuperseded());
+    }
+
+    var worker = imageWorkerGet();
+    if (!worker) return Promise.reject(imageWorkerUnavailable('no worker'));
+
+    var id = ++imageWorkerSeq;
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        delete imageWorkerPending[id];
+        // 卡死了 —— 换掉它，下一次重新建一个。
+        imageWorkerReset(imageWorkerUnavailable('timeout'));
+        reject(imageWorkerUnavailable('timeout'));
+      }, IMAGE_WORKER_TIMEOUT);
+
+      imageWorkerPending[id] = {
+        resolve: resolve,
+        reject: reject,
+        onPhase: onPhase,
+        timer: timer
+      };
+      msg.id = id;
+      try {
+        worker.postMessage(msg, transfer || []);
+      } catch (e) {
+        delete imageWorkerPending[id];
+        clearTimeout(timer);
+        reject(imageWorkerUnavailable(String(e && e.message ? e.message : e)));
+      }
+    });
+  }
+
+  /**
+   * 把一个 Uint8Array 变成能整体转移（transfer）的 ArrayBuffer。
+   *
+   * 能整体转移就不用拷贝 —— 一张 HEIC 可能有十几 MB，
+   * 拷一次主线程要停一下。
+   *
+   * @param {Uint8Array} bytes
+   * @returns {ArrayBuffer}
+   */
+  function imageOwnBuffer(bytes) {
+    if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
+      return bytes.buffer;
+    }
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+
   /**
    * 初始化 elheif（libheif 的 wasm 封装）。
    *
@@ -3389,10 +3602,59 @@
    * jsDecodeImage 返回 RGBA8888 的位图，我们把它画进 canvas，
    * 当作「已解码的图」交给后面的编码器。
    *
+   * 解码也是**同步**的（3 MP 要 0.3 秒），所以优先在 worker 里做。
+   *
+   * @param {Uint8Array} bytes 文件的字节（主线程这一份）
+   * @param {Blob} [blob] 文件本身。有的话优先给 worker **文件** ——
+   *   Blob 克隆是按引用的（不拷数据），而且主线程这份字节原封不动：
+   *   万一 worker 这边不行（脚本没加载起来、跑到一半炸了），
+   *   还能退回主线程重解一遍。转移字节就做不到这个 ——
+   *   转移之后主线程这份已经被分离，退不回去。
+   * @returns {Promise<{source: *, width: number, height: number, close: function}>}
+   */
+  function imageDecodeHeic(bytes, blob) {
+    if (!imageWorkerSupported()) return imageDecodeHeicOnMainThread(bytes);
+
+    if (blob && typeof blob.arrayBuffer === 'function') {
+      return imageWorkerCall({
+        op: 'decode',
+        format: 'heic',
+        blob: blob
+      }, []).then(function (res) {
+        return imageRgbaToSource(new Uint8Array(res.data), res.width, res.height);
+      }, function (err) {
+        // 只有「worker 这边不行」才退回主线程 ——
+        // 文件本身解不开的话，在主线程上再试一次也是白试。
+        if (err && err.workerUnavailable) return imageDecodeHeicOnMainThread(bytes);
+        throw err;
+      });
+    }
+
+    // 没有文件可给 —— 只能转移字节。主线程这份就废了，
+    // 所以这条路没有退回主线程的余地。
+    var buf = imageOwnBuffer(bytes);
+    return imageWorkerCall({
+      op: 'decode',
+      format: 'heic',
+      data: buf
+    }, [buf]).then(function (res) {
+      return imageRgbaToSource(new Uint8Array(res.data), res.width, res.height);
+    }, function (err) {
+      if (err && err.workerUnavailable) {
+        // 字节已经转移走了，这里拿到的可能是个已被分离的空视图。
+        throw new Error('decode');
+      }
+      throw err;
+    });
+  }
+
+  /**
+   * 主线程上解码 HEIC —— 没有 Worker 时的退路。
+   *
    * @param {Uint8Array} bytes
    * @returns {Promise<{source: *, width: number, height: number, close: function}>}
    */
-  function imageDecodeHeic(bytes) {
+  function imageDecodeHeicOnMainThread(bytes) {
     return imageElheifInit().then(function (mod) {
       var out;
       try {
@@ -3404,21 +3666,80 @@
         throw new Error(out && out.err ? String(out.err) : 'decode');
       }
       var frame = imageRgbaFromFrame(out.data[0]);
-      var canvas = document.createElement('canvas');
-      canvas.width = frame.width;
-      canvas.height = frame.height;
-      var ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('canvas');
-      var imageData = ctx.createImageData(frame.width, frame.height);
-      imageData.data.set(frame.data);
-      ctx.putImageData(imageData, 0, 0);
-      return {
-        source: canvas,
-        width: frame.width,
-        height: frame.height,
-        close: function () {}
-      };
+      return imageRgbaToSource(frame.data, frame.width, frame.height);
     });
+  }
+
+  /**
+   * 把 RGBA 像素画进 canvas，当成「已解码的图」。
+   *
+   * @param {Uint8Array} data
+   * @param {number} width
+   * @param {number} height
+   * @returns {{source: *, width: number, height: number, close: function}}
+   */
+  function imageRgbaToSource(data, width, height) {
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    var imageData = ctx.createImageData(width, height);
+    imageData.data.set(data);
+    ctx.putImageData(imageData, 0, 0);
+    return {
+      source: canvas,
+      width: width,
+      height: height,
+      close: function () {}
+    };
+  }
+
+  /**
+   * 把 RGBA 像素画成一个能直接放进页面的 canvas（预览用）。
+   *
+   * @param {Uint8Array} data
+   * @param {number} width
+   * @param {number} height
+   * @returns {HTMLCanvasElement|null}
+   */
+  function imageRgbaCanvas(data, width, height) {
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    var imageData = ctx.createImageData(width, height);
+    imageData.data.set(data);
+    ctx.putImageData(imageData, 0, 0);
+    canvas.style.maxWidth = '100%';
+    return canvas;
+  }
+
+  /**
+   * 把已解码的图另画一份到新的 canvas —— 拿来做预览。
+   *
+   * 另画一份，而不是把 decoded.source 直接塞进页面：
+   * 那块画布后面还要拿来编码（drawImage 的来源），
+   * 而且一个元素同一时刻只能待在一个地方。
+   *
+   * @param {{source: *, width: number, height: number}} decoded
+   * @returns {HTMLCanvasElement|null}
+   */
+  function imageSourceCanvas(decoded) {
+    if (!decoded || !decoded.source) return null;
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = decoded.width;
+      canvas.height = decoded.height;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(decoded.source, 0, 0, decoded.width, decoded.height);
+      canvas.style.maxWidth = '100%';
+      return canvas;
+    } catch (e) {
+      return null;
+    }
   }
 
   /**
@@ -3436,7 +3757,9 @@
   function imageDecodeAny(file, bytes) {
     var format = imageDetectFormat(bytes);
     if (format === 'heic' && typeof window.__init__ELHEIF_MODULE === 'function') {
-      return imageDecodeHeic(bytes);
+      // 文件也一起给过去：worker 读文件不用主线程那份字节，
+      // 万一 worker 不行，主线程还能拿字节重解一遍。
+      return imageDecodeHeic(bytes, file);
     }
     return imageDecode(file);
   }
@@ -3531,31 +3854,79 @@
    */
   function imageAvifModule() {
     if (imageAvifPromise) return imageAvifPromise;
-    var p = fetch(IMAGE_AVIF_WASM_URL)
-      .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        var type = res.headers && res.headers.get ? res.headers.get('Content-Type') : '';
-        if (WebAssembly.compileStreaming && type === 'application/wasm') {
-          return WebAssembly.compileStreaming(res);
+    // 能 abort 就 abort —— 不然超时之后那个 2.6 MB 还在后台下。
+    var controller = null;
+    if (typeof AbortController === 'function') {
+      try { controller = new AbortController(); } catch (e) { controller = null; }
+    }
+    var fetchPromise = fetch(
+      IMAGE_AVIF_WASM_URL,
+      controller ? { signal: controller.signal } : undefined
+    ).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var type = res.headers && res.headers.get ? res.headers.get('Content-Type') : '';
+      if (WebAssembly.compileStreaming && type === 'application/wasm') {
+        return WebAssembly.compileStreaming(res);
+      }
+      return res.arrayBuffer().then(function (buf) { return WebAssembly.compile(buf); });
+    });
+    var p = imageWithTimeout(fetchPromise, IMAGE_FETCH_TIMEOUT, 'timeout', function () {
+      if (controller) {
+        try { controller.abort(); } catch (e) { /* 忽略 */ }
+      }
+    }).then(function (wasmModule) {
+      var factory = window.__avifEncFactory;
+      if (typeof factory !== 'function') throw new Error('avif encoder is not loaded');
+      // instantiateWasm：把我们已经编译好的模块塞给它，
+      // 别让它自己再去 fetch 一遍。
+      return factory({
+        instantiateWasm: function (imports, callback) {
+          var instance = new WebAssembly.Instance(wasmModule, imports);
+          callback(instance);
+          return instance.exports;
         }
-        return res.arrayBuffer().then(function (buf) { return WebAssembly.compile(buf); });
-      })
-      .then(function (wasmModule) {
-        var factory = window.__avifEncFactory;
-        if (typeof factory !== 'function') throw new Error('avif encoder is not loaded');
-        // instantiateWasm：把我们已经编译好的模块塞给它，
-        // 别让它自己再去 fetch 一遍。
-        return factory({
-          instantiateWasm: function (imports, callback) {
-            var instance = new WebAssembly.Instance(wasmModule, imports);
-            callback(instance);
-            return instance.exports;
-          }
-        });
       });
+    });
     p.catch(function () { if (imageAvifPromise === p) imageAvifPromise = null; });
     imageAvifPromise = p;
     return p;
+  }
+
+  /**
+   * 给一个 promise 加个超时。
+   *
+   * 没有超时的 promise 会一直挂着 —— 页面就停在「正在下载…」，
+   * 用户既看不到发生了什么，也没法重试。
+   *
+   * @param {Promise} p 要看着的那个 promise
+   * @param {number} ms 多久算超时
+   * @param {string} message 超时后报的错
+   * @param {function} onTimeout 超时时顺手做的事（比如中断下载）
+   * @returns {Promise}
+   */
+  function imageWithTimeout(p, ms, message, onTimeout) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        if (typeof onTimeout === 'function') {
+          try { onTimeout(); } catch (e) { /* 忽略 */ }
+        }
+        reject(new Error(message));
+      }, ms);
+      p.then(function (v) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(v);
+      }, function (e) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(e);
+      });
+    });
   }
 
   /**
@@ -3571,21 +3942,25 @@
   function imageEncodeHeic(decoded, opts) {
     var width = Math.max(1, Math.round(Number(opts.width) || decoded.width || 1));
     var height = Math.max(1, Math.round(Number(opts.height) || decoded.height || 1));
-    return imageElheifInit().then(function (mod) {
-      var rgba = imageSourceToRgba(decoded.source, width, height);
-      var out = mod.jsEncodeImage(rgba, width, height);
-      if (!out || out.err || !out.data) {
-        throw new Error(out && out.err ? String(out.err) : 'encode');
-      }
-      var bytes = out.data instanceof Uint8Array ? out.data : new Uint8Array(out.data);
+    return imageWasmEncode({
+      format: 'heic',
+      source: decoded.source,
+      width: width,
+      height: height,
+      options: null,
+      // 浏览器显示不了 HEIC —— 让 worker 顺带解回来当预览。
+      wantPreview: true,
+      onPhase: opts.onPhase
+    }).then(function (out) {
       return {
-        blob: new Blob([bytes], { type: 'image/heic' }),
+        blob: new Blob([out.bytes], { type: 'image/heic' }),
         width: width,
         height: height,
         formatId: 'heic',
         requestedFormatId: 'heic',
         mime: 'image/heic',
-        scaledToFit: false
+        scaledToFit: false,
+        preview: out.preview
       };
     });
   }
@@ -3600,21 +3975,120 @@
   function imageEncodeAvif(decoded, opts) {
     var width = Math.max(1, Math.round(Number(opts.width) || decoded.width || 1));
     var height = Math.max(1, Math.round(Number(opts.height) || decoded.height || 1));
-    var options = imageAvifOptions(opts.quality, opts.speed);
-    return imageAvifModule().then(function (mod) {
-      var rgba = imageSourceToRgba(decoded.source, width, height);
-      var bytes = mod.encode(rgba, width, height, options);
-      if (!bytes) throw new Error('encode');
-      var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    return imageWasmEncode({
+      format: 'avif',
+      source: decoded.source,
+      width: width,
+      height: height,
+      options: imageAvifOptions(opts.quality, opts.speed),
+      // AVIF 浏览器原生就能显示，不用解回来。
+      wantPreview: false,
+      onPhase: opts.onPhase
+    }).then(function (out) {
       return {
-        blob: new Blob([u8], { type: 'image/avif' }),
+        blob: new Blob([out.bytes], { type: 'image/avif' }),
         width: width,
         height: height,
         formatId: 'avif',
         requestedFormatId: 'avif',
         mime: 'image/avif',
-        scaledToFit: false
+        scaledToFit: false,
+        preview: out.preview
       };
+    });
+  }
+
+  /**
+   * 用 wasm 编码器编码 —— 优先在 worker 里做。
+   *
+   * @param {object} job
+   *   job.format      'heic' | 'avif'
+   *   job.source      已解码的图
+   *   job.width       宽
+   *   job.height      高
+   *   job.options     AVIF 的选项结构体（HEIC 用不上）
+   *   job.wantPreview 要不要顺带解回来做预览
+   *   job.onPhase     阶段回调（'loading' / 'encoding'）
+   * @returns {Promise<{bytes: Uint8Array, preview: ?object}>}
+   */
+  function imageWasmEncode(job) {
+    if (!imageWorkerSupported()) return imageWasmEncodeOnMainThread(job);
+
+    var rgba;
+    try {
+      rgba = imageSourceToRgba(job.source, job.width, job.height);
+    } catch (e) {
+      return Promise.reject(e);
+    }
+
+    return imageWorkerCall({
+      op: 'encode',
+      format: job.format,
+      data: rgba.buffer,
+      width: job.width,
+      height: job.height,
+      options: job.options || null,
+      wantPreview: !!job.wantPreview
+    }, [rgba.buffer], job.onPhase).then(function (res) {
+      return {
+        bytes: new Uint8Array(res.data),
+        preview: res.preview ? {
+          data: new Uint8Array(res.preview.data),
+          width: res.preview.width,
+          height: res.preview.height
+        } : null
+      };
+    }, function (err) {
+      // 只有「worker 这边不行」才退回主线程 ——
+      // 编码本身失败的话，在主线程上再试一次就是再卡一分钟。
+      if (err && err.workerUnavailable) return imageWasmEncodeOnMainThread(job);
+      throw err;
+    });
+  }
+
+  /**
+   * 主线程上编码 —— 没有 Worker 时的退路。
+   *
+   * 结果一样，就是会把界面卡住（wasm 是同步的）。
+   *
+   * @param {object} job 同 imageWasmEncode
+   * @returns {Promise<{bytes: Uint8Array, preview: ?object}>}
+   */
+  function imageWasmEncodeOnMainThread(job) {
+    if (job.format === 'avif') {
+      return imageAvifModule().then(function (mod) {
+        if (job.onPhase) job.onPhase('encoding');
+        var rgba = imageSourceToRgba(job.source, job.width, job.height);
+        var bytes = mod.encode(rgba, job.width, job.height, job.options);
+        if (!bytes) throw new Error('encode');
+        return {
+          bytes: bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes),
+          preview: null
+        };
+      });
+    }
+    return imageElheifInit().then(function (mod) {
+      if (job.onPhase) job.onPhase('encoding');
+      var rgba = imageSourceToRgba(job.source, job.width, job.height);
+      var out = mod.jsEncodeImage(rgba, job.width, job.height);
+      if (!out || out.err || !out.data) {
+        throw new Error(out && out.err ? String(out.err) : 'encode');
+      }
+      var bytes = out.data instanceof Uint8Array ? out.data : new Uint8Array(out.data);
+      var result = { bytes: bytes, preview: null };
+      // 顺带解回来当预览 —— 浏览器显示不了 HEIC。
+      if (job.wantPreview) {
+        try {
+          var back = mod.jsDecodeImage(bytes);
+          if (back && back.data && back.data[0]) {
+            var frame = imageRgbaFromFrame(back.data[0]);
+            result.preview = { data: frame.data, width: frame.width, height: frame.height };
+          }
+        } catch (e) {
+          // 解不出来不算失败 —— 编码本身是好的，只是没有预览。
+        }
+      }
+      return result;
     });
   }
 
@@ -3622,9 +4096,10 @@
    * 按格式分派到对应的编码器。
    *
    * 原生三种走 canvas.toBlob；HEIC 走 elheif；AVIF 走 jsquash。
+   * 后两种在 worker 里跑（wasm 是同步的，见上面那段说明）。
    *
    * @param {{source: *, width: number, height: number}} decoded
-   * @param {object} opts
+   * @param {object} opts 其中 opts.onPhase 是阶段回调
    * @returns {Promise<object>}
    */
   function imageEncodeTo(decoded, opts) {
@@ -3633,6 +4108,22 @@
     if (format.encoder === 'elheif') return imageEncodeHeic(decoded, opts);
     if (format.encoder === 'avif') return imageEncodeAvif(decoded, opts);
     return imageEncode(decoded, opts);
+  }
+
+  /**
+   * 编码到哪一步了 —— 界面上那一行字。
+   *
+   * 拉编码器（2.6 MB）和真正编码是两件事，混成一句「正在编码中」的话，
+   * 用户会以为卡住了 —— 头几秒其实什么都没干，在等下载。
+   *
+   * @param {object} s 这个工具的文案表
+   * @param {string} phase 'loading' / 'encoding' / 'decoding'
+   * @returns {string}
+   */
+  function imageBusyText(s, phase) {
+    if (phase === 'loading') return s.status_downloading || s.status_encoding;
+    if (phase === 'decoding') return s.status_decoding || s.status_encoding;
+    return s.status_encoding;
   }
 
   /**
@@ -3712,6 +4203,8 @@
     var disposed = false;
     /** 重算的序号。慢的那次算完了不许盖掉快的那次的结果。 */
     var ticket = 0;
+    /** 上传了第几张图。用来作废「上一张还没解完」的那次解码。 */
+    var fileTicket = 0;
     var debounceTimer = null;
 
     var state = {
@@ -3729,7 +4222,9 @@
       background: '#ffffff',
       result: null,
       originalUrl: '',
-      resultUrl: ''
+      resultUrl: '',
+      /** 原图解出来的像素（浏览器显示不了的格式才用得上）。 */
+      sourceCanvas: null
     };
 
     /* ---------- 卡片 ---------- */
@@ -3838,8 +4333,8 @@
     }
 
     /** 「编码中…」状态。wasm 编码慢的格式才用得上。 */
-    function setBusy(on) {
-      busyHint.textContent = on ? s.status_encoding : '';
+    function setBusy(on, phase) {
+      busyHint.textContent = on ? imageBusyText(s, phase) : '';
     }
 
     /** 设置变了之后刷新提示文案。 */
@@ -3871,12 +4366,25 @@
     }
 
     /**
-     * 一块预览图。浏览器解不了的格式（HEIC）放 <img> 就是一张破图 ——
-     * 那种情况下改成一句话说明，别让用户以为工具坏了。
+     * 一块预览图。
+     *
+     * 浏览器解不了的格式（HEIC）放 <img> 就是一张破图 —— 那种情况下
+     * 要么给一句话说明，要么给**解出来的**像素（canvas）。
+     *
+     * @param {string} formatId 这个块的格式
+     * @param {string} url 文件的地址（可能是空的）
+     * @param {string} label 块上面的说明
+     * @param {HTMLCanvasElement} canvas 已经解出来的像素（有就用它）
+     * @param {string} note 附在下面的说明（有就显示）
      */
-    function previewBlock(formatId, url, label) {
+    function previewBlock(formatId, url, label, canvas, note) {
       var format = imageFormatById(formatId);
       var block = Dom.h('div', null, Dom.h('p.field-hint', { text: label }));
+      if (canvas) {
+        block.appendChild(canvas);
+        if (note) block.appendChild(Dom.h('p.field-hint', { text: note }));
+        return block;
+      }
       if (!url) return block;
       if (format && format.previewable === false) {
         block.appendChild(Dom.h('p.field-hint', { text: s.hint_not_previewable }));
@@ -3948,8 +4456,12 @@
 
       // 原图与结果的并排预览
       var preview = Dom.h('div.preview-box');
-      preview.appendChild(previewBlock(state.sourceFormat, state.originalUrl, s.preview_before));
-      preview.appendChild(previewBlock(r.formatId, state.resultUrl, s.preview_after));
+      preview.appendChild(previewBlock(
+        state.sourceFormat, state.originalUrl, s.preview_before, state.sourceCanvas, s.hint_preview_decoded
+      ));
+      preview.appendChild(previewBlock(
+        r.formatId, state.resultUrl, s.preview_after, r.previewCanvas, s.hint_preview_decoded
+      ));
       resultBody.appendChild(preview);
 
       var downloadBtn = Dom.h('button.layui-btn.layui-btn-primary', {
@@ -3979,10 +4491,15 @@
         formatId: state.formatId,
         quality: state.quality,
         speed: state.speed,
-        background: state.background
+        background: state.background,
+        // 编码到哪一步了 —— worker 会先报「在下载编码器」，再报「在编码」。
+        onPhase: function (phase) {
+          if (disposed || mine !== ticket) return;
+          setBusy(true, phase);
+        }
       };
 
-      // wasm 编码是**同步阻塞主线程**的（3 MP 的图要一两秒）——
+      // wasm 编码是**同步阻塞**的（3 MP 的图要一两秒）——
       // 先把「编码中…」画出来，再让出一帧，最后才进编码器。
       // 顺序反了的话，用户看到的是「按下去没反应，过两秒突然出结果」。
       var slow = !!format.slow;
@@ -4003,7 +4520,11 @@
           formatId: out.formatId,
           requestedFormatId: out.requestedFormatId,
           beforeBytes: state.size,
-          scaledToFit: out.scaledToFit
+          scaledToFit: out.scaledToFit,
+          // 浏览器显示不了的格式（HEIC）：用解回来的像素当预览。
+          previewCanvas: out.preview
+            ? imageRgbaCanvas(out.preview.data, out.preview.width, out.preview.height)
+            : null
         };
         replaceResultUrl(out.blob);
         renderResult();
@@ -4047,11 +4568,17 @@
 
     function handleFile(file) {
       if (!file) return;
+      // 上一张图的编码还在跑 —— 作废它。
+      // （worker 那边会把它终止掉，见 imageWorkerCall。）
+      ticket++;
+      // 上一张图可能还没解完 —— 也作废它，
+      // 别让它的失败把这一张的界面写成「解不出来」。
+      var mine = ++fileTicket;
       upload.setStatus(s.status_reading);
 
       var reader = new FileReader();
       reader.onload = function () {
-        if (disposed) return;
+        if (disposed || mine !== fileTicket) return;
         var bytes;
         try {
           bytes = new Uint8Array(reader.result);
@@ -4060,18 +4587,33 @@
           return;
         }
         var format = imageDetectFormat(bytes);
+        // 解码可能把 bytes 的 buffer **转移**给 worker（拿不到文件时才会这样），
+        // 转移之后 bytes 就废了 —— 要用的东西得先取出来。
+        var byteLength = bytes.length;
+        var animation = imageAnimationInfo(bytes);
+
+        // HEIC 得用 wasm 解 —— 那是要花点时间的，得说清楚在干什么。
+        if (format === 'heic') upload.setStatus(s.status_decoding || s.status_reading);
 
         imageDecodeAny(file, bytes).then(function (decoded) {
-          if (disposed) return;
+          if (disposed || mine !== fileTicket) return;
 
           state.name = file.name || 'image';
-          state.size = file.size || bytes.length;
+          state.size = file.size || byteLength;
           state.sourceFormat = format || '';
-          state.animation = imageAnimationInfo(bytes);
+          state.animation = animation;
           state.decoded = decoded;
           state.width = decoded.width;
           state.height = decoded.height;
           state.quality = IMAGE_DEFAULT_QUALITY;
+
+          // 浏览器显示不了的格式（原图是 HEIC）：预览用解出来的像素，
+          // 别的格式照旧用文件本身。
+          state.sourceCanvas = null;
+          var sourceFormat = imageFormatById(state.sourceFormat);
+          if (sourceFormat && sourceFormat.previewable === false) {
+            state.sourceCanvas = imageSourceCanvas(decoded);
+          }
 
           qualitySlider.value = String(IMAGE_DEFAULT_QUALITY);
           qualityLabel.textContent = s.label_quality.replace('{n}', String(IMAGE_DEFAULT_QUALITY));
@@ -4089,7 +4631,7 @@
           refreshHints();
           recompute();
         }, function () {
-          if (disposed) return;
+          if (disposed || mine !== fileTicket) return;
           upload.setStatus(s.err_decode, true);
           settingsCard.hidden = true;
           resultCard.hidden = true;
@@ -4167,6 +4709,8 @@
     backgroundApplies: imageBackgroundApplies,
     avifCqLevel: imageAvifCqLevel,
     avifOptions: imageAvifOptions,
+    busyText: imageBusyText,
+    ownBuffer: imageOwnBuffer,
     decode: imageDecode,
     decodeAny: imageDecodeAny,
     rgbaFromFrame: imageRgbaFromFrame,

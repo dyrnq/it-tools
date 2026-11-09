@@ -21,8 +21,9 @@
    两个要老实说出来的限制：
    1. **HEIC 编码没有质量参数** —— kvazaar 的画质是固定的，
       界面上不给质量滑块，只给一句说明。
-   2. **编码是同步阻塞主线程的** —— 3 MP 的图要一秒多，
-      页面会短暂没反应（wasm 单线程的限制，不是 bug）。
+   2. **编码很慢** —— 3 MP 的图要一秒多。编码跑在 Web Worker 里，
+      页面全程还能用；但 HEIC 浏览器显示不了，
+      预览是把编码结果**解回来**画的。
 
    界面是共用的（ItTools.imageCodec.converterView），这里只负责
    拼出自己的文案表、把界面调起来。共用界面的说明见 static/js/app.js。
@@ -66,6 +67,8 @@
     download: t('download', 'Download the converted image'),
     status_reading: t('status_reading', 'Reading the file…'),
     status_encoding: t('status_encoding', 'Encoding…'),
+    status_downloading: t('status_downloading', 'Downloading the HEIC codec…'),
+    status_decoding: t('status_decoding', 'Decoding the HEIC file…'),
     err_read: t('err_read', 'Could not read the file.'),
     err_decode: t('err_decode', 'This file could not be decoded as an image. HEIC files are decoded by the bundled codec.'),
     err_encode: t('err_encode', 'Could not encode the image: {reason}'),
@@ -75,6 +78,7 @@
     hint_same_format: t('hint_same_format', 'The target format is the same as the original — pick another one to really convert it.'),
     hint_formats: t('hint_formats', 'HEIC is encoded by the bundled codec; JPEG, PNG and WebP are produced by the browser itself.'),
     hint_not_previewable: t('hint_not_previewable', 'This format cannot be previewed in the browser.'),
+    hint_preview_decoded: t('hint_preview_decoded', 'Browsers cannot display HEIC directly — this preview was decoded with the bundled codec.'),
     warn_animation: t('warn_animation', 'Animated images are flattened to their first frame — this one has {n} frames.'),
     warn_too_large: t('warn_too_large', 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'),
     warn_fallback: t('warn_fallback', 'This browser cannot encode {format}, so the image was saved as {actual}.'),
@@ -173,6 +177,19 @@
       // 不是 Uint8Array（普通数组）也得能取
       var plain = C.rgbaFromFrame({ width: 1, height: 1, data: [9, 8, 7, 6] });
       assert.eq(Array.from(plain.data), [9, 8, 7, 6], '普通数组也能取');
+
+      /* ---- 编码到哪一步了：界面上那一行字 ---- */
+
+      assert.eq(C.busyText(S, 'loading'), S.status_downloading, '在拉编解码器时显示「正在下载」');
+      assert.eq(C.busyText(S, 'encoding'), S.status_encoding, '在编码时显示「正在编码」');
+      assert.eq(C.busyText(S, 'decoding'), S.status_decoding, '在解 HEIC 时显示「正在解码」');
+
+      /* ---- 预览那句话 ----
+         HEIC 浏览器显示不了，预览是把编码结果**解回来**画的 ——
+         界面上得说清楚这是怎么回事，不然用户以为预览坏了。 */
+
+      assert(S.hint_preview_decoded && S.hint_preview_decoded.length > 10,
+        '预览得有一句说明（HEIC 是解回来画的）');
     }
   };
 })();

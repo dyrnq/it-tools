@@ -23,8 +23,9 @@
    AVIF，更老的浏览器解不出来，页面会明确报错。
 
    三个要老实说出来的限制：
-   1. **编码是同步阻塞主线程的** —— 3 MP 的图默认档要两秒多，
-      最快档也要半秒多，页面会短暂没反应（wasm 单线程的限制，不是 bug）。
+   1. **编码很慢** —— 3 MP 的图默认档要两秒多，最快档也要半秒多，
+      48 MP 的图要一分钟。编码跑在 Web Worker 里，页面全程还能用，
+      但结果不会提前出来。
    2. **质量滑块要防抖** —— 拖一下就重编一次是没法用的。
    3. **速度档差很多** —— 最快档比默认档快三四倍，代价是画质差一点。
 
@@ -85,6 +86,7 @@
     download: t('download', 'Download the converted image'),
     status_reading: t('status_reading', 'Reading the file…'),
     status_encoding: t('status_encoding', 'Encoding…'),
+    status_downloading: t('status_downloading', 'Downloading the AVIF encoder…'),
     err_read: t('err_read', 'Could not read the file.'),
     err_decode: t('err_decode', 'This file could not be decoded as an image. AVIF decoding needs a recent browser (Chrome 85+, Firefox 93+, Safari 16.4+).'),
     err_encode: t('err_encode', 'Could not encode the image: {reason}'),
@@ -173,6 +175,27 @@
                  0x02, 0x02, 0x44, 0x01, 0x00,
                  0x3B];
       assert.eq(C.animationInfo(new Uint8Array(gif)), { frames: 2, animated: true }, '两帧的 GIF 是动图');
+
+      /* ---- 编码到哪一步了：界面上那一行字 ----
+         拉那 2.6 MB 的编码器和真正编码是两件事。
+         混成一句「正在编码中」的话，头几秒用户会以为卡住了。 */
+
+      assert.eq(C.busyText(S, 'loading'), S.status_downloading, '在拉编码器时显示「正在下载」');
+      assert.eq(C.busyText(S, 'encoding'), S.status_encoding, '在编码时显示「正在编码」');
+      // 没配「下载」那句话的页面（普通转换页）退回「正在编码」
+      assert.eq(C.busyText({ status_encoding: 'E' }, 'loading'), 'E', '没有下载那句话就退回「正在编码」');
+
+      /* ---- 交给 worker 的字节能不能整体转移 ----
+         转移比拷贝省一大截时间：48 MP 的 RGBA 有 192 MB。 */
+
+      var whole = new Uint8Array([1, 2, 3, 4]);
+      assert.eq(C.ownBuffer(whole), whole.buffer, '自己独占的 buffer 整体转移，不用拷');
+      // 切出来的一段 —— 只能拷一份（拷的那份要正好是这一段）
+      var part = whole.subarray(1, 3);
+      var copied = new Uint8Array(C.ownBuffer(part));
+      assert.eq(copied.length, 2, '切出来的一段长度要对');
+      assert.eq(Array.from(copied), [2, 3], '切出来的一段内容要对');
+      assert.eq(part.buffer.byteLength, 4, '原来的 buffer 没被动过');
     }
   };
 })();

@@ -44,6 +44,16 @@ mod tests {
         );
     }
 
+    /// 编码 worker 必须嵌进去 —— 它是 HEIC / AVIF 编码搬离主线程的地方。
+    /// 少了这个文件，页面不会报错，只是又变回「转 48 MP 的图要卡一分钟」。
+    #[test]
+    fn the_image_encoder_worker_is_embedded() {
+        assert!(
+            StaticAsset::get("js/image-encoder-worker.js").is_some(),
+            "缺少 js/image-encoder-worker.js"
+        );
+    }
+
     #[test]
     fn layui_is_embedded() {
         assert!(

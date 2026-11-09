@@ -327,6 +327,23 @@ try {
   else { pass++; }
 } catch (e) { fail.push(['avif/wasm', String(e.message).slice(0, 60)]); }
 
+/* 编码 worker：它 importScripts 的是**绝对地址**（/assets/lib/…），
+   路径写错了不会在构建时炸，只会在用户点「转换」的时候报一句
+   「Failed to construct 'URL'」或者干脆什么都不发生。
+   所以这里把 worker 里引用的每个 /assets/… 都对回仓库里的文件。 */
+try {
+  const workerPath = path.join(__dirname, '..', '..', 'static', 'js', 'image-encoder-worker.js');
+  const src = fs.readFileSync(workerPath, 'utf8');
+  const refs = [...src.matchAll(/['"](\/assets\/[^'"]+)['"]/g)].map((m) => m[1]);
+  if (!refs.length) {
+    fail.push(['worker', '一个 /assets/ 引用都没找到 —— 写法变了？']);
+  } else {
+    const missing = refs.filter((ref) => !fs.existsSync(path.join(__dirname, '..', '..', 'static', ref.replace(/^\/assets\//, ''))));
+    if (missing.length) fail.push(['worker', `引用的文件不存在：${missing.join(', ')}`]);
+    else { pass++; }
+  }
+} catch (e) { fail.push(['worker', String(e.message).slice(0, 60)]); }
+
 if (fail.length) {
   console.log('\x1b[31m失败\x1b[0m');
   for (const [n, why] of fail) console.log(`  ✗ ${n.padEnd(20)} ${why}`);
