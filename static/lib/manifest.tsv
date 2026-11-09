@@ -56,6 +56,17 @@ html-formatter	js-beautify/js/lib/beautifier.js
 # 挂出全局 ExifReader（对象）。传 ArrayBuffer 时 load() 是**同步**返回的。
 exif-reader	exifreader/dist/exif-reader.js
 
+# ---- HEIC / AVIF ----
+# elheif 的 wasm 是**内联**在 elheif-wasm.js 里的（1.5 MB），
+# 所以这一行只有一个文件，没有伴生的 .wasm。
+# 挂出全局 __init__ELHEIF_MODULE（模块工厂）。
+image-converter-heic	elheif/pkg/elheif-wasm.js
+# AVIF 编码器的胶水。挂出全局 __avifEncFactory（模块工厂）。
+# **.wasm 不在这里**：wasm 不是脚本，走不了 <script> 标签 ——
+# 页面第一次转换时才 fetch('/assets/lib/avif/codec/enc/avif_enc.wasm')，
+# 跟 figlet 的字体一个路子（见本文件开头的说明）。
+image-converter-avif	avif/codec/enc/avif_enc.js
+
 # ---- 元数据 / 二维码 ----
 meta-tag-generator	oggen/bundle.js
 qr-code-generator	qrcode/build/qrcode.js

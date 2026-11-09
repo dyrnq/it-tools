@@ -2686,6 +2686,1496 @@
     infer: jsonInferDocument
   };
 
+  /* ---------- 图片编解码共用内核 ----------
+     「图片压缩」与「图片格式转换」两个工具共用这一份：
+     认格式、算目标尺寸、算省了多少、画进 canvas 再编码成 Blob。
+
+     为什么放在这里而不是两个工具各写一份：这两个工具做的事情有九成是重合的
+     （读文件 → 认格式 → 解码 → 缩放 → 编码 → 报体积），
+     各写一份的话，改了压缩算法就得记得改两处 ——
+     而两处迟早会不一样，不一样的时候没人知道该信哪个。
+     这跟 ItTools.jsonInfer（四个 json 转语言工具共用）是同一个道理。 */
+
+  /** 支持的输出格式 —— 浏览器原生能编的那几种。 */
+  var IMAGE_FORMATS = [
+    // JPEG 没有 alpha 通道：透明区域必须先铺背景色，否则会变成黑色。
+    { id: 'jpeg', label: 'JPEG', mime: 'image/jpeg', ext: 'jpg', lossy: true, alpha: false, encoder: 'native', previewable: true },
+    // WebP 有 alpha 通道，也能调质量。
+    { id: 'webp', label: 'WebP', mime: 'image/webp', ext: 'webp', lossy: true, alpha: true, encoder: 'native', previewable: true },
+    // PNG 无损，画质不打折 —— 质量设置对它没有意义，界面里要把它关掉。
+    { id: 'png', label: 'PNG', mime: 'image/png', ext: 'png', lossy: false, alpha: true, encoder: 'native', previewable: true }
+  ];
+
+  /**
+   * 需要 wasm 编解码器的两种格式。
+   *
+   * 浏览器**只会解码 AVIF，不会编码**它；HEIC 则是解码编码都不会 ——
+   * canvas.toBlob 遇到 image/avif、image/heic 会按规范**悄悄退回 PNG**
+   * （实测 Chrome 156 就是这样），所以这两种格式必须自己带编码器。
+   *
+   * 拆成两张表而不是加个标志位：/image-compressor 与 /image-converter
+   * 这两个页面**不带 wasm**，界面上不能出现这两种格式。
+   */
+  var IMAGE_FORMATS_WASM = [
+    {
+      id: 'heic',
+      label: 'HEIC',
+      mime: 'image/heic',
+      ext: 'heic',
+      lossy: true,
+      alpha: true,
+      // elheif（libheif + libde265 + kvazaar）。
+      // **没有质量参数** —— 画质是固定的，界面上也就不该给质量滑块。
+      encoder: 'elheif',
+      qualityAdjustable: false,
+      // 浏览器解不了 HEIC，放 <img> 预览就是一张破图。
+      previewable: false,
+      // wasm 编码是**同步阻塞主线程**的，大图要一秒多。
+      slow: true
+    },
+    {
+      id: 'avif',
+      label: 'AVIF',
+      mime: 'image/avif',
+      ext: 'avif',
+      lossy: true,
+      alpha: true,
+      // @jsquash/avif（Squoosh 的那个）。
+      encoder: 'avif',
+      qualityAdjustable: true,
+      // 有速度档（speed 0~10）：慢档干净但要等好几秒。
+      speedAdjustable: true,
+      // 浏览器原生就能解 AVIF，预览没问题。
+      previewable: true,
+      slow: true
+    }
+  ];
+
+  /** mime → 格式 id。编码器认不出来时用它把 blob 归回某个格式。 */
+  var IMAGE_MIME_TO_ID = {
+    'image/jpeg': 'jpeg',
+    'image/webp': 'webp',
+    'image/png': 'png',
+    'image/heic': 'heic',
+    'image/heif': 'heic',
+    'image/avif': 'avif'
+  };
+
+  /** 转换页面的默认质量（1~100）。 */
+  var IMAGE_DEFAULT_QUALITY = 90;
+
+  /** AVIF 编码的默认速度档（0~10，越小越慢越干净）。 */
+  var IMAGE_DEFAULT_SPEED = 6;
+
+  /**
+   * 编码失败后最多再缩几次重试。
+   * 每缩一次长宽减半，面积只剩四分之一 —— 5 次足够把一张顶格的图
+   * 缩到任何浏览器都吃得下的尺寸。
+   */
+  var IMAGE_ENCODE_MAX_SHRINK = 5;
+
+  /**
+   * 缩一次之后的尺寸。长宽各减半（向上取整），最少留 1 像素。
+   * 单独拎出来是为了能测 —— 缩放的规则不该只藏在编码的回调里。
+   * @param {number} width
+   * @param {number} height
+   * @returns {{width: number, height: number}}
+   */
+  function imageShrinkSize(width, height) {
+    return {
+      width: Math.max(1, Math.ceil(width / 2)),
+      height: Math.max(1, Math.ceil(height / 2))
+    };
+  }
+
+  /**
+   * 按 id 取格式定义。两张表都找 —— 原生的和 wasm 的。
+   * @param {string} id
+   * @returns {object|null}
+   */
+  function imageFormatById(id) {
+    var i;
+    for (i = 0; i < IMAGE_FORMATS.length; i++) {
+      if (IMAGE_FORMATS[i].id === id) return IMAGE_FORMATS[i];
+    }
+    for (i = 0; i < IMAGE_FORMATS_WASM.length; i++) {
+      if (IMAGE_FORMATS_WASM[i].id === id) return IMAGE_FORMATS_WASM[i];
+    }
+    return null;
+  }
+
+  /**
+   * 按魔数认输入格式。**看文件头不看扩展名** ——
+   * 改了扩展名的文件照样要认对（跟 exif-remover 同一个道理）。
+   * @param {Uint8Array} bytes
+   * @returns {'jpeg'|'png'|'webp'|'gif'|'bmp'|'heic'|'avif'|null}
+   */
+  function imageDetectFormat(bytes) {
+    if (!bytes || bytes.length < 4) return null;
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpeg';
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
+    if (bytes.length >= 12 &&
+        bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+        bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+      return 'webp';
+    }
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'gif';
+    if (bytes[0] === 0x42 && bytes[1] === 0x4D) return 'bmp';
+    // HEIC 与 AVIF 都是 ISOBMFF（和 MP4 同一个盒子格式）：
+    // 第 4~8 字节是 'ftyp'，紧跟其后的 4 个字节是「品牌」——
+    // 品牌才决定它到底是 HEIC 还是 AVIF（品牌不认识的按 mif1 处理，
+    // 也就是「HEIF 图像」，一律当 HEIC 解）。
+    if (bytes.length >= 12 &&
+        bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+      var brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      if (brand === 'avif' || brand === 'avis') return 'avif';
+      if (brand === 'heic' || brand === 'heix' || brand === 'hevc' || brand === 'hevx' ||
+          brand === 'heim' || brand === 'heis' || brand === 'hevm' || brand === 'hevs' ||
+          brand === 'mif1' || brand === 'msf1') {
+        return 'heic';
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 数一数这张图有几帧、是不是动图。
+   *
+   * canvas 只画得出来第一帧 —— 动图导进去会变成静图，后面几帧没了。
+   * 这种事不说清楚比说清楚更糟，所以这里先把帧数查出来，
+   * 界面才能告诉用户「你的动图只剩第一帧了」。
+   *
+   * 静态格式（以及文件头坏了的）返回 null，意思是「没有帧数这回事」。
+   *
+   * @param {Uint8Array} bytes
+   * @returns {{frames: number, animated: boolean}|null}
+   */
+  function imageAnimationInfo(bytes) {
+    if (!bytes || bytes.length < 16) return null;
+    var format = imageDetectFormat(bytes);
+    if (format === 'gif') return imageGifInfo(bytes);
+    if (format === 'png') return imagePngInfo(bytes);
+    if (format === 'webp') return imageWebpInfo(bytes);
+    return null;
+  }
+
+  /** 读 big-endian 的无符号整数（PNG / GIF 用的是大端）。 */
+  function imageReadUintBE(bytes, at, length) {
+    var n = 0;
+    for (var i = 0; i < length; i++) {
+      if (at + i >= bytes.length) return null;
+      n = n * 256 + bytes[at + i];
+    }
+    return n;
+  }
+
+  /** 读 little-endian 的无符号整数（WebP 的 chunk 长度用小端）。 */
+  function imageReadUintLE(bytes, at, length) {
+    var n = 0;
+    for (var i = length - 1; i >= 0; i--) {
+      if (at + i >= bytes.length) return null;
+      n = n * 256 + bytes[at + i];
+    }
+    return n;
+  }
+
+  /**
+   * GIF 的帧数。
+   *
+   * 结构从头到尾是「块」：0x21 开头的是扩展（里面还是一串子块），
+   * 0x2C 开头的是一帧图像描述，0x3B 是结束。
+   * 一帧 = 一个图像描述块。
+   *
+   * 调色板要特别当心：逻辑屏幕描述的 packed 字段最高位是「有没有全局调色板」，
+   * 图像描述自己的 packed 字段最高位是「有没有局部调色板」——
+   * **不跳过去的话，后面读到的就是调色板里的颜色值，不是块标记。**
+   */
+  function imageGifInfo(bytes) {
+    var offset = 13; // 6 字节签名 + 7 字节逻辑屏幕描述
+    var screenPacked = bytes[10];
+    if (screenPacked & 0x80) {
+      offset += 3 * (1 << ((screenPacked & 0x07) + 1)); // 全局调色板
+    }
+    var frames = 0;
+    while (offset < bytes.length) {
+      var marker = bytes[offset];
+      if (marker === 0x3B) break; // trailer
+      if (marker === 0x21) {
+        // 扩展块：1 字节标签，后面一串子块（每个子块是「长度 + 数据」）
+        offset += 2;
+        while (offset < bytes.length && bytes[offset] !== 0) {
+          offset += bytes[offset] + 1;
+        }
+        offset += 1;
+        continue;
+      }
+      if (marker === 0x2C) {
+        frames++;
+        var imagePacked = bytes[offset + 9];
+        offset += 10; // 图像描述符本身（分隔符 + 4 个 2 字节字段 + packed）
+        if (imagePacked & 0x80) {
+          offset += 3 * (1 << ((imagePacked & 0x07) + 1)); // 局部调色板
+        }
+        offset += 1; // LZW 最小码长
+        while (offset < bytes.length && bytes[offset] !== 0) {
+          offset += bytes[offset] + 1;
+        }
+        offset += 1;
+        continue;
+      }
+      return null; // 不认识的块 —— 文件头坏了，当查不出来
+    }
+    if (!frames) return null;
+    return { frames: frames, animated: frames > 1 };
+  }
+
+  /**
+   * PNG（也含 APNG）的帧数。
+   * 有 acTL 块就是 APNG，帧数写在 acTL 里；只有 IDAT 就是静态 PNG。
+   */
+  function imagePngInfo(bytes) {
+    var offset = 8; // 8 字节签名
+    while (offset + 8 <= bytes.length) {
+      var length = imageReadUintBE(bytes, offset, 4);
+      if (length === null) return null;
+      var type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]);
+      if (type === 'acTL') {
+        var frames = imageReadUintBE(bytes, offset + 8, 4);
+        return frames === null ? null : { frames: frames, animated: frames > 1 };
+      }
+      if (type === 'IDAT') return { frames: 1, animated: false };
+      offset += 12 + length;
+    }
+    return null;
+  }
+
+  /**
+   * WebP 的帧数。
+   * VP8X 块的标志位里有「动画」这一位；再往下数 ANMF 块能数出帧数，
+   * 数不清就只说「是动图」，不说几帧。
+   */
+  function imageWebpInfo(bytes) {
+    var offset = 12; // 'RIFF' + 4 字节长度 + 'WEBP'
+    var animated = false;
+    var frames = 0;
+    while (offset + 8 <= bytes.length) {
+      var type = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+      var size = imageReadUintLE(bytes, offset + 4, 4);
+      if (size === null) return null;
+      if (type === 'VP8X') {
+        var flags = bytes[offset + 8];
+        animated = !!(flags & 0x02);
+        break;
+      }
+      if (type === 'ANIM') {
+        animated = true;
+        break;
+      }
+      if (type === 'ANMF') {
+        frames++;
+      }
+      offset += 8 + size + (size % 2); // chunk 长度是奇数的话后面还跟一个补位字节
+    }
+    if (animated) return { frames: frames || 1, animated: true };
+    return { frames: 1, animated: false };
+  }
+
+  /**
+   * 把「最大宽/最大高」解析成正整数。空、0、负数、非法输入都算「没设」。
+   * @param {*} value
+   * @returns {number|null}
+   */
+  function imageParseDimension(value) {
+    if (value === null || value === undefined || value === '') return null;
+    var n = parseInt(String(value), 10);
+    if (!isFinite(n) || n <= 0) return null;
+    return n;
+  }
+
+  /**
+   * 等比缩放：把图缩进 maxWidth × maxHeight 的框里。
+   *
+   * 两个上限都空就原样返回；只给一个就按比例缩另一边。
+   * **不放大** —— 把 100×100 的图放到 800×800 只会浪费体积，
+   * 而且浏览器重编码时放大的图是插值出来的，并没有多出细节。
+   *
+   * @param {number} width 原宽
+   * @param {number} height 原高
+   * @param {*} maxWidth
+   * @param {*} maxHeight
+   * @returns {{width: number, height: number, scaled: boolean}}
+   */
+  function imageFitWithin(width, height, maxWidth, maxHeight) {
+    var w = Math.max(1, Math.round(Number(width) || 0));
+    var h = Math.max(1, Math.round(Number(height) || 0));
+    var mw = imageParseDimension(maxWidth);
+    var mh = imageParseDimension(maxHeight);
+    if (!mw && !mh) return { width: w, height: h, scaled: false };
+    var ratio = 1;
+    if (mw && w > mw) ratio = Math.min(ratio, mw / w);
+    if (mh && h > mh) ratio = Math.min(ratio, mh / h);
+    if (ratio >= 1) return { width: w, height: h, scaled: false };
+    return {
+      width: Math.max(1, Math.round(w * ratio)),
+      height: Math.max(1, Math.round(h * ratio)),
+      scaled: true
+    };
+  }
+
+  /**
+   * 质量取值。0 和 1 都是合法值（0 是最低质量，1 是最高），
+   * 但浏览器对 0 的处理各家不一样（有的当成 1，有的当成 0.5），
+   * 所以范围收成 1~100，跟常见的图片压缩工具一致。
+   * @param {*} value
+   * @returns {number}
+   */
+  function imageClampQuality(value) {
+    var n = parseInt(String(value), 10);
+    if (!isFinite(n)) return 75;
+    if (n < 1) return 1;
+    if (n > 100) return 100;
+    return n;
+  }
+
+  /**
+   * 算出省了多少。
+   * @param {number} before 原字节数
+   * @param {number} after 新字节数
+   * @returns {{beforeBytes: number, afterBytes: number, savedBytes: number, savedPercent: number, isSmaller: boolean}}
+   */
+  function imageSavings(before, after) {
+    var b = Math.max(0, Number(before) || 0);
+    var a = Math.max(0, Number(after) || 0);
+    var saved = b - a;
+    return {
+      beforeBytes: b,
+      afterBytes: a,
+      savedBytes: saved,
+      savedPercent: b > 0 ? (saved / b) * 100 : 0,
+      isSmaller: saved > 0
+    };
+  }
+
+  /**
+   * 字节数 → 人类可读的大小。
+   * @param {number} n
+   * @returns {string}
+   */
+  function imageFormatBytes(n) {
+    var value = Number(n);
+    if (!isFinite(value) || value < 0) return '';
+    if (value < 1024) return value + ' B';
+    var units = ['KB', 'MB', 'GB', 'TB'];
+    value = value / 1024;
+    var i = 0;
+    while (value >= 1024 && i < units.length - 1) { value = value / 1024; i++; }
+    return value.toFixed(2) + ' ' + units[i];
+  }
+
+  /**
+   * 输出文件名：换扩展名，可选加后缀。
+   * @param {string} name 原文件名
+   * @param {string} ext 新扩展名（不带点）
+   * @param {string} suffix 可选后缀
+   * @returns {string}
+   */
+  function imageOutputName(name, ext, suffix) {
+    var base = String(name || 'image');
+    var dot = base.lastIndexOf('.');
+    if (dot > 0) base = base.slice(0, dot);
+    if (suffix) base += '-' + suffix;
+    return base + '.' + ext;
+  }
+
+  /**
+   * 浏览器**实际**编码出来的格式。
+   *
+   * canvas.toBlob 遇到不支持的 mime 会**悄悄退回 PNG**（按规范），
+   * 返回的 blob.type 才是真相。老浏览器不支持 WebP 编码时，
+   * 选 WebP 会拿到一张 PNG —— 不查这一下，界面就会一边显示
+   * 「WebP」一边下载出 PNG 文件。
+   *
+   * @param {{type?: string}} blob
+   * @param {string} requestedId 用户选的格式 id
+   * @returns {string} 实际格式 id
+   */
+  function imageActualFormatId(blob, requestedId) {
+    var mime = (blob && blob.type) || '';
+    var got = IMAGE_MIME_TO_ID[mime];
+    if (got) return got;
+    return imageFormatById(requestedId) ? requestedId : 'png';
+  }
+
+  /**
+   * 解码一个图片文件。
+   *
+   * 优先用 createImageBitmap：它能一次拿到解码好的位图，还支持
+   * imageOrientation: 'from-image'（按 EXIF 里的方向摆正），
+   * 而且不依赖 DOM。取不到就退回 <img> + object URL。
+   *
+   * @param {Blob} file
+   * @returns {Promise<{source: *, width: number, height: number, close: function}>}
+   */
+  function imageDecode(file) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      function fail(err) {
+        if (settled) return;
+        settled = true;
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+      function ok(source, width, height, close) {
+        if (settled) return;
+        settled = true;
+        resolve({ source: source, width: width, height: height, close: close || function () {} });
+      }
+
+      if (typeof createImageBitmap === 'function') {
+        try {
+          createImageBitmap(file, { imageOrientation: 'from-image' }).then(function (bitmap) {
+            ok(bitmap, bitmap.width, bitmap.height, function () {
+              if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+            });
+          }, fail);
+          return;
+        } catch (e) {
+          // 老浏览器不认 imageOrientation 选项，退回 <img> 那条路
+        }
+      }
+
+      var url;
+      try {
+        url = URL.createObjectURL(file);
+      } catch (e) {
+        fail(e);
+        return;
+      }
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        ok(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        fail(new Error('decode'));
+      };
+      img.src = url;
+    });
+  }
+
+  /**
+   * 把解码好的图画进 canvas，再按目标格式编码成 Blob。
+   *
+   * 浏览器给 canvas 的面积是有上限的（Chrome 大约 2.68 亿像素），
+   * 超了 `toBlob` 不会报错，只是**返回 null**。
+   * 要是照直报「编码失败」，一张超大的全景图就完全没法用 ——
+   * 而「压缩」本来就是要把图变小的事。
+   *
+   * 所以这里改成：编码不成就把长宽各减半再试一次，
+   * 直到成功或者缩到 1 像素为止（最多 IMAGE_ENCODE_MAX_SHRINK 次）。
+   * 不写死浏览器的上限是多少 —— 各家浏览器不一样，探测一次太贵，
+   * 失败了再缩比猜一个数字靠谱。
+   *
+   * @param {{source: *, width: number, height: number}} decoded
+   * @param {object} opts
+   *   opts.width / opts.height  目标尺寸
+   *   opts.formatId             目标格式（jpeg / webp / png）
+   *   opts.quality              质量 1~100（只有有损格式认）
+   *   opts.background           背景色（目标格式没有 alpha 时才用）
+   * @returns {Promise<{blob: Blob, width: number, height: number, formatId: string,
+   *                    scaledToFit: boolean}>}
+   */
+  function imageEncode(decoded, opts) {
+    var format = imageFormatById(opts.formatId) || IMAGE_FORMATS[0];
+    var width = Math.max(1, Math.round(Number(opts.width) || decoded.width || 1));
+    var height = Math.max(1, Math.round(Number(opts.height) || decoded.height || 1));
+
+    return new Promise(function (resolve, reject) {
+      var scaledToFit = false;
+      // 还能再缩几次 —— 每次长宽都减半，面积就只剩四分之一，
+      // 一次减半一般就够了，留几次兜底。这个计数是**每次调用自己的**，
+      // 放在模块级会被上一张图用掉。
+      var shrinksLeft = IMAGE_ENCODE_MAX_SHRINK;
+
+      /** 画一次 canvas 并编码。拿到 null 表示这个尺寸浏览器吃不下了。 */
+      function attempt(w, h) {
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('canvas'));
+          return;
+        }
+        // JPEG 存不下透明通道：先把背景铺满，
+        // 否则 drawImage 画完的透明区域在 JPEG 里是黑的。
+        if (!format.alpha) {
+          ctx.fillStyle = opts.background || '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+        }
+        ctx.drawImage(decoded.source, 0, 0, w, h);
+
+        var quality = format.lossy ? imageClampQuality(opts.quality) / 100 : undefined;
+        canvas.toBlob(function (blob) {
+          if (!blob) {
+            if (w > 1 && h > 1 && shrinksLeft > 0) {
+              shrinksLeft -= 1;
+              scaledToFit = true;
+              var smaller = imageShrinkSize(w, h);
+              attempt(smaller.width, smaller.height);
+              return;
+            }
+            reject(new Error('encode'));
+            return;
+          }
+          resolve({
+            blob: blob,
+            width: w,
+            height: h,
+            formatId: imageActualFormatId(blob, format.id),
+            requestedFormatId: format.id,
+            mime: blob.type || format.mime,
+            scaledToFit: scaledToFit
+          });
+        }, format.mime, quality);
+      }
+
+      attempt(width, height);
+    });
+  }
+
+  /**
+   * 造一个「上传图片」的卡片：文件选择框 + 拖放区 + 状态行。
+   *
+   * 文案由调用方给（工具自己的 t()），这个函数只管搭结构 ——
+   * 它住在共用的内核里，不能自己去查语言包。
+   *
+   * @param {object} opts
+   *   opts.accept    input[type=file] 的 accept
+   *   opts.label     选择框上方的标签
+   *   opts.hint      选择框下方的说明
+   *   opts.onFile    拿到 File 时调用
+   * @returns {{card: HTMLElement, input: HTMLInputElement, setStatus: function}}
+   */
+  function imageUploadCard(opts) {
+    opts = opts || {};
+    var card = Dom.h('div.card');
+    var input = Dom.h('input', { type: 'file', accept: opts.accept || 'image/*' });
+    var status = Dom.h('p.field-hint');
+    var box = Dom.h('div.preview-box', null,
+      Dom.h('label.field-label', { text: opts.label || '' }),
+      input,
+      Dom.h('p.field-hint', { text: opts.hint || '' })
+    );
+    card.appendChild(box);
+    card.appendChild(status);
+
+    function setStatus(message, isError) {
+      status.textContent = message || '';
+      status.classList.toggle('is-error', !!isError);
+    }
+
+    if (typeof opts.onFile === 'function') {
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        if (file) opts.onFile(file);
+      });
+      // 拖进来
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        box.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        box.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+      box.addEventListener('drop', function (e) {
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length) opts.onFile(files[0]);
+      });
+    }
+
+    return { card: card, input: input, setStatus: setStatus };
+  }
+
+  /* ---------- HEIC / AVIF：wasm 编解码 ---------- */
+
+  /**
+   * elheif 的 wasm 模块 —— 初始化一次就好，之后一直用同一个。
+   * null 表示还没初始化过。
+   */
+  var imageElheifPromise = null;
+
+  /** AVIF 编码器的 wasm —— 跟胶水脚本放在同一个目录。 */
+  var IMAGE_AVIF_WASM_URL = '/assets/lib/avif/codec/enc/avif_enc.wasm';
+
+  /** AVIF 编码器模块 —— 第一次真要编码时才去拉那个 2.6 MB 的 wasm。 */
+  var imageAvifPromise = null;
+
+  /**
+   * 初始化 elheif（libheif 的 wasm 封装）。
+   *
+   * elheif 挂出来的是**模块工厂** `__init__ELHEIF_MODULE(cfg)`，
+   * 不是模块本身：工厂要一个配置对象，通过配置对象的
+   * `onRuntimeInitialized` 回调报告「wasm 跑起来了」。
+   * （npm 包自带的 pkg/index.js 就是这么写的；我们直接用胶水，
+   * 省得为一个 40 行的包装文件再发明一种 vendor 机制。）
+   *
+   * @returns {Promise<object>} 模块实例
+   */
+  function imageElheifInit() {
+    if (imageElheifPromise) return imageElheifPromise;
+    var factory = window.__init__ELHEIF_MODULE;
+    if (typeof factory !== 'function') {
+      return Promise.reject(new Error('elheif unavailable'));
+    }
+    var p = new Promise(function (resolve, reject) {
+      var mod = {};
+      // 胶水跑起来的时候会调这个回调 —— 必须**在调用工厂之前**挂上，
+      // 晚了就再也等不到了。
+      mod.onRuntimeInitialized = function () { resolve(mod); };
+      try {
+        factory(mod);
+      } catch (e) {
+        reject(e);
+      }
+    });
+    // 失败了下次还能重试 —— 失败的原因多半是临时的。
+    p.catch(function () { if (imageElheifPromise === p) imageElheifPromise = null; });
+    imageElheifPromise = p;
+    return p;
+  }
+
+  /**
+   * 从 elheif 解出来的帧里取出 RGBA8888 的像素。
+   *
+   * **elheif 给的 buffer 比图像本身长** —— 它自己的 core/src/impl.cpp 里
+   * 解码完又把整个 libheif plane 原样追加了一遍（上游的 bug）：
+   *
+   *   if (stride == width * 4) { copy(plane, plane + stride * height); }
+   *   else { 逐行压缩成 width*4 一行 }
+   *   copy(plane, plane + stride * height);   ← 多出来的这一次
+   *
+   * 所以 buffer 的长度是 width*height*4 的两倍（stride 对齐时更少），
+   * 直接 `imageData.set(frame.data)` 会抛 "offset is out of bounds"。
+   * 前面 width*height*4 字节才是图像本身，后面那些是重复的。
+   *
+   * 单拎出来是为了能测 —— 这个取法错了，HEIC 就解不出来。
+   *
+   * @param {{width: number, height: number, data: *}} frame
+   * @returns {{width: number, height: number, data: Uint8Array}}
+   */
+  function imageRgbaFromFrame(frame) {
+    if (!frame) throw new Error('decode');
+    var w = frame.width | 0;
+    var h = frame.height | 0;
+    if (!w || !h) throw new Error('decode');
+    var need = w * h * 4;
+    var src = frame.data instanceof Uint8Array
+      ? frame.data
+      : new Uint8Array(frame.data || 0);
+    if (src.length < need) throw new Error('decode');
+    return { width: w, height: h, data: src.subarray(0, need) };
+  }
+
+  /**
+   * 解码一张 HEIC/HEIF 图。
+   *
+   * 浏览器解不了 HEIC（<img> 直接报错），所以走 elheif：
+   * jsDecodeImage 返回 RGBA8888 的位图，我们把它画进 canvas，
+   * 当作「已解码的图」交给后面的编码器。
+   *
+   * @param {Uint8Array} bytes
+   * @returns {Promise<{source: *, width: number, height: number, close: function}>}
+   */
+  function imageDecodeHeic(bytes) {
+    return imageElheifInit().then(function (mod) {
+      var out;
+      try {
+        out = mod.jsDecodeImage(bytes);
+      } catch (e) {
+        throw new Error('decode');
+      }
+      if (!out || out.err || !out.data || !out.data.length) {
+        throw new Error(out && out.err ? String(out.err) : 'decode');
+      }
+      var frame = imageRgbaFromFrame(out.data[0]);
+      var canvas = document.createElement('canvas');
+      canvas.width = frame.width;
+      canvas.height = frame.height;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas');
+      var imageData = ctx.createImageData(frame.width, frame.height);
+      imageData.data.set(frame.data);
+      ctx.putImageData(imageData, 0, 0);
+      return {
+        source: canvas,
+        width: frame.width,
+        height: frame.height,
+        close: function () {}
+      };
+    });
+  }
+
+  /**
+   * 解码一个图片文件 —— 认得出是 HEIC 就走 wasm，其余走浏览器原生。
+   *
+   * AVIF 不用特别处理：浏览器原生就能解（Chrome 85+ / Firefox 93+ / Safari 16.4+）。
+   *
+   * 页面没带 elheif（比如普通的转换页）时，HEIC 就走原生那条路 ——
+   * 解不出来，由界面报错，而不是去喊一个不存在的编解码器。
+   *
+   * @param {Blob} file
+   * @param {Uint8Array} bytes 文件的字节（用来认格式）
+   * @returns {Promise<{source: *, width: number, height: number, close: function}>}
+   */
+  function imageDecodeAny(file, bytes) {
+    var format = imageDetectFormat(bytes);
+    if (format === 'heic' && typeof window.__init__ELHEIF_MODULE === 'function') {
+      return imageDecodeHeic(bytes);
+    }
+    return imageDecode(file);
+  }
+
+  /**
+   * 把一张已解码的图画进 canvas，取出 RGBA8888 的字节。
+   *
+   * 两个 wasm 编码器要的都是这个形状：宽、高、每像素 4 字节的 RGBA。
+   *
+   * @param {*} source 已解码的图（ImageBitmap / HTMLImageElement / canvas）
+   * @param {number} width
+   * @param {number} height
+   * @returns {Uint8Array}
+   */
+  function imageSourceToRgba(source, width, height) {
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    ctx.drawImage(source, 0, 0, width, height);
+    // getImageData 给的是 Uint8ClampedArray，wasm 要的是 Uint8Array ——
+    // 复制一份，别把 canvas 的内部缓冲直接递出去。
+    return new Uint8Array(ctx.getImageData(0, 0, width, height).data);
+  }
+
+  /**
+   * 界面上的质量（1~100，越大越好）→ AVIF 的 cqLevel（0~63，越小越好）。
+   *
+   * 单拎出来是为了能测 —— 这个映射错了，滑块就是反的。
+   *
+   * @param {number} quality
+   * @returns {number} 0~63
+   */
+  function imageAvifCqLevel(quality) {
+    var q = imageClampQuality(quality);
+    return Math.round((100 - q) * 63 / 99);
+  }
+
+  /**
+   * 把速度档夹到 0~10。
+   * @param {*} value
+   * @returns {number}
+   */
+  function imageClampSpeed(value) {
+    var n = parseInt(String(value), 10);
+    if (!isFinite(n)) return IMAGE_DEFAULT_SPEED;
+    if (n < 0) return 0;
+    if (n > 10) return 10;
+    return n;
+  }
+
+  /**
+   * AVIF 编码器的选项。
+   *
+   * 这些字段**一个都不能少** —— embind 的结构体少一个字段就抛
+   * "Missing field: cqAlphaLevel"，整个编码失败。
+   *
+   * cqLevel 是 0~63，**0 最好**；界面上的质量是 1~100（越大越好），
+   * 得反着映射。speed 是 0~10，越小越慢越干净。
+   *
+   * @param {number} quality
+   * @param {number} speed
+   * @returns {object}
+   */
+  function imageAvifOptions(quality, speed) {
+    return {
+      cqLevel: imageAvifCqLevel(quality),
+      cqAlphaLevel: -1,          // -1 = 跟着 cqLevel 走
+      denoiseLevel: 0,
+      tileColsLog2: 0,
+      tileRowsLog2: 0,
+      speed: imageClampSpeed(speed),
+      subsample: 1,
+      chromaDeltaQ: false,
+      sharpness: 0,
+      tune: 0
+    };
+  }
+
+  /**
+   * 拿到 AVIF 编码器模块。
+   *
+   * 为什么要自己 fetch 那个 2.6 MB 的 wasm：胶水脚本（avif_enc.js）本身
+   * 只有 42 KB，但它要用的 wasm 是单独一个文件 —— 页面刚打开就去拉
+   * 2.6 MB，对只想看一眼的人太奢侈。真要转 AVIF 了再拉，拉一次缓存着。
+   *
+   * 编译用 compileStreaming：编译在浏览器里是**后台线程**干的，
+   * 不卡页面（compile 要在主线程上跑，几百毫秒）。
+   *
+   * @returns {Promise<object>} 带 encode() 的模块
+   */
+  function imageAvifModule() {
+    if (imageAvifPromise) return imageAvifPromise;
+    var p = fetch(IMAGE_AVIF_WASM_URL)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var type = res.headers && res.headers.get ? res.headers.get('Content-Type') : '';
+        if (WebAssembly.compileStreaming && type === 'application/wasm') {
+          return WebAssembly.compileStreaming(res);
+        }
+        return res.arrayBuffer().then(function (buf) { return WebAssembly.compile(buf); });
+      })
+      .then(function (wasmModule) {
+        var factory = window.__avifEncFactory;
+        if (typeof factory !== 'function') throw new Error('avif encoder is not loaded');
+        // instantiateWasm：把我们已经编译好的模块塞给它，
+        // 别让它自己再去 fetch 一遍。
+        return factory({
+          instantiateWasm: function (imports, callback) {
+            var instance = new WebAssembly.Instance(wasmModule, imports);
+            callback(instance);
+            return instance.exports;
+          }
+        });
+      });
+    p.catch(function () { if (imageAvifPromise === p) imageAvifPromise = null; });
+    imageAvifPromise = p;
+    return p;
+  }
+
+  /**
+   * 编码成 HEIC。
+   *
+   * elheif 的编码器（kvazaar）**没有质量参数** —— 画质是固定的，
+   * 所以这个函数不认 opts.quality，界面里也就不该给 HEIC 挂质量滑块。
+   *
+   * @param {{source: *, width: number, height: number}} decoded
+   * @param {object} opts
+   * @returns {Promise<{blob: Blob, width: number, height: number, formatId: string}>}
+   */
+  function imageEncodeHeic(decoded, opts) {
+    var width = Math.max(1, Math.round(Number(opts.width) || decoded.width || 1));
+    var height = Math.max(1, Math.round(Number(opts.height) || decoded.height || 1));
+    return imageElheifInit().then(function (mod) {
+      var rgba = imageSourceToRgba(decoded.source, width, height);
+      var out = mod.jsEncodeImage(rgba, width, height);
+      if (!out || out.err || !out.data) {
+        throw new Error(out && out.err ? String(out.err) : 'encode');
+      }
+      var bytes = out.data instanceof Uint8Array ? out.data : new Uint8Array(out.data);
+      return {
+        blob: new Blob([bytes], { type: 'image/heic' }),
+        width: width,
+        height: height,
+        formatId: 'heic',
+        requestedFormatId: 'heic',
+        mime: 'image/heic',
+        scaledToFit: false
+      };
+    });
+  }
+
+  /**
+   * 编码成 AVIF。
+   *
+   * @param {{source: *, width: number, height: number}} decoded
+   * @param {object} opts
+   * @returns {Promise<{blob: Blob, width: number, height: number, formatId: string}>}
+   */
+  function imageEncodeAvif(decoded, opts) {
+    var width = Math.max(1, Math.round(Number(opts.width) || decoded.width || 1));
+    var height = Math.max(1, Math.round(Number(opts.height) || decoded.height || 1));
+    var options = imageAvifOptions(opts.quality, opts.speed);
+    return imageAvifModule().then(function (mod) {
+      var rgba = imageSourceToRgba(decoded.source, width, height);
+      var bytes = mod.encode(rgba, width, height, options);
+      if (!bytes) throw new Error('encode');
+      var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      return {
+        blob: new Blob([u8], { type: 'image/avif' }),
+        width: width,
+        height: height,
+        formatId: 'avif',
+        requestedFormatId: 'avif',
+        mime: 'image/avif',
+        scaledToFit: false
+      };
+    });
+  }
+
+  /**
+   * 按格式分派到对应的编码器。
+   *
+   * 原生三种走 canvas.toBlob；HEIC 走 elheif；AVIF 走 jsquash。
+   *
+   * @param {{source: *, width: number, height: number}} decoded
+   * @param {object} opts
+   * @returns {Promise<object>}
+   */
+  function imageEncodeTo(decoded, opts) {
+    var format = imageFormatById(opts.formatId);
+    if (!format) return Promise.reject(new Error('unknown format'));
+    if (format.encoder === 'elheif') return imageEncodeHeic(decoded, opts);
+    if (format.encoder === 'avif') return imageEncodeAvif(decoded, opts);
+    return imageEncode(decoded, opts);
+  }
+
+  /**
+   * 这个格式认不认质量设置。
+   *
+   * 三种情况都要分开：
+   *   · PNG 无损 —— 拖滑块没有意义（界面里把滑块置灰）；
+   *   · HEIC 有损，但编码器**没有质量参数** —— 滑块藏起来，说明白为什么；
+   *   · 其余（JPEG / WebP / AVIF）认质量。
+   *
+   * @param {object|string} format 格式对象或格式 id
+   * @returns {boolean}
+   */
+  function imageQualityApplies(format) {
+    var f = typeof format === 'string' ? imageFormatById(format) : format;
+    if (!f || !f.lossy) return false;
+    return f.qualityAdjustable !== false;
+  }
+
+  /**
+   * 这个格式要不要铺背景色。只有没有 alpha 通道的格式要。
+   * @param {object|string} format 格式对象或格式 id
+   * @returns {boolean}
+   */
+  function imageBackgroundApplies(format) {
+    var f = typeof format === 'string' ? imageFormatById(format) : format;
+    return !!f && !f.alpha;
+  }
+
+  /**
+   * 让出一帧 —— wasm 编码是**同步阻塞主线程**的，
+   * 得先把「编码中…」画到屏幕上，再进编码器。
+   * @returns {Promise<void>}
+   */
+  function imageYieldFrame() {
+    return new Promise(function (resolve) {
+      var raf = window.requestAnimationFrame;
+      if (typeof raf === 'function') {
+        raf(function () { setTimeout(resolve, 0); });
+      } else {
+        setTimeout(resolve, 0);
+      }
+    });
+  }
+
+  /**
+   * 造一个「图片格式转换」工具的整个界面。
+   *
+   * 三个页面共用它：/image-converter（只转浏览器原生的三种）、
+   * /image-converter-heic、/image-converter-avif。
+   *
+   * 为什么共用而不是各写一份：这三个页面的界面有九成是重合的
+   * （上传卡 → 设置卡 → 结果卡 + 前后预览 + 下载），
+   * 各写一份的话，改一处就得记得改三处 —— 而三处迟早会不一样。
+   * 这跟 ItTools.jsonInfer（几个 json 转语言的工具共用）是同一个道理。
+   *
+   * **文案由调用方给**（工具模块用 t('键','英文') 拼好传进来）。
+   * 语言包的对账只扫 static/js/tools/*.js 里的字面量调用，
+   * 文案放在这里就扫不到了（见 src/i18n.rs 的 js_text 模块）。
+   *
+   * @param {object} opts
+   *   opts.root          挂载的容器
+   *   opts.s             已翻译的文案
+   *   opts.formats       这一页能选的输出格式
+   *   opts.defaultFormat 默认选中的格式
+   *   opts.accept        文件选择框的 accept
+   *   opts.qualityNote   「这个格式调不了质量」时的说明（没有就传 null）
+   *   opts.speed         速度档 {label, options:[{value,label}]}（没有就传 null）
+   *   opts.extraHints    这个工具自己的补充说明（字符串数组，没有就传 null）
+   *   opts.debounce      质量滑块的防抖毫秒数（编码慢的格式要设）
+   * @returns {{destroy: function}}
+   */
+  function imageConverterView(opts) {
+    var root = opts.root;
+    var s = opts.s;
+    var formats = opts.formats || IMAGE_FORMATS;
+    var disposed = false;
+    /** 重算的序号。慢的那次算完了不许盖掉快的那次的结果。 */
+    var ticket = 0;
+    var debounceTimer = null;
+
+    var state = {
+      name: '',
+      size: 0,
+      sourceFormat: '',
+      /** 动图的帧数；静态图是 null。见 imageAnimationInfo。 */
+      animation: null,
+      decoded: null,
+      width: 0,
+      height: 0,
+      formatId: opts.defaultFormat || formats[0].id,
+      quality: IMAGE_DEFAULT_QUALITY,
+      speed: IMAGE_DEFAULT_SPEED,
+      background: '#ffffff',
+      result: null,
+      originalUrl: '',
+      resultUrl: ''
+    };
+
+    /* ---------- 卡片 ---------- */
+
+    var upload = imageUploadCard({
+      accept: opts.accept || 'image/*',
+      label: s.choose_file,
+      hint: s.drop_hint,
+      onFile: handleFile
+    });
+    upload.card.insertBefore(Dom.h('h3', { text: s.title }), upload.card.firstChild);
+
+    var settingsCard = Dom.h('div.card', { hidden: true });
+    var resultCard = Dom.h('div.card', { hidden: true });
+
+    root.appendChild(upload.card);
+    root.appendChild(settingsCard);
+    root.appendChild(resultCard);
+
+    /* ---------- 设置 ---------- */
+
+    var formatSelect = Dom.h('select.layui-select', null,
+      formats.map(function (f) {
+        return Dom.h('option', { value: f.id, text: f.label });
+      })
+    );
+
+    var qualityLabel = Dom.h('label.field-label', {
+      for: 'iv-quality',
+      text: s.label_quality.replace('{n}', String(IMAGE_DEFAULT_QUALITY))
+    });
+    var qualitySlider = Dom.h('input.slider', {
+      type: 'range', id: 'iv-quality', min: 1, max: 100, step: 1, value: IMAGE_DEFAULT_QUALITY
+    });
+    var qualityField = Dom.h('div.field', null, qualityLabel, qualitySlider);
+
+    var backgroundInput = Dom.h('input', { type: 'color', value: state.background });
+
+    var qualityHint = Dom.h('p.field-hint');
+    var backgroundHint = Dom.h('p.field-hint');
+
+    settingsCard.appendChild(Dom.h('h3', { text: s.settings_title }));
+    settingsCard.appendChild(Util.field(s.label_format, formatSelect));
+    settingsCard.appendChild(qualityField);
+    settingsCard.appendChild(Util.field(s.label_background, backgroundInput));
+    settingsCard.appendChild(qualityHint);
+    settingsCard.appendChild(backgroundHint);
+    settingsCard.appendChild(Dom.h('p.field-hint', { text: s.hint_formats }));
+    // 各工具自己的补充说明（比如「首次转换要下载编解码库」）。
+    if (opts.extraHints) {
+      opts.extraHints.forEach(function (text) {
+        settingsCard.appendChild(Dom.h('p.field-hint', { text: text }));
+      });
+    }
+
+    /* ---- 速度档（只有 AVIF 有） ---- */
+    var speedField = null;
+    var speedSelect = null;
+    if (opts.speed) {
+      speedSelect = Dom.h('select.layui-select', null,
+        opts.speed.options.map(function (o) {
+          return Dom.h('option', { value: String(o.value), text: o.label });
+        })
+      );
+      speedField = Util.field(opts.speed.label, speedSelect);
+      speedField.hidden = true;
+      settingsCard.appendChild(speedField);
+    }
+
+    // 初始状态就先对一次：默认格式用不用得上质量、背景色，一眼能看出来。
+    refreshHints();
+
+    /* ---------- 结果 ---------- */
+
+    var resultBody = Dom.h('div');
+    var busyHint = Dom.h('p.field-hint');
+    resultCard.appendChild(Dom.h('h3', { text: s.result_title }));
+    resultCard.appendChild(busyHint);
+    resultCard.appendChild(resultBody);
+
+    /** 键值对照表。 */
+    function kvTable(rows) {
+      var table = Dom.h('table.kv-table');
+      table.appendChild(Dom.h('thead', null, Dom.h('tr', null,
+        Dom.h('th', { text: s.label_item }),
+        Dom.h('th', { text: s.label_value })
+      )));
+      var body = Dom.h('tbody');
+      rows.forEach(function (row) {
+        body.appendChild(Dom.h('tr', null,
+          Dom.h('td', { text: row.label }),
+          Dom.h('td.val', { text: row.value })
+        ));
+      });
+      table.appendChild(body);
+      return table;
+    }
+
+    /** 换掉结果图的 object URL —— 不撤销的话每改一次设置就漏一个 blob。 */
+    function replaceResultUrl(blob) {
+      if (state.resultUrl) {
+        URL.revokeObjectURL(state.resultUrl);
+        state.resultUrl = '';
+      }
+      state.resultUrl = URL.createObjectURL(blob);
+    }
+
+    /** 「编码中…」状态。wasm 编码慢的格式才用得上。 */
+    function setBusy(on) {
+      busyHint.textContent = on ? s.status_encoding : '';
+    }
+
+    /** 设置变了之后刷新提示文案。 */
+    function refreshHints() {
+      var format = imageFormatById(state.formatId);
+      var lossy = imageQualityApplies(format);
+      var needsBackground = imageBackgroundApplies(format);
+
+      // HEIC 那种「压根没有质量参数」的格式：滑块藏起来，换成一句说明。
+      // PNG 这种「无损所以用不上」的格式：滑块留着但置灰 —— 跟原来一样。
+      var hideQuality = !!(format && format.qualityAdjustable === false);
+      qualityField.hidden = hideQuality;
+      qualitySlider.disabled = !lossy;
+
+      if (!format) {
+        qualityHint.textContent = '';
+      } else if (hideQuality) {
+        qualityHint.textContent = opts.qualityNote || '';
+      } else if (!format.lossy) {
+        qualityHint.textContent = s.hint_lossless;
+      } else {
+        qualityHint.textContent = s.hint_quality;
+      }
+
+      backgroundInput.parentNode.style.display = needsBackground ? '' : 'none';
+      backgroundHint.textContent = needsBackground ? s.hint_background : '';
+
+      if (speedField) speedField.hidden = !(format && format.speedAdjustable);
+    }
+
+    /**
+     * 一块预览图。浏览器解不了的格式（HEIC）放 <img> 就是一张破图 ——
+     * 那种情况下改成一句话说明，别让用户以为工具坏了。
+     */
+    function previewBlock(formatId, url, label) {
+      var format = imageFormatById(formatId);
+      var block = Dom.h('div', null, Dom.h('p.field-hint', { text: label }));
+      if (!url) return block;
+      if (format && format.previewable === false) {
+        block.appendChild(Dom.h('p.field-hint', { text: s.hint_not_previewable }));
+      } else {
+        block.appendChild(Dom.h('img', { src: url, alt: label, style: { maxWidth: '100%' } }));
+      }
+      return block;
+    }
+
+    /** 画结果卡片。 */
+    function renderResult() {
+      Dom.clear(resultBody);
+      var r = state.result;
+      if (!r) {
+        resultBody.appendChild(Dom.h('p.field-hint', { text: s.no_result }));
+        return;
+      }
+
+      var format = imageFormatById(r.formatId) || formats[0];
+      resultBody.appendChild(kvTable([
+        {
+          label: s.label_source_format,
+          value: state.sourceFormat ? state.sourceFormat.toUpperCase() : s.label_unknown
+        },
+        { label: s.label_target_format, value: format.label },
+        { label: s.label_before, value: imageFormatBytes(r.beforeBytes) },
+        { label: s.label_after, value: imageFormatBytes(r.blob.size) },
+        {
+          label: s.label_dimensions,
+          value: r.width + ' × ' + r.height
+        }
+      ]));
+
+      if (state.sourceFormat && r.requestedFormatId === state.sourceFormat) {
+        resultBody.appendChild(Dom.h('p.field-hint', { text: s.hint_same_format }));
+      }
+
+      // 浏览器不支持这个格式的编码时，toBlob 会退回 PNG —— 必须说出来
+      if (r.formatId !== r.requestedFormatId) {
+        var requested = imageFormatById(r.requestedFormatId);
+        resultBody.appendChild(Dom.h('div.alert.alert-warning', null,
+          Dom.h('div', {
+            text: s.warn_fallback
+              .replace('{format}', requested ? requested.label : r.requestedFormatId)
+              .replace('{actual}', format.label)
+          })
+        ));
+      }
+
+      // 动图只剩第一帧 —— canvas 画不出后面的帧，不说清楚就成了骗人
+      if (state.animation && state.animation.animated) {
+        resultBody.appendChild(Dom.h('div.alert.alert-warning', null,
+          Dom.h('div', {
+            text: s.warn_animation.replace('{n}', String(state.animation.frames))
+          })
+        ));
+      }
+
+      // 图太大，浏览器吃不下这个尺寸，内核自动缩过 —— 尺寸变了得说出来
+      if (r.scaledToFit) {
+        resultBody.appendChild(Dom.h('div.alert.alert-warning', null,
+          Dom.h('div', {
+            text: s.warn_too_large
+              .replace('{width}', String(r.width))
+              .replace('{height}', String(r.height))
+          })
+        ));
+      }
+
+      // 原图与结果的并排预览
+      var preview = Dom.h('div.preview-box');
+      preview.appendChild(previewBlock(state.sourceFormat, state.originalUrl, s.preview_before));
+      preview.appendChild(previewBlock(r.formatId, state.resultUrl, s.preview_after));
+      resultBody.appendChild(preview);
+
+      var downloadBtn = Dom.h('button.layui-btn.layui-btn-primary', {
+        type: 'button', text: s.download
+      });
+      downloadBtn.addEventListener('click', function () {
+        if (disposed || !state.result) return;
+        var fmt = imageFormatById(state.result.formatId) || formats[0];
+        window.ItTools.download(
+          imageOutputName(state.name, fmt.ext, 'converted'),
+          state.result.blob,
+          fmt.mime
+        );
+      });
+      resultBody.appendChild(Dom.h('div.form-actions', null, downloadBtn));
+    }
+
+    /** 按当前设置重新编码。 */
+    function recompute() {
+      if (!state.decoded) return;
+      var mine = ++ticket;
+      var decoded = state.decoded;
+      var format = imageFormatById(state.formatId) || formats[0];
+      var encodeOpts = {
+        width: state.width,
+        height: state.height,
+        formatId: state.formatId,
+        quality: state.quality,
+        speed: state.speed,
+        background: state.background
+      };
+
+      // wasm 编码是**同步阻塞主线程**的（3 MP 的图要一两秒）——
+      // 先把「编码中…」画出来，再让出一帧，最后才进编码器。
+      // 顺序反了的话，用户看到的是「按下去没反应，过两秒突然出结果」。
+      var slow = !!format.slow;
+      if (slow) setBusy(true);
+
+      var chain = slow
+        ? imageYieldFrame().then(function () { return imageEncodeTo(decoded, encodeOpts); })
+        : imageEncodeTo(decoded, encodeOpts);
+
+      chain.then(function (out) {
+        // 慢的那次算完了不许盖掉快的那次的结果
+        if (disposed || mine !== ticket) return;
+        setBusy(false);
+        state.result = {
+          blob: out.blob,
+          width: out.width,
+          height: out.height,
+          formatId: out.formatId,
+          requestedFormatId: out.requestedFormatId,
+          beforeBytes: state.size,
+          scaledToFit: out.scaledToFit
+        };
+        replaceResultUrl(out.blob);
+        renderResult();
+      }, function (err) {
+        if (disposed || mine !== ticket) return;
+        setBusy(false);
+        state.result = null;
+        Dom.clear(resultBody).appendChild(Dom.h('p.field-hint.is-error', {
+          text: s.err_encode.replace('{reason}', function () {
+            return String(err && err.message ? err.message : err);
+          })
+        }));
+      });
+    }
+
+    /**
+     * 设置连着变的时候别每次都重编 —— wasm 编码一次要好几秒，
+     * 拖一下滑块卡一下是不能忍的。
+     *
+     * 只有**慢**的格式才防抖：原生编码一次也就几十毫秒，
+     * 防抖反倒让界面显得迟钝。
+     */
+    function scheduleRecompute() {
+      var format = imageFormatById(state.formatId);
+      var delay = format && format.slow ? (opts.debounce || 0) : 0;
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      if (!delay) {
+        recompute();
+        return;
+      }
+      debounceTimer = setTimeout(function () {
+        debounceTimer = null;
+        recompute();
+      }, delay);
+    }
+
+    /* ---------- 处理文件 ---------- */
+
+    function handleFile(file) {
+      if (!file) return;
+      upload.setStatus(s.status_reading);
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        if (disposed) return;
+        var bytes;
+        try {
+          bytes = new Uint8Array(reader.result);
+        } catch (e) {
+          upload.setStatus(s.err_read, true);
+          return;
+        }
+        var format = imageDetectFormat(bytes);
+
+        imageDecodeAny(file, bytes).then(function (decoded) {
+          if (disposed) return;
+
+          state.name = file.name || 'image';
+          state.size = file.size || bytes.length;
+          state.sourceFormat = format || '';
+          state.animation = imageAnimationInfo(bytes);
+          state.decoded = decoded;
+          state.width = decoded.width;
+          state.height = decoded.height;
+          state.quality = IMAGE_DEFAULT_QUALITY;
+
+          qualitySlider.value = String(IMAGE_DEFAULT_QUALITY);
+          qualityLabel.textContent = s.label_quality.replace('{n}', String(IMAGE_DEFAULT_QUALITY));
+          formatSelect.value = state.formatId;
+
+          if (state.originalUrl) {
+            URL.revokeObjectURL(state.originalUrl);
+            state.originalUrl = '';
+          }
+          state.originalUrl = URL.createObjectURL(file);
+
+          upload.setStatus('');
+          settingsCard.hidden = false;
+          resultCard.hidden = false;
+          refreshHints();
+          recompute();
+        }, function () {
+          if (disposed) return;
+          upload.setStatus(s.err_decode, true);
+          settingsCard.hidden = true;
+          resultCard.hidden = true;
+        });
+      };
+      reader.onerror = function () {
+        if (disposed) return;
+        upload.setStatus(s.err_read, true);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* ---------- 事件 ---------- */
+
+    formatSelect.addEventListener('change', function () {
+      state.formatId = formatSelect.value;
+      refreshHints();
+      recompute();
+    });
+
+    qualitySlider.addEventListener('input', function () {
+      state.quality = imageClampQuality(qualitySlider.value);
+      qualityLabel.textContent = s.label_quality.replace('{n}', String(state.quality));
+      scheduleRecompute();
+    });
+
+    backgroundInput.addEventListener('input', function () {
+      state.background = backgroundInput.value || '#ffffff';
+      scheduleRecompute();
+    });
+
+    if (speedSelect) {
+      speedSelect.addEventListener('change', function () {
+        state.speed = imageClampSpeed(speedSelect.value);
+        recompute();
+      });
+    }
+
+    return {
+      destroy: function () {
+        disposed = true;
+        ticket++;
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+        if (state.originalUrl) URL.revokeObjectURL(state.originalUrl);
+        if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
+        if (state.decoded && state.decoded.close) state.decoded.close();
+        state.originalUrl = '';
+        state.resultUrl = '';
+        state.decoded = null;
+        Dom.clear(root);
+      }
+    };
+  }
+
+  var ImageCodec = {
+    FORMATS: IMAGE_FORMATS,
+    FORMATS_WASM: IMAGE_FORMATS_WASM,
+    ALL_FORMATS: IMAGE_FORMATS.concat(IMAGE_FORMATS_WASM),
+    formatById: imageFormatById,
+    detectFormat: imageDetectFormat,
+    animationInfo: imageAnimationInfo,
+    parseDimension: imageParseDimension,
+    fitWithin: imageFitWithin,
+    shrinkSize: imageShrinkSize,
+    clampQuality: imageClampQuality,
+    clampSpeed: imageClampSpeed,
+    savings: imageSavings,
+    formatBytes: imageFormatBytes,
+    outputName: imageOutputName,
+    actualFormatId: imageActualFormatId,
+    qualityApplies: imageQualityApplies,
+    backgroundApplies: imageBackgroundApplies,
+    avifCqLevel: imageAvifCqLevel,
+    avifOptions: imageAvifOptions,
+    decode: imageDecode,
+    decodeAny: imageDecodeAny,
+    rgbaFromFrame: imageRgbaFromFrame,
+    encode: imageEncode,
+    encodeTo: imageEncodeTo,
+    uploadCard: imageUploadCard,
+    converterView: imageConverterView
+  };
+
   /* ---------- 对外接口 ----------
      必须放在所有 helper 定义之后：`var` 会提升，若在这里赋值，
      ItTools.dom / ItTools.util 会捕获到尚未初始化的 undefined。 */
@@ -2701,6 +4191,8 @@
     ip: Ip,
     /** 几个「JSON 转某种语言」的工具共用的类型推断内核。 */
     jsonInfer: JsonInfer,
+    /** 「图片压缩」与「图片格式转换」两个工具共用的图片编解码内核。 */
+    imageCodec: ImageCodec,
     /** 各工具把纯逻辑挂到这里，node 侧的 jsdom 测试直接调用（见 test/js/）。 */
     logic: {},
     i18n: i18n,
