@@ -19,8 +19,9 @@
             blob:  文件本身（Blob 克隆是按引用的，不拷数据；worker 自己去读）
             data:  HEIC 的 ArrayBuffer（没有文件时才走这条）
 
-     进度 { id, phase }
+     进度 { id, phase, loaded?, total? }
        phase: 'loading'（在拉编解码库）/ 'encoding' / 'decoding'
+       loaded / total: 下载到哪儿了（字节）。total 是 0 表示不知道总量。
 
      回应 { id, ok: true, data, width, height, preview? }
           { id, ok: false, error: '...' }
@@ -117,6 +118,57 @@
   }
 
   /**
+   * 把响应体读出来，顺带报下载进度。
+   *
+   * 一次 fetch 拿到的是**整块**结果 —— 2.6 MB 的编码器下完了才知道下完，
+   * 页面上只能写一句「正在下载…」。改成一块一块读，就能报出
+   * 「已下 1.2 MB / 共 2.6 MB」，页面上画得出进度条。
+   *
+   * 没有流可读的老浏览器退回整块拿 —— 那时候进度是未知的，
+   * 页面上画一个不确定的进度条（浏览器自己那个来回走的条）。
+   *
+   * @param {Response} res
+   * @param {function} onProgress (loaded, total) —— total 是 0 表示不知道总量
+   * @returns {Promise<ArrayBuffer>}
+   */
+  function readWithProgress(res, onProgress) {
+    var body = res.body;
+    if (!body || typeof body.getReader !== 'function' || typeof onProgress !== 'function') {
+      return res.arrayBuffer();
+    }
+    var total = 0;
+    try {
+      var len = res.headers && res.headers.get ? res.headers.get('Content-Length') : null;
+      total = len ? Number(len) : 0;
+    } catch (e) { total = 0; }
+    if (!(total > 0)) total = 0;
+
+    var reader = body.getReader();
+    var chunks = [];
+    var loaded = 0;
+
+    function step() {
+      return reader.read().then(function (r) {
+        if (r.done) {
+          var out = new Uint8Array(loaded);
+          var off = 0;
+          for (var i = 0; i < chunks.length; i++) {
+            out.set(chunks[i], off);
+            off += chunks[i].length;
+          }
+          return out.buffer;
+        }
+        chunks.push(r.value);
+        loaded += r.value.length;
+        try { onProgress(loaded, total); } catch (e) { /* 报进度失败不该影响下载 */ }
+        return step();
+      });
+    }
+
+    return step();
+  }
+
+  /**
    * 拉起 AVIF 编码器。
    *
    * wasm 是**运行期**拉的（第一次转换才拉，2.6 MB）。
@@ -126,20 +178,21 @@
    * worker 里没有 document.currentScript，脚本地址是空的，那条路会抛
    * "Invalid base URL"。
    *
+   * @param {function} [onProgress] (loaded, total) —— 下载进度
    * @returns {Promise<object>} 带 encode() 的模块
    */
-  function loadAvif() {
+  function loadAvif(onProgress) {
     if (avifModule) return Promise.resolve(avifModule);
     if (avifLoading) return avifLoading;
 
     var p = fetchWithTimeout(AVIF_WASM)
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        var type = res.headers && res.headers.get ? res.headers.get('Content-Type') : '';
-        if (WebAssembly.compileStreaming && type === 'application/wasm') {
-          return WebAssembly.compileStreaming(res);
-        }
-        return res.arrayBuffer().then(function (buf) { return WebAssembly.compile(buf); });
+        // 一块一块地读，页面上才画得出进度条。
+        return readWithProgress(res, onProgress);
+      })
+      .then(function (buf) {
+        return WebAssembly.compile(buf);
       })
       .then(function (wasm) {
         importScripts(AVIF_GLUE);
@@ -201,14 +254,40 @@
     return elheifLoading;
   }
 
-  /** 报一下进度 —— 主线程那边要把这句话显示出来。 */
-  function reportPhase(id, phase) {
-    self.postMessage({ id: id, phase: phase });
+  /**
+   * 报一下进度 —— 主线程那边要把这句话显示出来。
+   *
+   * extra 里可以带上下载进度（loaded / total）。
+   *
+   * @param {number} id
+   * @param {string} phase
+   * @param {object} [extra]
+   */
+  function reportPhase(id, phase, extra) {
+    var msg = { id: id, phase: phase };
+    if (extra) {
+      Object.keys(extra).forEach(function (k) { msg[k] = extra[k]; });
+    }
+    self.postMessage(msg);
+  }
+
+  /**
+   * 这个编解码器是不是已经就绪（不用再下载了）。
+   *
+   * @param {string} format 'avif' | 'heic'
+   * @returns {boolean}
+   */
+  function codecReady(format) {
+    if (format === 'avif') return !!(avifModule || avifLoading);
+    if (format === 'heic') return !!(elheifModule || elheifLoading);
+    return false;
   }
 
   /** 编码成 AVIF。 */
   function encodeAvif(msg) {
-    return loadAvif().then(function (mod) {
+    return loadAvif(function (loaded, total) {
+      reportPhase(msg.id, 'loading', { loaded: loaded, total: total });
+    }).then(function (mod) {
       reportPhase(msg.id, 'encoding');
       var out = mod.encode(new Uint8Array(msg.data), msg.width, msg.height, msg.options);
       if (!out) throw new Error('encode');
@@ -285,9 +364,11 @@
     var msg = ev.data || {};
     var id = msg.id;
 
-    // 一上来就报「在拉库」—— 那 2.6 MB 的 wasm 要下一会儿，
+    // 编解码器还没就绪才报「在拉库」—— 那 2.6 MB 的 wasm 要下一会儿，
     // 主线程得有个说法，不能让人以为卡住了。
-    reportPhase(id, 'loading');
+    // 已经就绪就别报了：第二次转换直接进编码，页面上闪一下
+    // 「正在下载…」反而像出了故障。
+    if (!codecReady(msg.format)) reportPhase(id, 'loading');
 
     Promise.resolve()
       .then(function () {

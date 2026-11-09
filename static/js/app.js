@@ -3423,7 +3423,8 @@
   /**
    * worker 回消息。
    *
-   * 两种消息：带 phase 的是「进度」（还在拉库 / 开始编码了），
+   * 两种消息：带 phase 的是「进度」（还在拉库 / 开始编码了，
+   * 拉库那条还带着 loaded / total，页面上据此画进度条），
    * 带 ok 的是「结果」。进度消息不影响 promise 的兑现。
    *
    * @param {MessageEvent} ev
@@ -3433,7 +3434,8 @@
     var entry = imageWorkerPending[msg.id];
     if (!entry) return;
     if (msg.phase) {
-      if (entry.onPhase) entry.onPhase(msg.phase);
+      // 第二个参数是整条消息 —— 进度条要用的数字都在里面。
+      if (entry.onPhase) entry.onPhase(msg.phase, msg);
       return;
     }
     delete imageWorkerPending[msg.id];
@@ -4127,6 +4129,25 @@
   }
 
   /**
+   * 下载进度 —— 百分比。
+   *
+   * 不知道总量的时候给 null（页面上画不确定进度）。
+   * 单拎出来是为了能测：百分比算错了，进度条就是骗人的。
+   *
+   * @param {number} loaded 已经下了多少字节
+   * @param {number} total 一共多少字节（0 或者没有就是不知道）
+   * @returns {number|null} 0~100 的整数
+   */
+  function imageProgressPercent(loaded, total) {
+    var l = Number(loaded);
+    var t = Number(total);
+    if (!isFinite(l) || !isFinite(t) || t <= 0 || l < 0) return null;
+    var pct = Math.floor(l / t * 100);
+    if (pct > 100) pct = 100;
+    return pct;
+  }
+
+  /**
    * 这个格式认不认质量设置。
    *
    * 三种情况都要分开：
@@ -4301,8 +4322,15 @@
 
     var resultBody = Dom.h('div');
     var busyHint = Dom.h('p.field-hint');
+    /* 下载进度条。只有「在下载编码器」的时候才露出来 ——
+       编码本身没有进度可言（wasm 是同步的，要么在跑要么不在跑）。 */
+    var progressBar = Dom.h('progress.progress-bar');
+    var progressLabel = Dom.h('span.progress-label');
+    var progressRow = Dom.h('div.progress-row', { hidden: true },
+      progressBar, progressLabel);
     resultCard.appendChild(Dom.h('h3', { text: s.result_title }));
     resultCard.appendChild(busyHint);
+    resultCard.appendChild(progressRow);
     resultCard.appendChild(resultBody);
 
     /** 键值对照表。 */
@@ -4332,9 +4360,32 @@
       state.resultUrl = URL.createObjectURL(blob);
     }
 
-    /** 「编码中…」状态。wasm 编码慢的格式才用得上。 */
-    function setBusy(on, phase) {
+    /**
+     * 「编码中…」状态。wasm 编码慢的格式才用得上。
+     *
+     * @param {boolean} on
+     * @param {string} phase 'loading' / 'encoding' / 'decoding'
+     * @param {object} [info] worker 报来的进度（loaded / total）
+     */
+    function setBusy(on, phase, info) {
       busyHint.textContent = on ? imageBusyText(s, phase) : '';
+      // 进度条只在**下载**的时候出现 —— 编码本身没有进度可言。
+      if (on && phase === 'loading') {
+        progressRow.hidden = false;
+        var pct = imageProgressPercent(info && info.loaded, info && info.total);
+        if (pct === null) {
+          // 不知道总量 —— 不确定进度：浏览器自己画那个来回走的条。
+          progressBar.removeAttribute('value');
+          progressLabel.textContent = '';
+        } else {
+          progressBar.max = 100;
+          progressBar.value = pct;
+          progressLabel.textContent = pct + '%';
+        }
+      } else {
+        progressRow.hidden = true;
+        progressLabel.textContent = '';
+      }
     }
 
     /** 设置变了之后刷新提示文案。 */
@@ -4493,9 +4544,9 @@
         speed: state.speed,
         background: state.background,
         // 编码到哪一步了 —— worker 会先报「在下载编码器」，再报「在编码」。
-        onPhase: function (phase) {
+        onPhase: function (phase, info) {
           if (disposed || mine !== ticket) return;
-          setBusy(true, phase);
+          setBusy(true, phase, info);
         }
       };
 
@@ -4710,6 +4761,7 @@
     avifCqLevel: imageAvifCqLevel,
     avifOptions: imageAvifOptions,
     busyText: imageBusyText,
+    progressPercent: imageProgressPercent,
     ownBuffer: imageOwnBuffer,
     decode: imageDecode,
     decodeAny: imageDecodeAny,

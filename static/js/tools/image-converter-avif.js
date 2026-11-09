@@ -185,6 +185,18 @@
       // 没配「下载」那句话的页面（普通转换页）退回「正在编码」
       assert.eq(C.busyText({ status_encoding: 'E' }, 'loading'), 'E', '没有下载那句话就退回「正在编码」');
 
+      /* ---- 下载进度条：百分比 ----
+         那 2.6 MB 的编码器是第一次转换时才拉的，页面上画一条进度条。
+         百分比算错了进度条就是骗人的 —— 这几行钉住它。 */
+
+      assert.eq(C.progressPercent(0, 100), 0, '刚开始是 0%');
+      assert.eq(C.progressPercent(50, 100), 50, '下了一半是 50%');
+      assert.eq(C.progressPercent(100, 100), 100, '下完了是 100%');
+      assert.eq(C.progressPercent(1, 3), 33, '不满一格的往下取整');
+      assert.eq(C.progressPercent(7, 3), 100, '超了也不许超过 100');
+      assert.eq(C.progressPercent(10, 0), null, '不知道总量就没有百分比');
+      assert.eq(C.progressPercent(undefined, undefined), null, '什么都没有也是 null');
+
       /* ---- 交给 worker 的字节能不能整体转移 ----
          转移比拷贝省一大截时间：48 MP 的 RGBA 有 192 MB。 */
 
