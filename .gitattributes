@@ -13,9 +13,14 @@
 #           CRLF 一换，位置全偏，「有效签名」当场变成「解析失败」。
 #   *.flf   figlet 字体。上游本来就是 CRLF 的文件，转成 LF 会把字形改掉。
 #   字体     二进制，本来就不该按文本处理。
+#   *.wasm  AVIF 编码器。本来就是二进制，文本处理没有任何意义。
+#   elheif   HEIC 编解码器。wasm 以 base64 内联在这个 js 里 ——
+#            里面是编出来的机器码，不是文本。
 src/tools/fixtures/*.pdf binary
 static/lib/figlet/fonts/*.flf binary
 static/lib/layui/font/*.eot binary
 static/lib/layui/font/*.ttf binary
 static/lib/layui/font/*.woff binary
 static/lib/layui/font/*.woff2 binary
+static/lib/avif/codec/enc/avif_enc.wasm binary
+static/lib/elheif/pkg/elheif-wasm.js binary

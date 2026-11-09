@@ -13,6 +13,7 @@
 #      它们会自己往 window 上挂全局；
 #   2. 只发 ESM 的包在这里用不了 —— 既没有 node_modules 解析，也没有打包器。
 #      CommonJS 的包标 @cjs:，由 scripts/cjs-bundle.js 打成单文件；
+#      ESM 的包标 @esm2iife:，由 scripts/esm2iife.js 改写成经典脚本；
 #   3. 纯数据的包（json）标 @data:，运行时 fetch。
 #
 # 挑文件别靠名字猜：npm 包里混着「已弃用、路径挪走」的抛错占位、纯 ESM 重导出桩，
@@ -49,6 +50,11 @@ done
 #   @cjs:入口 : 包只发 CommonJS，用 scripts/cjs-bundle.js 打成单文件（见该脚本头部说明）。
 #               它的 npm 依赖不用在这里列，脚本会顺着 package.json 自动读到闭包。
 #   @data:文件: 纯数据，运行时 fetch
+#   @esm2iife:全局名:导出名:入口
+#             : 包只发 ESM，用 scripts/esm2iife.js 改写成经典脚本。
+#               导出名写 default 取默认值、写 * 取整个命名空间、写别的取那个具名导出。
+#               产物落在 static/lib/<目录>/<入口>（入口保持包内的相对路径，
+#               这样 wasm 之类的伴生文件跟它在同一个目录里）。
 #   第四栏    : 主产物之外还要从包里额外拷走的文件（figlet 的字体走这里）
 #
 # CJS_BUILTIN：这些包会 require 到 Node 内置模块，但只在浏览器走不到的分支上用到
@@ -112,6 +118,16 @@ MANIFEST=(
   # convert 的 dist/index.js 是 UMD（dist/index.mjs 是纯 ESM，<script> 加载不了）。
   # 挂出全局 convert —— 是**命名空间对象**，换算函数在 .default 上。
   "convert|convert@5.4.1|dist/index.js|LICENSE"
+  # elheif：浏览器里的 HEIC 编解码器（libheif + libde265 + kvazaar 编的 wasm）。
+  # pkg/elheif-wasm.js 是**经典脚本**，挂出全局 __init__ELHEIF_MODULE；
+  # wasm 以 base64 内联在这个文件里（1.5 MB），所以没有单独的 .wasm 要拷。
+  "elheif|elheif@0.1.0|pkg/elheif-wasm.js|LICENSE"
+  # @jsquash/avif 的 AVIF **编码器**（Squoosh 那个）。
+  # codec/enc/avif_enc.js 是纯 ESM（export default Module），<script> 加载不了 ——
+  # 交给 scripts/esm2iife.js 改写，挂出全局 __avifEncFactory（模块工厂）。
+  # 那个 .wasm 不走 <script>（wasm 不是脚本），页面运行时自己 fetch，
+  # 所以放在第四栏里，位置跟胶水文件保持一致。
+  "avif|@jsquash/avif@1.3.0|@esm2iife:__avifEncFactory:default:codec/enc/avif_enc.js|codec/enc/avif_enc.wasm,LICENSE"
 )
 
 # CJS 包打完包后挂出的全局名
@@ -232,6 +248,34 @@ for row in "${MANIFEST[@]}"; do
   # @data:文件 —— 纯数据，运行时 fetch，不用 script 标签
   if [[ "${files}" == @data:* ]]; then
     cp "${pkg}/${files#@data:}" "$target/"
+    printf '  ✓ %-22s %-26s %s\n' "$dir" "$spec" "$(du -sh "$target" | cut -f1)"
+    continue
+  fi
+
+  # @esm2iife:全局名:导出名:入口 —— 包只发 ESM，改写成经典脚本
+  if [[ "${files}" == @esm2iife:* ]]; then
+    rest="${files#@esm2iife:}"
+    esm_global="${rest%%:*}"
+    esm_tail="${rest#*:}"
+    esm_export="${esm_tail%%:*}"
+    esm_entry="${esm_tail#*:}"
+    if [ -z "$esm_global" ] || [ -z "$esm_export" ] || [ -z "$esm_entry" ] \
+       || [ "$esm_tail" = "$rest" ] || [ "$esm_export" = "$esm_tail" ]; then
+      echo "  ✗ ${spec} 的 @esm2iife: 写法不对（要写成 @esm2iife:全局名:导出名:入口）" >&2
+      exit 1
+    fi
+    esm_src="${pkg}/${esm_entry}"
+    if [ ! -e "$esm_src" ]; then
+      echo "  ✗ ${spec} 里没有 ${esm_entry}" >&2
+      exit 1
+    fi
+    mkdir -p "${target}/$(dirname "$esm_entry")"
+    esm_args=()
+    # 导出名写 * 表示要整个命名空间，其余是具体那个导出
+    [ "$esm_export" != "*" ] && esm_args=(--export "$esm_export")
+    node "${SCRIPT_DIR}/esm2iife.js" "$esm_src" "${target}/${esm_entry}" "$esm_global" \
+      ${esm_args[@]+"${esm_args[@]}"}
+    [ -n "$extra" ] && copy_extra "$dir" "$spec" "$pkg" "$target" "$extra"
     printf '  ✓ %-22s %-26s %s\n' "$dir" "$spec" "$(du -sh "$target" | cut -f1)"
     continue
   fi

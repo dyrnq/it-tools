@@ -155,6 +155,16 @@ const PLAIN = [
         && String(cv(1234, 'm').to('best')) === '1.234 km'
         && badUnit && crossMeasure;
     }],
+  // elheif：浏览器里的 HEIC 编解码器。挂出的是**模块工厂**
+  // （__init__ELHEIF_MODULE(mod) 才是真正实例化）。
+  // 工厂是函数、且带 onRuntimeInitialized 这条回调约定 —— 少了它
+  // 调用方就永远等不到 wasm 就绪。
+  ['elheif', 'elheif/pkg/elheif-wasm.js', ['__init__ELHEIF_MODULE'],
+    w => typeof w.__init__ELHEIF_MODULE === 'function'],
+  // AVIF 编码器的胶水：由 scripts/esm2iife.js 从 ESM 改写而来。
+  // 挂出的是**模块工厂**（default 导出），调用它才会去实例化 wasm。
+  ['avif', 'avif/codec/enc/avif_enc.js', ['__avifEncFactory'],
+    w => typeof w.__avifEncFactory === 'function'],
 ];
 
 /* scripts/cjs-bundle.js 打完的 bundle.js。第二个字段是期望挂出的全局名，
@@ -303,6 +313,19 @@ try {
   if (broken.length) fail.push(['figlet/fonts', `${broken.length} 个字体文件头不是 flf2: ${broken.slice(0, 3).join(', ')}`]);
   else { pass++; }
 } catch (e) { fail.push(['figlet/fonts', String(e.message).slice(0, 60)]); }
+
+/* AVIF 编码器的 .wasm：同样不走 script 标签 —— 页面第一次转 AVIF 时
+   自己 fetch 它。少拷一个的话，症状是「转 AVIF 时报一句看不懂的错」，
+   而且只在真点了转换按钮之后才出现，所以这里数一遍它确实在。 */
+try {
+  const wasm = path.join(LIB, 'avif/codec/enc/avif_enc.wasm');
+  const bytes = fs.readFileSync(wasm);
+  // wasm 的文件头是 \0asm —— 版本号是 4 个字节的大端
+  const magic = bytes.slice(0, 4).toString('binary');
+  if (magic !== '\0asm') fail.push(['avif/wasm', `文件头不是 wasm：${JSON.stringify(magic)}`]);
+  else if (bytes.length < 1024 * 1024) fail.push(['avif/wasm', `才 ${bytes.length} 字节，不像 AVIF 编码器`]);
+  else { pass++; }
+} catch (e) { fail.push(['avif/wasm', String(e.message).slice(0, 60)]); }
 
 if (fail.length) {
   console.log('\x1b[31m失败\x1b[0m');
