@@ -159,11 +159,13 @@ jobs:
       # 而且装出来落在 ~/.cargo/bin：那目录要是进了 cargo 缓存，下一次的
       # `cargo install cross` 会因为「已安装」直接报错（binary already exists）。
       # 下载发行版就没这回事：解开就是 cross + cross-util 两个文件。
+      #
+      # 走 scripts/install-cross.sh 而不是一行 curl：2026-11-09 那次 CI 上，
+      # 发行版资产的下载回了 504（GitHub 边缘节点的瞬时故障），同一个 run 里
+      # x86_64 那个 job 成功、aarch64 那个失败。脚本里有重试、备用的静态链接
+      # 资产、以及最后的现场编兜底。
       - name: Install cross
-        run: |
-          curl -fsSL https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
-            | sudo tar xz -C /usr/local/bin
-          cross --version
+        run: bash scripts/install-cross.sh /usr/local/bin
 
       # 不用装 musl-tools：cross 的镜像里自带工具链（含 musl-gcc）。
       - name: Build (cross)

@@ -136,12 +136,13 @@ jobs:
 
       # cross 有官方发布的二进制，直接下载 —— `cargo install cross` 现场编要好几分钟，
       # 而这个矩阵里有好几项要编它。解开就是 cross + cross-util 两个文件。
+      #
+      # 走 scripts/install-cross.sh 而不是一行 curl：2026-11-09 那次 CI 上，
+      # 发行版资产的下载回了 504（GitHub 边缘节点的瞬时故障）。
+      # 脚本里有重试、备用的静态链接资产、以及最后的现场编兜底。
       - name: Install cross (for cross-compilation)
         if: matrix.cross
-        run: |
-          curl -fsSL https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
-            | sudo tar xz -C /usr/local/bin
-          cross --version
+        run: bash scripts/install-cross.sh /usr/local/bin
 
       - name: Install musl tools (Linux musl)
         if: matrix.target == 'x86_64-unknown-linux-musl'
