@@ -90,7 +90,8 @@
     warn_scaled: t('warn_scaled', 'Even at the lowest quality the picture was still over {target}, so it was scaled down to {width} × {height}.'),
     warn_too_large: t('warn_too_large', 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'),
     warn_fallback: t('warn_fallback', 'This browser cannot encode {format}, so the image was saved as {actual}.'),
-    warn_animation: t('warn_animation', 'Animated images are flattened to their first frame — this one has {n} frames.')
+    warn_animation: t('warn_animation', 'Animated images are flattened to their first frame — this one has {n} frames.'),
+    hint_id_photo: t('hint_id_photo', 'Need a standard size instead? Resize it to an ID photo size.')
   };
 
   /* ---------- 纯逻辑（给 harness 用，也在下面被界面用） ---------- */
@@ -222,6 +223,10 @@
     settingsCard.appendChild(D.h('p.field-hint', { text: S.hint_search }));
     settingsCard.appendChild(formatHint);
     settingsCard.appendChild(statusLine);
+    // 另一个尺寸向的工具：证件照标准尺寸。两页互相给个入口。
+    settingsCard.appendChild(D.h('p.field-hint', null,
+      D.h('a', { href: '/id-photo-resizer', text: S.hint_id_photo })
+    ));
 
     /* ---------- 结果 ---------- */
 
