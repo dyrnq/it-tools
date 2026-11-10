@@ -713,6 +713,10 @@ tools:
   image-resizer:
     title: Resize an image to new dimensions
     description: Scale a picture to the width and height you want — lock the aspect ratio or pick a preset such as 16:9, and the other dimension follows while you type. Everything happens in your browser.
+
+  image-cropper:
+    title: Crop an image with a draggable region
+    description: Drag a rectangle over the picture to cut out the part you want — move it, drag a corner or an edge to resize it, or type the exact position and size. The cropped picture keeps the pixels of the original. Everything happens in your browser.
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -2442,6 +2446,52 @@ ui:
       warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
       warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
       warn_too_large: 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'
+    image-cropper:
+      choose_file: 'Choose an image file'
+      download: 'Download the cropped image'
+      drop_hint: 'You can also drop the file into this box. The file is processed in your browser, nothing is uploaded.'
+      err_canvas_limit: 'A browser canvas cannot hold {width} × {height} pixels (the limit is {max} pixels per side and {area} megapixels in total), so nothing was encoded.'
+      err_decode: 'This file could not be decoded as an image.'
+      err_encode: 'Could not encode the image: {reason}'
+      err_read: 'Could not read the file.'
+      err_size: 'Enter a width and a height bigger than zero.'
+      hint_drag: 'Drag the rectangle to move the crop, drag a corner or an edge to resize it.'
+      hint_quality: 'PNG is lossless — the quality setting does not change it.'
+      hint_ratio: 'The crop keeps this shape. Pick a preset and the rectangle is fitted to it.'
+      hint_rect: 'Where the crop sits in the original picture, in its own pixels.'
+      label_file_size: 'File size'
+      label_format: 'Output format'
+      label_height: 'Height'
+      label_item: 'Item'
+      label_output_format: 'Saved as'
+      label_output_size: 'Cropped size'
+      label_position: 'Top left corner'
+      label_quality: 'Quality'
+      label_ratio: 'Aspect ratio'
+      label_source_size: 'Original size'
+      label_value: 'Value'
+      label_width: 'Width'
+      label_x: 'Left'
+      label_y: 'Top'
+      link_resize: 'Need a different size instead? Open the resize tool.'
+      no_result: 'No image yet.'
+      preview_title: 'Preview'
+      ratio_16_9: '16:9'
+      ratio_1_1: '1:1'
+      ratio_3_2: '3:2'
+      ratio_3_4: '3:4'
+      ratio_4_3: '4:3'
+      ratio_9_16: '9:16'
+      ratio_free: 'Free'
+      ratio_original: 'Original'
+      reset_full: 'Select the whole picture'
+      result_title: 'Result'
+      settings_title: 'Crop settings'
+      status_reading: 'Reading the file…'
+      title: 'Crop an image with a draggable region'
+      warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
+      warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
+      warn_scaled: 'The browser could not allocate a canvas of {width} × {height}, so the image was saved at {actualWidth} × {actualHeight}.'
     image-resizer:
       choose_file: 'Choose an image file'
       download: 'Download the resized image'
