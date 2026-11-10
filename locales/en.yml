@@ -701,6 +701,10 @@ tools:
   image-splitter:
     title: Split an image
     description: Cut an image into equal tiles — pick a 2×2, 3×3 or 4×4 grid or set your own, then download one tile or the whole set as a ZIP. Everything happens in your browser.
+
+  image-compress-to-size:
+    title: Compress an image to a target size
+    description: Compress a picture to a size you choose — the tool searches for the highest quality that still fits under your limit, and scales the picture down if even the lowest quality is too big. Everything happens in your browser.
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -2190,6 +2194,46 @@ ui:
       status_generated: 'Generated {count} icons.'
       status_generating: 'Generating…'
       theme_color: 'Theme color'
+    image-compress-to-size:
+      choose_file: 'Choose an image file'
+      download: 'Download the compressed image'
+      drop_hint: 'You can also drop the file into this box. The file is processed in your browser, nothing is uploaded.'
+      err_decode: 'This file could not be decoded as an image.'
+      err_encode: 'Could not encode the image: {reason}'
+      err_read: 'Could not read the file.'
+      err_target: 'Enter a target size bigger than zero.'
+      hint_format_changed: 'The output format differs from the original ({from} → {to}).'
+      hint_formats: 'Only JPEG and WebP can be compressed to a target size. PNG is lossless, so its size does not depend on the quality setting.'
+      hint_search: 'The tool looks for the highest quality that still fits under the target. If even the lowest quality is too big, it scales the picture down.'
+      label_after: 'Size after'
+      label_before: 'Size before'
+      label_dimensions: 'Dimensions'
+      label_format: 'Output format'
+      label_item: 'Item'
+      label_kept: 'not re-encoded'
+      label_output_format: 'Saved as'
+      label_quality: 'Quality'
+      label_same_size: 'same size'
+      label_saved: 'Saved'
+      label_scaled: 'scaled'
+      label_target: 'Target size'
+      label_target_size: 'Target size'
+      label_unit: 'Unit'
+      label_unknown: 'unknown'
+      label_value: 'Value'
+      no_result: 'No image yet.'
+      preview_after: 'After'
+      preview_before: 'Before'
+      result_title: 'Result'
+      settings_title: 'Compression settings'
+      status_reading: 'Reading the file…'
+      status_scaling: 'Scaling the picture down to {width} × {height}…'
+      status_searching: 'Searching for the right quality…'
+      title: 'Compress an image to a target size'
+      warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
+      warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
+      warn_scaled: 'Even at the lowest quality the picture was still over {target}, so it was scaled down to {width} × {height}.'
+      warn_too_large: 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'
     image-compressor:
       choose_file: 'Choose an image file'
       download: 'Download the compressed image'

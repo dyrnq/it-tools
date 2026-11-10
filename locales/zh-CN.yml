@@ -697,6 +697,10 @@ tools:
   image-splitter:
     title: 切割图片
     description: 把图片切成等分的小块 —— 选 2×2、3×3、4×4 或自己填行列数，然后单独下载某一块，或者整组打包成 ZIP。全程在浏览器里完成。
+
+  image-compress-to-size:
+    title: 压缩到指定大小
+    description: 把图片压到你指定的大小 —— 工具会去找「仍然不超过目标的最大画质」，连最低画质都超标时再把图片按比例缩小。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2186,6 +2190,46 @@ ui:
       status_generated: '已生成 {count} 个图标。'
       status_generating: '生成中…'
       theme_color: '主题色'
+    image-compress-to-size:
+      choose_file: '选择图片文件'
+      download: '下载压缩后的图片'
+      drop_hint: '也可以把文件拖进这个框。图片在你的浏览器里处理，不会上传。'
+      err_decode: '这个文件解码不成图片。'
+      err_encode: '图片编码失败：{reason}'
+      err_read: '文件读不出来。'
+      err_target: '目标大小要填一个大于零的数。'
+      hint_format_changed: '输出格式跟原图不一样（{from} → {to}）。'
+      hint_formats: '只有 JPEG 和 WebP 能压到指定大小。PNG 是无损格式，体积跟画质设置没关系。'
+      hint_search: '工具会去找「仍然不超过目标的最大画质」。要是连最低画质都超标了，就把图片按比例缩小。'
+      label_after: '压缩后'
+      label_before: '压缩前'
+      label_dimensions: '尺寸'
+      label_format: '输出格式'
+      label_item: '项目'
+      label_kept: '没有重新编码'
+      label_output_format: '存成'
+      label_quality: '画质'
+      label_same_size: '一样大'
+      label_saved: '省下'
+      label_scaled: '已缩放'
+      label_target: '目标大小'
+      label_target_size: '目标大小'
+      label_unit: '单位'
+      label_unknown: '未知'
+      label_value: '值'
+      no_result: '还没有图片。'
+      preview_after: '压缩后'
+      preview_before: '压缩前'
+      result_title: '结果'
+      settings_title: '压缩设置'
+      status_reading: '正在读取文件…'
+      status_scaling: '正在把图片缩小到 {width} × {height}…'
+      status_searching: '正在找合适的画质…'
+      title: '压缩到指定大小'
+      warn_animation: '动图只会保留第一帧 —— 这张图原来有 {n} 帧。'
+      warn_fallback: '这个浏览器不能编码 {format}，图片存成了 {actual}。'
+      warn_scaled: '就算画质降到最低，图片还是超过 {target}，已经缩小到 {width} × {height}。'
+      warn_too_large: '这个尺寸浏览器吃不下了，已经缩到 {width} × {height}。'
     image-compressor:
       choose_file: '选择图片文件'
       download: '下载压缩后的图片'
