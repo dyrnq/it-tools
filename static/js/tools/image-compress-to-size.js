@@ -76,7 +76,6 @@
     label_dimensions: t('label_dimensions', 'Dimensions'),
     label_quality: t('label_quality', 'Quality'),
     label_output_format: t('label_output_format', 'Saved as'),
-    label_unknown: t('label_unknown', 'unknown'),
     label_scaled: t('label_scaled', 'scaled'),
     label_kept: t('label_kept', 'not re-encoded'),
     no_result: t('no_result', 'No image yet.'),

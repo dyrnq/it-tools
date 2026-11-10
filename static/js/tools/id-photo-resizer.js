@@ -98,7 +98,6 @@
     label_whole: t('label_whole', 'the whole picture'),
     label_file_size: t('label_file_size', 'File size'),
     label_output_format: t('label_output_format', 'Saved as'),
-    label_unknown: t('label_unknown', 'unknown'),
     no_result: t('no_result', 'No image yet.'),
     download: t('download', 'Download the ID photo'),
     status_reading: t('status_reading', 'Reading the file…'),

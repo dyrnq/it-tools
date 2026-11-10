@@ -1666,7 +1666,6 @@ ui:
       label_target: 'Tamaño objetivo'
       label_target_size: 'Tamaño objetivo'
       label_unit: 'Unidad'
-      label_unknown: 'desconocido'
       label_value: 'Valor'
       no_result: 'Todavía no hay ninguna imagen.'
       preview_after: 'Después'

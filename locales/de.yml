@@ -1666,7 +1666,6 @@ ui:
       label_target: 'Zielgröße'
       label_target_size: 'Zielgröße'
       label_unit: 'Einheit'
-      label_unknown: 'unbekannt'
       label_value: 'Wert'
       no_result: 'Noch kein Bild.'
       preview_after: 'Nachher'

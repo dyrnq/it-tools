@@ -1666,7 +1666,6 @@ ui:
       label_target: '目標サイズ'
       label_target_size: '目標サイズ'
       label_unit: '単位'
-      label_unknown: '不明'
       label_value: '値'
       no_result: 'まだ画像がありません。'
       preview_after: '圧縮後'
