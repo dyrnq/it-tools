@@ -212,7 +212,9 @@
     );
 
     var formatHint = D.h('p.field-hint');
-    var statusLine = D.h('p.field-hint');
+    // 状态行用 .form-status —— app.css 只给 .form-status.is-error 配了红色，
+    // .field-hint.is-error 没有任何规则（错误提示会一直是灰的）。
+    var statusLine = D.h('p.form-status');
 
     settingsCard.appendChild(D.h('h3', { text: S.settings_title }));
     settingsCard.appendChild(U.field(S.label_target, targetInput));
