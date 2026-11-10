@@ -716,7 +716,7 @@ tools:
 
   image-cropper:
     title: Crop an image with a draggable region
-    description: Drag a rectangle over the picture to cut out the part you want — move it, drag a corner or an edge to resize it, or type the exact position and size. The cropped picture keeps the pixels of the original. Everything happens in your browser.
+    description: 'Rotate and flip the picture, then drag a rectangle over it to cut out the part you want — move it, drag a corner or an edge to resize it, or type the exact position and size. The crop is not scaled: a straight rotation keeps every pixel. Everything happens in your browser.'
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -2447,6 +2447,9 @@ ui:
       warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
       warn_too_large: 'This image is too large for the browser at that size, so it was scaled down to {width} × {height}.'
     image-cropper:
+      btn_reset_transform: 'Reset the transform'
+      btn_rotate_left: 'Rotate left 90°'
+      btn_rotate_right: 'Rotate right 90°'
       choose_file: 'Choose an image file'
       download: 'Download the cropped image'
       drop_hint: 'You can also drop the file into this box. The file is processed in your browser, nothing is uploaded.'
@@ -2455,12 +2458,22 @@ ui:
       err_encode: 'Could not encode the image: {reason}'
       err_read: 'Could not read the file.'
       err_size: 'Enter a width and a height bigger than zero.'
+      hint_background: 'The colour under the picture. It fills the corners left over by the rotation and the transparent parts of the picture.'
       hint_drag: 'Drag the rectangle to move the crop, drag a corner or an edge to resize it.'
       hint_quality: 'PNG is lossless — the quality setting does not change it.'
-      hint_ratio: 'The crop keeps this shape. Pick a preset and the rectangle is fitted to it.'
-      hint_rect: 'Where the crop sits in the original picture, in its own pixels.'
+      hint_ratio: 'The crop keeps this shape. Pick a preset and the rectangle is fitted to it; Original follows the shape of the picture as it is displayed.'
+      hint_rect: 'Where the crop sits on the picture as you see it, in the pixels of that picture.'
+      hint_transform: 'Rotation and flipping happen before the crop. The numbers below are the pixels of the picture as you see it.'
+      hint_transparent_jpeg: 'JPEG cannot keep transparency: the transparent areas are filled with white.'
+      label_angle: 'Rotation angle'
+      label_background: 'Background colour'
+      label_bg_transparent: 'Transparent background'
+      label_canvas_size: 'Size after the transform'
       label_file_size: 'File size'
+      label_flip_h: 'Flip horizontally'
+      label_flip_v: 'Flip vertically'
       label_format: 'Output format'
+      label_grid: 'Rule-of-thirds grid'
       label_height: 'Height'
       label_item: 'Item'
       label_output_format: 'Saved as'
@@ -2489,6 +2502,7 @@ ui:
       settings_title: 'Crop settings'
       status_reading: 'Reading the file…'
       title: 'Crop an image with a draggable region'
+      transform_title: 'Transform'
       warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
       warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
       warn_scaled: 'The browser could not allocate a canvas of {width} × {height}, so the image was saved at {actualWidth} × {actualHeight}.'

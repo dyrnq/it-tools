@@ -7,22 +7,27 @@
    画布上有一个可拖可缩的裁剪矩形，旁边有 x / y / 宽 / 高 四个数字框，
    两边实时联动 —— 拖框，数字跟着变；改数字，框跟着变。
 
-   三套坐标，别弄混：
-     - 源图像素（sw × sh）：几何全写在这儿。裁剪框的位置、大小、
-       命中测试、拖动计算，全是源图像素。
+   图可以先旋转、翻转，再裁 —— 变换作用在**图**上，裁剪框框的是变换之后
+   的样子（上游 crop-image 也是这个顺序：先转再裁）。
+
+   四套坐标，别弄混：
+     - 源图像素（sw × sh）：解码出来的原图。变换矩阵的输入。
+     - 画面像素（dw × dh）：变换之后的画面 —— 旋转、翻转之后图占多大。
+       裁剪框的位置、大小、命中测试、拖动计算，全是画面像素。
      - 预览画布像素（pw × ph）：画在 canvas 上的那些。
-     - 屏幕像素：鼠标点的位置。进来先换算成源图像素再算。
+     - 屏幕像素：鼠标点的位置。进来先换算成画面像素再算。
 
-   为什么要统一到源图像素：屏幕坐标是「这次预览缩了多少」下的坐标，
-   换张图、换个缩放，全错。源图像素是唯一稳定的那一套。
+   为什么要统一到画面像素：屏幕坐标是「这次预览缩了多少」下的坐标，
+   换张图、换个缩放，全错。画面像素是唯一稳定的那一套。
 
-   命中的容差也按屏幕像素算（8 像素）再换算成源图像素 ——
-   不管源图多大、手柄在屏幕上看着多大，点起来都一样好使。
+   命中的容差也按屏幕像素算（8 像素）再换算成画面像素 ——
+   不管图多大、手柄在屏幕上看着多大，点起来都一样好使。
 
-   输出是裁剪框的原生像素，不做二次缩放（缩放是改尺寸工具的活），
-   所以取下来的就是原图那一片，一个像素都没重采样。
+   输出是裁剪框的原生像素，不做二次缩放（缩放是改尺寸工具的活）。
+   直角（90° 的整倍数）的旋转是精确的 —— 一个像素都不重采样；
+   任意角度必然要重采样，那是旋转本身的代价，说清楚就行。
 
-   有一条不能省的实话：裁剪框比原图还大的话，浏览器画布装不下，
+   有一条不能省的实话：裁剪框比画面还大的话，浏览器画布装不下，
    这时候**不编码** —— 内核遇到装不下的尺寸会悄悄把长宽减半重试，
    那样下载到的就不是用户框出来的那一块了。
    ========================================================================== */
@@ -78,12 +83,25 @@
     ratio_4_3: t('ratio_4_3', '4:3'),
     ratio_3_4: t('ratio_3_4', '3:4'),
     ratio_3_2: t('ratio_3_2', '3:2'),
-    hint_ratio: t('hint_ratio', 'The crop keeps this shape. Pick a preset and the rectangle is fitted to it.'),
+    hint_ratio: t('hint_ratio', 'The crop keeps this shape. Pick a preset and the rectangle is fitted to it; Original follows the shape of the picture as it is displayed.'),
     label_x: t('label_x', 'Left'),
     label_y: t('label_y', 'Top'),
     label_width: t('label_width', 'Width'),
     label_height: t('label_height', 'Height'),
-    hint_rect: t('hint_rect', 'Where the crop sits in the original picture, in its own pixels.'),
+    hint_rect: t('hint_rect', 'Where the crop sits on the picture as you see it, in the pixels of that picture.'),
+    transform_title: t('transform_title', 'Transform'),
+    label_angle: t('label_angle', 'Rotation angle'),
+    btn_rotate_left: t('btn_rotate_left', 'Rotate left 90°'),
+    btn_rotate_right: t('btn_rotate_right', 'Rotate right 90°'),
+    label_flip_h: t('label_flip_h', 'Flip horizontally'),
+    label_flip_v: t('label_flip_v', 'Flip vertically'),
+    btn_reset_transform: t('btn_reset_transform', 'Reset the transform'),
+    hint_transform: t('hint_transform', 'Rotation and flipping happen before the crop. The numbers below are the pixels of the picture as you see it.'),
+    label_background: t('label_background', 'Background colour'),
+    label_bg_transparent: t('label_bg_transparent', 'Transparent background'),
+    hint_background: t('hint_background', 'The colour under the picture. It fills the corners left over by the rotation and the transparent parts of the picture.'),
+    hint_transparent_jpeg: t('hint_transparent_jpeg', 'JPEG cannot keep transparency: the transparent areas are filled with white.'),
+    label_grid: t('label_grid', 'Rule-of-thirds grid'),
     label_format: t('label_format', 'Output format'),
     label_quality: t('label_quality', 'Quality'),
     hint_quality: t('hint_quality', 'PNG is lossless — the quality setting does not change it.'),
@@ -93,6 +111,7 @@
     label_item: t('label_item', 'Item'),
     label_value: t('label_value', 'Value'),
     label_source_size: t('label_source_size', 'Original size'),
+    label_canvas_size: t('label_canvas_size', 'Size after the transform'),
     label_position: t('label_position', 'Top left corner'),
     label_output_size: t('label_output_size', 'Cropped size'),
     label_file_size: t('label_file_size', 'File size'),
@@ -418,6 +437,216 @@
     return Math.round(n);
   }
 
+  /* ---------- 变换（纯逻辑） ---------- */
+
+  /**
+   * 把角度折进 (−180, 180]。
+   *
+   * @param {number} angle
+   * @returns {number}
+   */
+  function normalizeAngle(angle) {
+    var a = Number(angle);
+    if (!isFinite(a)) return 0;
+    var r = a % 360;
+    if (r > 180) r -= 360;
+    if (r <= -180) r += 360;
+    return r;
+  }
+
+  /**
+   * 90° 的整倍数取整 —— 免得 Math.cos(90°) 的 6.1e-17 混进来。
+   *
+   * 那点误差看着无害，可它会让输出差半个像素：直角旋转本来是
+   * 一个像素都不该动的，差这半个像素就要被重采样糊一遍。
+   *
+   * @param {number} angle
+   * @returns {number}
+   */
+  function snapAngle(angle) {
+    var a = Number(angle);
+    if (!isFinite(a)) return 0;
+    var r = a % 90;
+    if (Math.abs(r) < 1e-9) return Math.round(a / 90) * 90;
+    return a;
+  }
+
+  /**
+   * 角度的正弦余弦。90° 的整倍数给精确值。
+   *
+   * @param {number} angle
+   * @returns {{c: number, s: number}}
+   */
+  function angleSinCos(angle) {
+    var deg = ((snapAngle(angle) % 360) + 360) % 360;
+    if (deg === 0) return { c: 1, s: 0 };
+    if (deg === 90) return { c: 0, s: 1 };
+    if (deg === 180) return { c: -1, s: 0 };
+    if (deg === 270) return { c: 0, s: -1 };
+    var rad = deg * Math.PI / 180;
+    return { c: Math.cos(rad), s: Math.sin(rad) };
+  }
+
+  /**
+   * 变换矩阵：源图像素 → 画面像素。
+   *
+   * 顺序跟上游 crop-image 一致：**先翻转，再绕中心旋转**。
+   * 正角度在屏幕上是顺时针（画布的 y 朝下）。
+   *
+   * 矩阵用画布的约定存：x' = a·x + c·y + e，y' = b·x + d·y + f。
+   *
+   * @param {number} angle 角度（度）
+   * @param {boolean} flipH 水平翻转
+   * @param {boolean} flipV 垂直翻转
+   * @param {number} w 源图宽
+   * @param {number} h 源图高
+   * @returns {object} 矩阵 + 画面尺寸（width / height）
+   */
+  function transformMatrix(angle, flipH, flipV, w, h) {
+    var sc = angleSinCos(angle);
+    // 翻转：x → w − x（y → h − y），翻的是源图，翻完还占原来那么大
+    var fx = flipH ? -1 : 1;
+    var fy = flipV ? -1 : 1;
+    var ftx = flipH ? w : 0;
+    var fty = flipV ? h : 0;
+    var cx = w / 2;
+    var cy = h / 2;
+    // 绕中心旋转：x' = cx + (x − cx)·cos − (y − cy)·sin
+    var eR = cx - sc.c * cx + sc.s * cy;
+    var fR = cy - sc.s * cx - sc.c * cy;
+    var m = {
+      a: sc.c * fx,
+      b: sc.s * fx,
+      c: -sc.s * fy,
+      d: sc.c * fy,
+      e: sc.c * ftx - sc.s * fty + eR,
+      f: sc.s * ftx + sc.c * fty + fR
+    };
+    // 外接框：源图四角转过去之后的最小外接矩形 —— 画面就它那么大。
+    // 任意角度时四角是空的，那块空白就是背景色要填的地方。
+    var xs = [0, w, 0, w];
+    var ys = [0, 0, h, h];
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < 4; i++) {
+      var p = matrixApply(m, xs[i], ys[i]);
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    m.e -= minX;
+    m.f -= minY;
+    // 向上取整：宁可画面大一点，也别把图最边上那一行切掉
+    m.width = Math.ceil(maxX - minX);
+    m.height = Math.ceil(maxY - minY);
+    return m;
+  }
+
+  /**
+   * 矩阵作用在一个点上。
+   *
+   * @param {object} m
+   * @param {number} x
+   * @param {number} y
+   * @returns {{x: number, y: number}}
+   */
+  function matrixApply(m, x, y) {
+    return { x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f };
+  }
+
+  /**
+   * 矩阵的逆。行列式是 ±1（旋转 + 翻转），不会是 0。
+   *
+   * @param {object} m
+   * @returns {object|null}
+   */
+  function matrixInverse(m) {
+    var det = m.a * m.d - m.b * m.c;
+    if (!det) return null;
+    return {
+      a: m.d / det,
+      b: -m.b / det,
+      c: -m.c / det,
+      d: m.a / det,
+      e: (m.c * m.f - m.d * m.e) / det,
+      f: (m.b * m.e - m.a * m.f) / det
+    };
+  }
+
+  /**
+   * 变换换了以后，裁剪框挪到哪儿去。
+   *
+   * 旧框的四个角 → 旧矩阵的逆（回到源图） → 新矩阵（到新画面），
+   * 取外接框。直角下这一步是精确的：框住的还是同一块内容。
+   * 任意角度下只能取外接框 —— 转出来的四边形不是轴对齐的。
+   *
+   * @param {object} rect 旧裁剪框（画面像素）
+   * @param {object} mOld 旧矩阵
+   * @param {object} mNew 新矩阵
+   * @returns {object} 新裁剪框（画面像素）
+   */
+  function remapRect(rect, mOld, mNew) {
+    if (!rect || !mOld || !mNew) return rect;
+    var inv = matrixInverse(mOld);
+    if (!inv) return rect;
+    var corners = [
+      [rect.x, rect.y],
+      [rect.x + rect.width, rect.y],
+      [rect.x, rect.y + rect.height],
+      [rect.x + rect.width, rect.y + rect.height]
+    ];
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < corners.length; i++) {
+      var src = matrixApply(inv, corners[i][0], corners[i][1]);
+      var dst = matrixApply(mNew, src.x, src.y);
+      if (dst.x < minX) minX = dst.x;
+      if (dst.y < minY) minY = dst.y;
+      if (dst.x > maxX) maxX = dst.x;
+      if (dst.y > maxY) maxY = dst.y;
+    }
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
+  /**
+   * 三分线：裁剪框里的两条竖线、两条横线。
+   *
+   * @param {object} rect 裁剪框（画面像素）
+   * @returns {Array<{x1: number, y1: number, x2: number, y2: number}>}
+   */
+  function gridLines(rect) {
+    if (!rect) return [];
+    var out = [];
+    for (var i = 1; i <= 2; i++) {
+      var gx = rect.x + rect.width * i / 3;
+      var gy = rect.y + rect.height * i / 3;
+      out.push({ x1: gx, y1: rect.y, x2: gx, y2: rect.y + rect.height });
+      out.push({ x1: rect.x, y1: gy, x2: rect.x + rect.width, y2: gy });
+    }
+    return out;
+  }
+
+  /**
+   * 棋盘格 —— 透明背景画在哪，用户才知道那块是空的。
+   *
+   * 只画在预览上，不进导出。
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} w 画布宽
+   * @param {number} h 画布高
+   * @param {number} cell 格子边长（画布像素）
+   */
+  function drawCheckerboard(ctx, w, h, cell) {
+    var c = cell || 10;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#d9d9d9';
+    for (var y = 0; y < h; y += c) {
+      for (var x = 0; x < w; x += c) {
+        if (((x / c) + (y / c)) % 2 === 0) ctx.fillRect(x, y, c, c);
+      }
+    }
+  }
+
   /* ---------- 界面 ---------- */
 
   window.ItTools.register('image-cropper', function (root) {
@@ -434,19 +663,33 @@
       sourceFormat: '',
       animation: null,
       decoded: null,
-      /** 原图尺寸。 */
+      /** 画面尺寸 —— 变换之后的图占多大。裁剪框活动的范围。 */
       width: 0,
       height: 0,
-      /** 裁剪框，源图像素。 */
+      /** 裁剪框，画面像素。 */
       rect: null,
       /** 当前比例预设。 */
       ratioId: 'original',
       formatId: 'jpeg',
       quality: 90,
+      /** 旋转角度（度，正的是顺时针）。 */
+      angle: 0,
+      flipH: false,
+      flipV: false,
+      /** 当前的变换矩阵（源图像素 → 画面像素）。 */
+      matrix: null,
+      /** 背景色。透明时用它填 JPEG 的底。 */
+      bgColor: '#ffffff',
+      bgTransparent: true,
+      /** 三分网格。 */
+      showGrid: true,
       result: null,
       /** 结果图的 object URL。 */
       resultUrl: ''
     };
+
+    /** 预览缩放系数：画面像素 → 预览画布像素。 */
+    var previewScale = 1;
 
     /* ---------- 卡片 ---------- */
 
@@ -458,14 +701,37 @@
     });
     upload.card.insertBefore(D.h('h3', { text: S.title }), upload.card.firstChild);
 
+    var transformCard = D.h('div.card', { hidden: true });
     var settingsCard = D.h('div.card', { hidden: true });
     var previewCard = D.h('div.card', { hidden: true });
     var resultCard = D.h('div.card', { hidden: true });
 
     root.appendChild(upload.card);
+    root.appendChild(transformCard);
     root.appendChild(settingsCard);
     root.appendChild(previewCard);
     root.appendChild(resultCard);
+
+    /* ---------- 变换 ---------- */
+
+    var angleInput = D.h('input.slider', {
+      type: 'range', id: 'crop-angle', min: -180, max: 180, step: 1, value: 0
+    });
+    var angleLabel = D.h('label.field-label', { for: 'crop-angle', text: S.label_angle + ': 0°' });
+    var rotateLeftBtn = D.h('button.layui-btn.layui-btn-primary', { type: 'button', text: S.btn_rotate_left });
+    var rotateRightBtn = D.h('button.layui-btn.layui-btn-primary', { type: 'button', text: S.btn_rotate_right });
+    var resetTransformBtn = D.h('button.layui-btn.layui-btn-primary', { type: 'button', text: S.btn_reset_transform });
+    var flipHInput = D.h('input', { type: 'checkbox' });
+    var flipVInput = D.h('input', { type: 'checkbox' });
+
+    transformCard.appendChild(D.h('h3', { text: S.transform_title }));
+    transformCard.appendChild(D.h('div.field', null, angleLabel, angleInput));
+    transformCard.appendChild(D.h('div.form-actions', null, rotateLeftBtn, rotateRightBtn, resetTransformBtn));
+    transformCard.appendChild(D.h('div.switch-grid', null,
+      D.h('label.switch', null, flipHInput, D.h('span', { text: S.label_flip_h })),
+      D.h('label.switch', null, flipVInput, D.h('span', { text: S.label_flip_v }))
+    ));
+    transformCard.appendChild(D.h('p.field-hint', { text: S.hint_transform }));
 
     /* ---------- 设置 ---------- */
 
@@ -488,6 +754,10 @@
     var qualityHint = D.h('p.field-hint');
     var statusLine = D.h('p.form-status');
     var resetBtn = D.h('button.layui-btn.layui-btn-primary', { type: 'button', text: S.reset_full });
+    var bgInput = D.h('input', { type: 'color', value: state.bgColor });
+    var bgTransparentInput = D.h('input', { type: 'checkbox', checked: true });
+    var gridInput = D.h('input', { type: 'checkbox', checked: true });
+    var bgHint = D.h('p.field-hint');
 
     settingsCard.appendChild(D.h('h3', { text: S.settings_title }));
     settingsCard.appendChild(U.field(S.label_ratio, ratioSelect, { hint: S.hint_ratio }));
@@ -505,6 +775,12 @@
     settingsCard.appendChild(U.field(S.label_format, formatSelect));
     settingsCard.appendChild(U.field(S.label_quality, qualityInput));
     settingsCard.appendChild(qualityHint);
+    settingsCard.appendChild(U.field(S.label_background, bgInput, { hint: S.hint_background }));
+    settingsCard.appendChild(D.h('div.switch-grid', null,
+      D.h('label.switch', null, bgTransparentInput, D.h('span', { text: S.label_bg_transparent })),
+      D.h('label.switch', null, gridInput, D.h('span', { text: S.label_grid }))
+    ));
+    settingsCard.appendChild(bgHint);
     settingsCard.appendChild(D.h('div.form-actions', null, resetBtn));
     settingsCard.appendChild(statusLine);
     settingsCard.appendChild(D.h('p.field-hint', null,
@@ -604,8 +880,12 @@
 
       var format = C.formatById(r.formatId) || C.FORMATS[0];
       var rect = state.rect || { x: 0, y: 0, width: r.width, height: r.height };
+      // 「原图尺寸」是解码出来的原图，「变换后尺寸」是画面 —— 旋转 90° 两者会换位置
+      var srcW = state.decoded ? state.decoded.width : state.width;
+      var srcH = state.decoded ? state.decoded.height : state.height;
       var rows = [
-        { label: S.label_source_size, value: state.width + ' × ' + state.height },
+        { label: S.label_source_size, value: srcW + ' × ' + srcH },
+        { label: S.label_canvas_size, value: state.width + ' × ' + state.height },
         { label: S.label_position, value: rect.x + ', ' + rect.y },
         { label: S.label_output_size, value: r.width + ' × ' + r.height },
         { label: S.label_file_size, value: C.formatBytes(r.bytes) },
@@ -718,10 +998,10 @@
     function handlePositions() {
       var rect = state.rect;
       if (!rect || !state.width || !state.height) return [];
-      var pw = previewCanvas.width;
-      var ph = previewCanvas.height;
-      var sx = pw / state.width;
-      var sy = ph / state.height;
+      // 用预览缩放系数（而不是画布尺寸 ÷ 画面尺寸）：画面是按这个系数画上去的，
+      // 框也得按同一个系数算，不然框和画面对不上，框住的就不是看到的那一块。
+      var sx = previewScale;
+      var sy = previewScale;
       var x0 = rect.x * sx;
       var y0 = rect.y * sy;
       var x2 = (rect.x + rect.width) * sx;
@@ -748,11 +1028,30 @@
       var ph = previewCanvas.height;
       if (!pw || !ph) return;
 
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, pw, ph);
-      try {
-        ctx.drawImage(state.decoded.source, 0, 0, pw, ph);
-      } catch (e) {
-        return;
+
+      // 背景：透明就铺棋盘格，好让人一眼看出哪儿是空的
+      if (state.bgTransparent) {
+        drawCheckerboard(ctx, pw, ph);
+      } else {
+        ctx.fillStyle = state.bgColor;
+        ctx.fillRect(0, 0, pw, ph);
+      }
+
+      // 画面 = 变换之后的图。矩阵把源图像素搬到画面像素，
+      // 再按预览缩放系数缩到画布上。
+      var m = state.matrix;
+      if (m) {
+        var k = previewScale;
+        ctx.setTransform(m.a * k, m.b * k, m.c * k, m.d * k, m.e * k, m.f * k);
+        try {
+          ctx.drawImage(state.decoded.source, 0, 0);
+        } catch (e) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          return;
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
 
       // 裁剪框以外压暗
@@ -769,6 +1068,19 @@
       ctx.fillRect(0, y0, x0, y2 - y0);
       ctx.fillRect(x2, y0, pw - x2, y2 - y0);
 
+      // 三分网格：只在预览里，导出的文件里没有它
+      if (state.showGrid) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = Math.max(1, scale);
+        ctx.beginPath();
+        var lines = gridLines(state.rect);
+        for (var g = 0; g < lines.length; g++) {
+          ctx.moveTo(lines[g].x1 * previewScale, lines[g].y1 * previewScale);
+          ctx.lineTo(lines[g].x2 * previewScale, lines[g].y2 * previewScale);
+        }
+        ctx.stroke();
+      }
+
       // 框线
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = Math.max(1, 2 * scale);
@@ -784,12 +1096,15 @@
       previewSize.textContent = state.rect.width + ' × ' + state.rect.height;
     }
 
-    /** 按原图尺寸把预览画布摆好。 */
+    /** 按画面尺寸把预览画布摆好。 */
     function resizePreview() {
       if (!state.width || !state.height) return;
       var k = Math.min(1, PREVIEW_MAX / Math.max(state.width, state.height));
       var pw = Math.max(1, Math.round(state.width * k));
       var ph = Math.max(1, Math.round(state.height * k));
+      // 画布尺寸是取整过的，缩放系数得记住 —— 画图和画框都得用同一个，
+      // 否则框和画面对不上。
+      previewScale = k;
       if (previewCanvas.width !== pw || previewCanvas.height !== ph) {
         previewCanvas.width = pw;
         previewCanvas.height = ph;
@@ -891,7 +1206,7 @@
         return Promise.resolve();
       }
 
-      // 先把要裁的那一块原样搬到一张小画布上 —— 一个像素都不重采样。
+      // 先把要裁的那一块搬到一张小画布上。
       var work = document.createElement('canvas');
       work.width = rect.width;
       work.height = rect.height;
@@ -903,11 +1218,19 @@
         return Promise.resolve();
       }
       try {
-        wctx.drawImage(
-          state.decoded.source,
-          rect.x, rect.y, rect.width, rect.height,
-          0, 0, rect.width, rect.height
-        );
+        // 背景色铺在图下面 —— 旋转露出来的空白、图自带的透明，都靠它打底
+        if (!state.bgTransparent) {
+          wctx.fillStyle = state.bgColor;
+          wctx.fillRect(0, 0, rect.width, rect.height);
+        }
+        // 矩阵把源图像素搬到画面像素，再把裁剪框的左上角挪到 (0,0)。
+        // 画布只有裁剪框那么大，画出去的部分自然被切掉。
+        var m = state.matrix;
+        if (m) {
+          wctx.setTransform(m.a, m.b, m.c, m.d, m.e - rect.x, m.f - rect.y);
+          wctx.drawImage(state.decoded.source, 0, 0);
+          wctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
       } catch (e) {
         state.result = null;
         setStatus(S.err_encode.replace('{reason}', function () {
@@ -924,7 +1247,9 @@
           height: rect.height,
           formatId: state.formatId,
           quality: state.quality,
-          background: '#ffffff'
+          // JPEG 没有 alpha，内核这时候才会用 background 铺底。
+          // 透明背景传白色 —— 不能让它变黑（上游 crop-image 就栽在这儿）。
+          background: state.bgTransparent ? '#ffffff' : state.bgColor
         }
       ).then(function (out) {
         if (!isCurrent()) return;
@@ -965,6 +1290,51 @@
       }, ENCODE_DEBOUNCE_MS);
     }
 
+    /* ---------- 变换 ---------- */
+
+    /**
+     * 变换的界面 → 状态。
+     *
+     * 角度滑块是 range，写回去的时候值一样就不写，免得正在拖的滑块跳回去。
+     */
+    function syncTransformInputs() {
+      setInputValue(angleInput, state.angle);
+      angleLabel.textContent = S.label_angle + ': ' + state.angle + '°';
+      flipHInput.checked = state.flipH;
+      flipVInput.checked = state.flipV;
+    }
+
+    /**
+     * 变换变了：重算矩阵 → 重映裁剪框 → 重画 → 重新编码。
+     *
+     * 裁剪框要跟着走：变换换了之后，「原来框住的那块内容」在新的画面里
+     * 换了位置，不跟着挪的话，用户框的东西就悄悄变了。
+     */
+    function applyTransform() {
+      if (!state.decoded) return;
+      var old = state.matrix;
+      var m = transformMatrix(state.angle, state.flipH, state.flipV, state.decoded.width, state.decoded.height);
+      state.matrix = m;
+      state.width = m.width;
+      state.height = m.height;
+      if (state.rect) {
+        if (old) state.rect = remapRect(state.rect, old, m);
+        state.rect = clampRect(state.rect, imageBounds(), 1);
+        var ratio = currentRatio();
+        if (ratio) state.rect = fitRatio(state.rect, imageBounds(), ratio);
+      }
+      resizePreview();
+      syncInputs();
+      redraw();
+      scheduleEncode();
+    }
+
+    /** 背景色那行下面的提示：JPEG 存不了透明，得说清楚会填成白色。 */
+    function updateBackgroundHint() {
+      var jpeg = state.bgTransparent && C.backgroundApplies(state.formatId);
+      bgHint.textContent = jpeg ? S.hint_transparent_jpeg : '';
+    }
+
     /* ---------- 处理文件 ---------- */
 
     function handleFile(file) {
@@ -996,17 +1366,24 @@
           state.sourceFormat = format || '';
           state.animation = C.animationInfo(bytes);
           state.decoded = decoded;
-          state.width = decoded.width;
-          state.height = decoded.height;
-          // 新图进来，裁剪框回到整张图，比例回到「原图」
-          state.rect = { x: 0, y: 0, width: decoded.width, height: decoded.height };
+          // 新图进来，变换回到原样，裁剪框回到整张图，比例回到「原图」
+          state.angle = 0;
+          state.flipH = false;
+          state.flipV = false;
+          state.matrix = transformMatrix(0, false, false, decoded.width, decoded.height);
+          state.width = state.matrix.width;
+          state.height = state.matrix.height;
+          state.rect = { x: 0, y: 0, width: state.width, height: state.height };
           state.ratioId = 'original';
           ratioSelect.value = 'original';
+          syncTransformInputs();
 
           upload.setStatus('');
+          transformCard.hidden = false;
           settingsCard.hidden = false;
           previewCard.hidden = false;
           resultCard.hidden = false;
+          updateBackgroundHint();
           resizePreview();
           syncInputs();
           redraw();
@@ -1014,6 +1391,7 @@
         }, function () {
           if (disposed) return;
           upload.setStatus(S.err_decode, true);
+          transformCard.hidden = true;
           settingsCard.hidden = true;
           previewCard.hidden = true;
           resultCard.hidden = true;
@@ -1063,12 +1441,73 @@
       var lossless = state.formatId === 'png';
       qualityInput.disabled = lossless;
       qualityHint.textContent = lossless ? S.hint_quality : '';
+      updateBackgroundHint();
       scheduleEncode();
     });
 
     qualityInput.addEventListener('input', function () {
       state.quality = Number(qualityInput.value) || 90;
       scheduleEncode();
+    });
+
+    angleInput.addEventListener('input', function () {
+      state.angle = normalizeAngle(Number(angleInput.value) || 0);
+      syncTransformInputs();
+      applyTransform();
+    });
+
+    rotateLeftBtn.addEventListener('click', function () {
+      state.angle = normalizeAngle(state.angle - 90);
+      syncTransformInputs();
+      applyTransform();
+    });
+
+    rotateRightBtn.addEventListener('click', function () {
+      state.angle = normalizeAngle(state.angle + 90);
+      syncTransformInputs();
+      applyTransform();
+    });
+
+    flipHInput.addEventListener('change', function () {
+      state.flipH = flipHInput.checked;
+      applyTransform();
+    });
+
+    flipVInput.addEventListener('change', function () {
+      state.flipV = flipVInput.checked;
+      applyTransform();
+    });
+
+    resetTransformBtn.addEventListener('click', function () {
+      state.angle = 0;
+      state.flipH = false;
+      state.flipV = false;
+      syncTransformInputs();
+      applyTransform();
+    });
+
+    bgInput.addEventListener('input', function () {
+      state.bgColor = bgInput.value || '#ffffff';
+      // 挑了颜色就意味着不透明了 —— 透明开着的话，这个颜色根本不起作用
+      if (state.bgTransparent) {
+        state.bgTransparent = false;
+        bgTransparentInput.checked = false;
+      }
+      updateBackgroundHint();
+      redraw();
+      scheduleEncode();
+    });
+
+    bgTransparentInput.addEventListener('change', function () {
+      state.bgTransparent = bgTransparentInput.checked;
+      updateBackgroundHint();
+      redraw();
+      scheduleEncode();
+    });
+
+    gridInput.addEventListener('change', function () {
+      state.showGrid = gridInput.checked;
+      redraw();
     });
 
     resetBtn.addEventListener('click', function () {
@@ -1127,6 +1566,14 @@
     rectFromFields: rectFromFields,
     canvasLimit: canvasLimit,
     parseInteger: parseInteger,
+    normalizeAngle: normalizeAngle,
+    snapAngle: snapAngle,
+    angleSinCos: angleSinCos,
+    transformMatrix: transformMatrix,
+    matrixApply: matrixApply,
+    matrixInverse: matrixInverse,
+    remapRect: remapRect,
+    gridLines: gridLines,
 
     __cases: function (assert) {
       var bounds = { width: 1000, height: 800 };
@@ -1242,6 +1689,64 @@
       assert.eq(parseInteger('', 7), 7, '空值退回旧值');
       assert.eq(parseInteger('abc', 7), 7, '不是数字退回旧值');
       assert.eq(parseInteger('-5', 7), -5, '负数照收，越界交给 clampRect 夹紧');
+
+      /* ---- 变换矩阵 ---- */
+
+      var same = transformMatrix(0, false, false, 800, 600);
+      assert.eq(same, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, width: 800, height: 600 },
+        '不转不翻就是原图');
+
+      var rot = transformMatrix(90, false, false, 800, 600);
+      assert.eq(rot, { a: 0, b: 1, c: -1, d: 0, e: 600, f: 0, width: 600, height: 800 },
+        '顺时针 90°：宽高互换，矩阵是精确值');
+      assert.eq(matrixApply(rot, 0, 0), { x: 600, y: 0 }, '顺时针 90°：左上角跑到右上角');
+      assert.eq(matrixApply(rot, 800, 0), { x: 600, y: 800 }, '顺时针 90°：右上角跑到右下角');
+
+      var flip = transformMatrix(0, true, false, 800, 600);
+      assert.eq(flip, { a: -1, b: 0, c: 0, d: 1, e: 800, f: 0, width: 800, height: 600 },
+        '水平翻转');
+      assert.eq(matrixApply(flip, 0, 0), { x: 800, y: 0 }, '水平翻转：左边翻到右边');
+
+      var diag = transformMatrix(45, false, false, 800, 600);
+      assert.eq(diag.width, 990, '45°：外接框变宽');
+      assert.eq(diag.height, 990, '45°：外接框变高');
+
+      /* ---- 矩阵求逆 ---- */
+
+      var back = matrixInverse(rot);
+      var there = matrixApply(rot, 123, 456);
+      assert.eq(matrixApply(back, there.x, there.y), { x: 123, y: 456 },
+        '转过去再转回来是原位');
+      assert.eq(matrixInverse({ a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 }), null, '退化矩阵没有逆');
+
+      /* ---- 变换换了，裁剪框跟着挪 ---- */
+
+      assert.eq(remapRect({ x: 100, y: 100, width: 400, height: 300 }, same, same),
+        { x: 100, y: 100, width: 400, height: 300 }, '没变就不挪');
+      assert.eq(remapRect({ x: 100, y: 100, width: 400, height: 300 }, same, rot),
+        { x: 200, y: 100, width: 300, height: 400 }, '转 90°：框住的还是同一块，宽高互换');
+      assert.eq(remapRect({ x: 100, y: 100, width: 400, height: 300 }, same, flip),
+        { x: 300, y: 100, width: 400, height: 300 }, '水平翻转：框住的还是同一块');
+
+      /* ---- 角度 ---- */
+
+      assert.eq(normalizeAngle(0), 0, '0 度');
+      assert.eq(normalizeAngle(270), -90, '270 度折成 -90 度');
+      assert.eq(normalizeAngle(-90), -90, '-90 度不动');
+      assert.eq(normalizeAngle(400), 40, '400 度折成 40 度');
+      assert.eq(snapAngle(90), 90, '90 度取整');
+      assert.eq(snapAngle(45), 45, '45 度不动');
+      assert.eq(angleSinCos(0), { c: 1, s: 0 }, '0 度的正弦余弦');
+      assert.eq(angleSinCos(90), { c: 0, s: 1 }, '90 度的正弦余弦是精确值');
+      assert.eq(angleSinCos(270), { c: 0, s: -1 }, '270 度的正弦余弦是精确值');
+
+      /* ---- 三分线 ---- */
+
+      var grid = gridLines({ x: 0, y: 0, width: 300, height: 300 });
+      assert.eq(grid.length, 4, '两条竖线两条横线');
+      assert.eq(grid[0], { x1: 100, y1: 0, x2: 100, y2: 300 }, '第一条竖线在三分之一处');
+      assert.eq(grid[1], { x1: 0, y1: 100, x2: 300, y2: 100 }, '第一条横线在三分之一处');
+      assert.eq(gridLines(null), [], '没有框就没有线');
     }
   };
 }());

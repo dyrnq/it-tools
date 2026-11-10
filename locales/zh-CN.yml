@@ -712,7 +712,7 @@ tools:
 
   image-cropper:
     title: 用可拖动的框裁剪图片
-    description: 在图上拖一个框，把要的那一块切下来 —— 可以拖动它、拖角或拖边改大小，也可以直接填位置和尺寸。切出来的是原图那一片的像素。全程在浏览器里完成。
+    description: 先把图片旋转、翻转，再在图上拖一个框，把要的那一块切下来 —— 可以拖动它、拖角或拖边改大小，也可以直接填位置和尺寸。裁剪不缩放，直角旋转一个像素都不重采样。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2443,6 +2443,9 @@ ui:
       warn_fallback: '这个浏览器不能编码 {format}，图片已经存成 {actual} 了。'
       warn_too_large: '这张图对这个尺寸来说太大了，浏览器只能缩到 {width} × {height} 再处理。'
     image-cropper:
+      btn_reset_transform: '重置变换'
+      btn_rotate_left: '向左转 90°'
+      btn_rotate_right: '向右转 90°'
       choose_file: '选择图片文件'
       download: '下载裁剪好的图片'
       drop_hint: '也可以把文件拖进这个框里。文件在你的浏览器里处理，不会上传到任何地方。'
@@ -2451,12 +2454,22 @@ ui:
       err_encode: '编码失败：{reason}'
       err_read: '读不了这个文件。'
       err_size: '宽和高都要填大于零的数。'
+      hint_background: '铺在图下面的颜色。旋转露出来的空白、图自带的透明区域，都由它打底。'
       hint_drag: '拖动框可以移动裁剪区域，拖角或拖边可以改大小。'
       hint_quality: 'PNG 是无损格式，画质设置对它没有影响。'
-      hint_ratio: '裁剪框保持这个形状。选一个预设，框会按它调整好。'
-      hint_rect: '裁剪框在原图里的位置和大小，用的是原图像素。'
+      hint_ratio: '裁剪框保持这个形状。选一个预设，框会按它调整好；「原图」按画面上显示的样子算。'
+      hint_rect: '裁剪框在画面上的位置和大小，用的是画面像素。'
+      hint_transform: '旋转和翻转先于裁剪生效。下面四个数字是画面上的像素 —— 你看到什么样，它们就是什么样。'
+      hint_transparent_jpeg: 'JPEG 存不了透明，透明区域会填成白色。'
+      label_angle: '旋转角度'
+      label_background: '背景色'
+      label_bg_transparent: '透明背景'
+      label_canvas_size: '变换后尺寸'
       label_file_size: '文件大小'
+      label_flip_h: '水平翻转'
+      label_flip_v: '垂直翻转'
       label_format: '输出格式'
+      label_grid: '三分网格'
       label_height: '高度'
       label_item: '项目'
       label_output_format: '存成什么格式'
@@ -2485,6 +2498,7 @@ ui:
       settings_title: '裁剪设置'
       status_reading: '正在读文件…'
       title: '用可拖动的框裁剪图片'
+      transform_title: '变换'
       warn_animation: '动图只保留第一帧 —— 这张图有 {n} 帧。'
       warn_fallback: '这个浏览器不能编码 {format}，图片存成了 {actual}。'
       warn_scaled: '浏览器开不出 {width} × {height} 的画布，图片存成了 {actualWidth} × {actualHeight}。'
