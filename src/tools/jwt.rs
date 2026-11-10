@@ -65,10 +65,11 @@ use hmac::{Hmac, KeyInit, Mac};
 use num_bigint::BigUint;
 use rsa::signature::{RandomizedSigner, SignatureEncoding, Signer, Verifier};
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
-use rsa::{BoxedUint, RsaPrivateKey, RsaPublicKey};
+use rsa::{BoxedUint, PrivateKey, PublicKey};
 use serde_json::{json, Value};
 use sha2::{Sha256, Sha384, Sha512};
 
+use super::rsa_public_key;
 use super::util::{bounded_u64, opt_str, req_str};
 use super::{ToolError, ToolResult};
 
@@ -673,7 +674,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /* ------------------------------------------------------------------- RSA */
 
 /// 从 PEM / JWK 里解出 RSA 私钥。
-fn rsa_private_key(material: &Material) -> Result<RsaPrivateKey, ToolError> {
+fn rsa_private_key(material: &Material) -> Result<PrivateKey, ToolError> {
     match material {
         Material::Pem { tag, der } => {
             // PKCS#1 与 PKCS#8 都试一遍：标签不一定可靠（有人会自己改标签），
@@ -699,7 +700,7 @@ fn rsa_private_key(material: &Material) -> Result<RsaPrivateKey, ToolError> {
             };
             let p = jwk_uint_value(p, "p")?;
             let q = jwk_uint_value(q, "q")?;
-            RsaPrivateKey::from_components(
+            PrivateKey::from_components(
                 rsa_part(&n),
                 rsa_part(&e),
                 rsa_part(&d),
@@ -716,11 +717,14 @@ fn rsa_private_key(material: &Material) -> Result<RsaPrivateKey, ToolError> {
 }
 
 /// 从 PEM / JWK 里解出 RSA 公钥。
-fn rsa_public_key(material: &Material) -> Result<RsaPublicKey, ToolError> {
+fn rsa_public_key(material: &Material) -> Result<PublicKey, ToolError> {
     match material {
         Material::Pem { tag, der } => {
             rsa::pkcs8::DecodePublicKey::from_public_key_der(der)
                 .or_else(|_| rsa::pkcs1::DecodeRsaPublicKey::from_pkcs1_der(der))
+                // `rsa` 默认只收 8192 位以内的公钥；本工具的口径更宽
+                // （见 `rsa_public_key::MAX_BITS`），再试一次。
+                .or_else(|_| rsa_public_key::decode_public_key_der(der))
                 .map_err(|e| {
                     ToolError::invalid(
                         "out.jwt.err.invalid_public_key",
@@ -734,7 +738,7 @@ fn rsa_public_key(material: &Material) -> Result<RsaPublicKey, ToolError> {
             }
             let n = jwk_uint(jwk, "n")?;
             let e = jwk_uint(jwk, "e")?;
-            RsaPublicKey::new(rsa_part(&n), rsa_part(&e)).map_err(|e| {
+            rsa_public_key::public_key(rsa_part(&n), rsa_part(&e)).map_err(|e| {
                 ToolError::invalid(
                     "out.jwt.err.invalid_jwk_components",
                     &[("kind", "RSA"), ("detail", &e.to_string())],
@@ -1069,7 +1073,7 @@ pub fn generate(alg: Alg, bits: u64) -> Result<Generated, ToolError> {
 /// 生成 RSA 密钥对。
 fn generate_rsa(bits: u64) -> Result<Generated, ToolError> {
     let bits = bits.clamp(1024, MAX_RSA_BITS) as usize;
-    let key = RsaPrivateKey::new(&mut rand::rng(), bits)
+    let key = PrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("RSA 密钥生成失败: {e}")))?;
     let public = key.to_public_key();
 
@@ -1089,7 +1093,7 @@ fn generate_rsa(bits: u64) -> Result<Generated, ToolError> {
 }
 
 /// RSA 私钥的 JWK。
-fn rsa_private_jwk(key: &RsaPrivateKey) -> Value {
+fn rsa_private_jwk(key: &PrivateKey) -> Value {
     let primes = key.primes();
     let (p, q) = (jwk_part(&primes[0]), jwk_part(&primes[1]));
     let d = jwk_part(key.d());
@@ -1110,7 +1114,7 @@ fn rsa_private_jwk(key: &RsaPrivateKey) -> Value {
 }
 
 /// RSA 公钥的 JWK。
-fn rsa_public_jwk(key: &RsaPublicKey) -> Value {
+fn rsa_public_jwk(key: &PublicKey) -> Value {
     let mut map = serde_json::Map::new();
     map.insert("kty".into(), Value::String("RSA".into()));
     map.insert("n".into(), jwk_int(&jwk_part(key.n())));
@@ -1124,14 +1128,14 @@ fn jwk_int(value: &BigUint) -> Value {
 }
 
 /// RSA 私钥的 PKCS#8 PEM。
-fn rsa_private_pem(key: &RsaPrivateKey) -> Result<String, ToolError> {
+fn rsa_private_pem(key: &PrivateKey) -> Result<String, ToolError> {
     rsa::pkcs8::EncodePrivateKey::to_pkcs8_pem(key, rsa::pkcs8::LineEnding::LF)
         .map(|p| p.to_string())
         .map_err(|e| ToolError::Internal(format!("私钥 PEM 编码失败: {e}")))
 }
 
 /// RSA 公钥的 SPKI PEM。
-fn rsa_public_pem(key: &RsaPublicKey) -> Result<String, ToolError> {
+fn rsa_public_pem(key: &PublicKey) -> Result<String, ToolError> {
     rsa::pkcs8::EncodePublicKey::to_public_key_pem(key, rsa::pkcs8::LineEnding::LF)
         .map(|p| p.to_string())
         .map_err(|e| ToolError::Internal(format!("公钥 PEM 编码失败: {e}")))
@@ -1684,13 +1688,13 @@ mod tests {
         // 这说明验签端确实在校验盐长，而不是「什么 PSS 都收」。
         // 钥匙现生成（向量文件里没有私钥 —— 见本模块开头的说明）。
         let g = generate(Alg::Rs256, 1024).unwrap();
-        let private = RsaPrivateKey::from_pkcs8_der(
+        let private = PrivateKey::from_pkcs8_der(
             pem::parse(g.private_key.as_str())
                 .unwrap()
                 .contents(),
         )
         .unwrap();
-        let public = RsaPublicKey::from_public_key_der(
+        let public = PublicKey::from_public_key_der(
             pem::parse(g.public_key.as_str())
                 .unwrap()
                 .contents(),

@@ -13,7 +13,7 @@
 //!   把异常原文往界面上摆也没外泄风险；服务端不行。这里的每一个 `map_err`
 //!   都只带一个**自己写的**错误键，不带 crate 的原文，也不带用户输入。
 //! - **口令与私钥不落盘、不进日志**。口令只活在这一次请求的堆上
-//!   （`RsaPrivateKey` 是 `ZeroizeOnDrop`，解密出来的 DER 缓冲也是）。
+//!   （`PrivateKey` 是 `ZeroizeOnDrop`，解密出来的 DER 缓冲也是）。
 //!
 //! ## 方案清单：四档做三档
 //!
@@ -75,11 +75,12 @@ use base64::Engine as _;
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::traits::PublicKeyParts;
-use rsa::{Oaep, Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
+use rsa::{Oaep, Pkcs1v15Encrypt, PrivateKey, PublicKey};
 use serde_json::{json, Map, Value};
 use sha1::Sha1;
 use sha2::Sha256;
 
+use super::rsa_public_key;
 use super::util;
 use super::{ToolError, ToolResult};
 
@@ -304,7 +305,7 @@ fn finish(payload: &Value, mode: &str, padding: Padding, key_bits: usize, output
 ///
 /// 随机源用 `rand::rng()`（线程本地的 CSPRNG，Linux 上落到 `getrandom(2)`）——
 /// OAEP 与 PKCS#1 v1.5 的填充都要它，每次加密的密文都不一样。
-fn encrypt_with(padding: Padding, key: &RsaPublicKey, msg: &[u8]) -> Result<Vec<u8>, rsa::Error> {
+fn encrypt_with(padding: Padding, key: &PublicKey, msg: &[u8]) -> Result<Vec<u8>, rsa::Error> {
     let mut rng = rand::rng();
     match padding {
         // `Pkcs1v15Encrypt` 是**加密**用的那个；同名的 `Pkcs1v15Sign`
@@ -323,7 +324,7 @@ fn encrypt_with(padding: Padding, key: &RsaPublicKey, msg: &[u8]) -> Result<Vec<
 /// 不依赖私钥的比特，避免计时侧信道。
 fn decrypt_with(
     padding: Padding,
-    key: &RsaPrivateKey,
+    key: &PrivateKey,
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, rsa::Error> {
     let mut rng = rand::rng();
@@ -354,11 +355,17 @@ fn decode_ciphertext(text: &str) -> Result<Vec<u8>, ToolError> {
 ///
 /// 证书（`CERTIFICATE`）不收 —— node-forge 的 `publicKeyFromPem` 也不收，
 /// 收了反而会让人以为「证书里的公钥」是另一回事。
-fn parse_public_key(pem: &str) -> Result<RsaPublicKey, ToolError> {
-    if let Ok(key) = RsaPublicKey::from_public_key_pem(pem) {
+fn parse_public_key(pem: &str) -> Result<PublicKey, ToolError> {
+    // 先走 `rsa` 自己的解码 —— 8192 位以内的绝大多数公钥走这条快路。
+    if let Ok(key) = PublicKey::from_public_key_pem(pem) {
         return Ok(key);
     }
-    if let Ok(key) = RsaPublicKey::from_pkcs1_pem(pem) {
+    if let Ok(key) = PublicKey::from_pkcs1_pem(pem) {
+        return Ok(key);
+    }
+    // 再走放宽上限的解码：`rsa` 默认只收 8192 位以内的公钥，
+    // 而本仓库的密钥对生成器能出 16384 位（见 `rsa_public_key::MAX_BITS`）。
+    if let Ok(key) = rsa_public_key::decode_public_key_pem(pem) {
         return Ok(key);
     }
     Err(ToolError::invalid(
@@ -375,7 +382,7 @@ fn parse_public_key(pem: &str) -> Result<RsaPublicKey, ToolError> {
 /// - `RSA PRIVATE KEY`（PKCS#1）—— 本仓库 `rsa-key-pair-generator` 给的就是这一种；
 /// - `PRIVATE KEY`（PKCS#8）；
 /// - `RSA PRIVATE KEY` + `Proc-Type: 4,ENCRYPTED` —— 传统 OpenSSL 加密，要口令。
-fn parse_private_key(pem: &str, passphrase: &str) -> Result<RsaPrivateKey, ToolError> {
+fn parse_private_key(pem: &str, passphrase: &str) -> Result<PrivateKey, ToolError> {
     let block = pem::parse(pem)
         .map_err(|_| ToolError::invalid("out.rsa-encryption.err.bad_private_key", &[]))?;
 
@@ -406,7 +413,7 @@ fn parse_private_key(pem: &str, passphrase: &str) -> Result<RsaPrivateKey, ToolE
                 }
                 let plain = decrypt_pem_traditional(block.contents(), dek, passphrase)?;
                 // 解出来的是 PKCS#1 的 DER（`RSA PRIVATE KEY`）。
-                RsaPrivateKey::from_pkcs1_der(&plain).map_err(|_| {
+                PrivateKey::from_pkcs1_der(&plain).map_err(|_| {
                     ToolError::invalid("out.rsa-encryption.err.private_key_decrypt_failed", &[])
                 })
             } else {
@@ -415,11 +422,11 @@ fn parse_private_key(pem: &str, passphrase: &str) -> Result<RsaPrivateKey, ToolE
                 // 所以各写各的 map_err，不硬凑成一个。
                 let parsed = match block.tag() {
                     "RSA PRIVATE KEY" => {
-                        RsaPrivateKey::from_pkcs1_der(block.contents()).map_err(|_| {
+                        PrivateKey::from_pkcs1_der(block.contents()).map_err(|_| {
                             ToolError::invalid("out.rsa-encryption.err.bad_private_key", &[])
                         })?
                     }
-                    _ => RsaPrivateKey::from_pkcs8_der(block.contents()).map_err(|_| {
+                    _ => PrivateKey::from_pkcs8_der(block.contents()).map_err(|_| {
                         ToolError::invalid("out.rsa-encryption.err.bad_private_key", &[])
                     })?,
                 };
@@ -820,7 +827,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     /// 那是上面那条 openssl 向量在管。
     #[test]
     fn a_generated_key_round_trips_through_every_padding() {
-        let private = RsaPrivateKey::new(&mut rand::rng(), 2048).expect("密钥生成不该失败");
+        let private = PrivateKey::new(&mut rand::rng(), 2048).expect("密钥生成不该失败");
         let private_pem = private
             .to_pkcs1_pem(LineEnding::LF)
             .expect("私钥该能导出 PKCS#1 PEM")
@@ -867,7 +874,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     /// PKCS#1 的公钥（`RSA PUBLIC KEY`）也要认 —— 老工具给的是这一种。
     #[test]
     fn a_pkcs1_public_key_is_accepted() {
-        let key = RsaPublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
+        let key = PublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
         let pkcs1_pem = key.to_pkcs1_pem(LineEnding::LF).unwrap().to_string();
         assert!(pkcs1_pem.starts_with("-----BEGIN RSA PUBLIC KEY-----"));
 
@@ -880,7 +887,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     /// PKCS#8 的私钥（`PRIVATE KEY`）也要认。
     #[test]
     fn a_pkcs8_private_key_is_accepted() {
-        let key = RsaPrivateKey::from_pkcs1_pem(TEST_PRIVATE_KEY_PKCS1).unwrap();
+        let key = PrivateKey::from_pkcs1_pem(TEST_PRIVATE_KEY_PKCS1).unwrap();
         let pkcs8_pem = key.to_pkcs8_pem(LineEnding::LF).unwrap().to_string();
         assert!(pkcs8_pem.starts_with("-----BEGIN PRIVATE KEY-----"));
 
@@ -917,7 +924,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     /// 是不够的（万一解出来的是另一把能解的钥匙呢）。
     #[test]
     fn the_decrypted_private_key_is_the_same_key() {
-        let plain = RsaPrivateKey::from_pkcs1_pem(TEST_PRIVATE_KEY_PKCS1).unwrap();
+        let plain = PrivateKey::from_pkcs1_pem(TEST_PRIVATE_KEY_PKCS1).unwrap();
         let encrypted = parse_private_key(TEST_PRIVATE_KEY_AES256, "s3cret").expect("该能解开");
         assert_eq!(encrypted.n(), plain.n());
         assert_eq!(encrypted.d(), plain.d());
@@ -1069,7 +1076,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     #[test]
     fn decrypting_with_a_mismatched_private_key_fails() {
         // 用另一把 2048 位的密钥加密，再拿本工具的这把私钥去解。
-        let other = RsaPrivateKey::new(&mut rand::rng(), 2048).expect("密钥生成不该失败");
+        let other = PrivateKey::new(&mut rand::rng(), 2048).expect("密钥生成不该失败");
         let other_public = other
             .to_public_key()
             .to_public_key_pem(LineEnding::LF)
@@ -1119,7 +1126,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     /// 明文太长 → 明确说「太长，最多 N 字节」。
     #[test]
     fn a_too_long_plaintext_reports_the_limit() {
-        let key = RsaPublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
+        let key = PublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
         let too_long = "x".repeat(key.size());
         let err = compute(json!({
             "mode": "encrypt",
@@ -1138,7 +1145,7 @@ Csd2MjJzGEEPb+8xvBxQp27EbVv43Bzrla781+i+S/BxBXrLznDJJao=\n\
     #[test]
     fn a_non_utf8_plaintext_is_reported() {
         // 用**明文私钥**加密一段非法 UTF-8 的字节（0xFF 0xFE）。
-        let key = RsaPublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
+        let key = PublicKey::from_public_key_pem(TEST_PUBLIC_KEY_SPKI).unwrap();
         let ciphertext =
             encrypt_with(Padding::Pkcs1v15, &key, &[0xff, 0xfe, 0x00]).expect("加密不该失败");
         let err = compute(json!({

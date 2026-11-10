@@ -10,7 +10,7 @@
 //!
 //! ## 安全边界
 //!
-//! - 私钥在**服务端**生成：它短暂地存在于本进程的堆上（`RsaPrivateKey` 是
+//! - 私钥在**服务端**生成：它短暂地存在于本进程的堆上（`PrivateKey` 是
 //!   `ZeroizeOnDrop`，`to_pkcs1_pem` 返回 `Zeroizing<String>`，两者析构都会清零
 //!   缓冲区），随后经 HTTP 响应体发往浏览器。这条链路上它就是明文，只受 TLS
 //!   保护；服务端不做任何补救，也不该做。
@@ -31,7 +31,7 @@
 //! 这里的实现见 [`rsa_formats`]：多出来的几档是 OpenSSH 的两种私钥格式与
 //! `ssh-rsa AAAA…` 那种 authorized_keys 用的公钥行。
 
-use rsa::RsaPrivateKey;
+use rsa::PrivateKey;
 use serde_json::{json, Map, Value};
 
 use super::rsa_formats::{self, Format};
@@ -172,9 +172,9 @@ fn generate(
     // 它实现的是 `rand_core 0.10` 的 `CryptoRng`，而 `rsa 0.10` 要的正是这一版
     // —— 同一个 trait，不需要任何版本桥接，仓库里也就只有一套随机源。
     //
-    // 用 `RsaPrivateKey::new` 而不是任何并行变体：`rsa 0.10` 的
+    // 用 `PrivateKey::new` 而不是任何并行变体：`rsa 0.10` 的
     // `algorithms::generate` 里没有 rayon 分支，它就是这个版本唯一的密钥生成入口。
-    let private_key = RsaPrivateKey::new(&mut rand::rng(), bits)
+    let private_key = PrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("RSA 私钥生成失败: {e}")))?;
 
     // 编码交给 `rsa_formats`：PEM / PKCS#1 / PKCS#8 / OpenSSH 两种，
@@ -247,12 +247,12 @@ mod tests {
     use rsa::pkcs1::DecodeRsaPrivateKey;
     use rsa::pkcs8::{DecodePublicKey, EncodePublicKey, LineEnding};
     use rsa::traits::PublicKeyParts;
-    use rsa::RsaPublicKey;
+    use rsa::PublicKey;
 
     /// 单测只生成 1024 位：dev profile 未优化时 2048 位就要 2.6 秒，16384 位是
     /// 分钟级。大位长只测校验与 meta 分支，绝不生成。
     ///
-    /// 1024 是下限 —— `rsa` 0.10 起的 `RsaPrivateKey::new` 不再接受更小的模数
+    /// 1024 是下限 —— `rsa` 0.10 起的 `PrivateKey::new` 不再接受更小的模数
     /// （`MIN_SIZE` = 1024），再小就报「modulus too small」。
     const TEST_BITS: usize = 1024;
 
@@ -320,7 +320,7 @@ mod tests {
             .as_str()
             .unwrap();
 
-        let parsed = RsaPrivateKey::from_pkcs1_pem(private_pem).expect("私钥应能被解回来");
+        let parsed = PrivateKey::from_pkcs1_pem(private_pem).expect("私钥应能被解回来");
         let derived = parsed
             .to_public_key()
             .to_public_key_pem(LineEnding::LF)
@@ -329,7 +329,7 @@ mod tests {
 
         // 反向也要成立：公钥 PEM 本身能被独立解析，且 n / e 与私钥一致
         let parsed_public =
-            RsaPublicKey::from_public_key_pem(public_pem).expect("公钥应能被解回来");
+            PublicKey::from_public_key_pem(public_pem).expect("公钥应能被解回来");
         assert_eq!(parsed_public.n(), parsed.n());
         assert_eq!(parsed_public.e(), parsed.e());
         assert_eq!(parsed_public.size(), TEST_BITS / 8);
@@ -380,9 +380,9 @@ mod tests {
             let payload = json!({});
             let out = generate(&payload, bits, Format::Pem, None, "").unwrap();
             let private_pem = out["output"].as_str().unwrap();
-            let parsed = RsaPrivateKey::from_pkcs1_pem(private_pem).unwrap();
+            let parsed = PrivateKey::from_pkcs1_pem(private_pem).unwrap();
             assert_eq!(
-                parsed.n().bits(),
+                parsed.n().bit_width(),
                 bits as u32,
                 "{bits} 位密钥的模数应当正好 {bits} 位"
             );
@@ -552,7 +552,7 @@ mod tests {
 
         // 密文读不成私钥
         assert!(
-            RsaPrivateKey::from_pkcs1_der(&ct).is_err(),
+            PrivateKey::from_pkcs1_der(&ct).is_err(),
             "密文不该能被当成 PKCS#1 私钥读出来"
         );
 

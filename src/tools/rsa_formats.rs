@@ -91,7 +91,7 @@ use rand::Rng;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding};
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
-use rsa::{BoxedUint, RsaPrivateKey, RsaPublicKey};
+use rsa::{BoxedUint, PrivateKey, PublicKey};
 
 use super::ssh_key::{self, pem_block, SshBuf, SshKey, PEM_LINE_OPENSSL};
 use super::ToolError;
@@ -167,7 +167,7 @@ pub struct Encoded {
 /// `passphrase` 为 `None` 或空串时按「不加密」处理。
 pub fn encode(
     format: Format,
-    key: &RsaPrivateKey,
+    key: &PrivateKey,
     passphrase: Option<&str>,
     comment: &str,
 ) -> Result<Encoded, ToolError> {
@@ -203,7 +203,7 @@ pub fn format_name(format: Format) -> &'static str {
 
 fn encode_public(
     format: Format,
-    key: &RsaPublicKey,
+    key: &PublicKey,
     comment: &str,
 ) -> Result<String, ToolError> {
     match format {
@@ -227,7 +227,7 @@ fn encode_public(
 
 fn encode_private(
     format: Format,
-    key: &RsaPrivateKey,
+    key: &PrivateKey,
     passphrase: Option<&str>,
     comment: &str,
 ) -> Result<String, ToolError> {
@@ -296,7 +296,7 @@ fn encrypt_pem_traditional(der: &[u8], passphrase: &str) -> Result<String, ToolE
 /// `ssh-rsa` 的公钥 blob：`string("ssh-rsa") + mpint(e) + mpint(n)`。
 ///
 /// 注意顺序是 e 在前、n 在后 —— SSH 的 RSA 公钥一直是这个反过来的顺序。
-fn ssh_rsa_public_blob(key: &RsaPublicKey) -> Vec<u8> {
+fn ssh_rsa_public_blob(key: &PublicKey) -> Vec<u8> {
     let mut b = SshBuf::new();
     b.put_str("ssh-rsa");
     b.put_mpint(&part_bytes(key.e()));
@@ -305,7 +305,7 @@ fn ssh_rsa_public_blob(key: &RsaPublicKey) -> Vec<u8> {
 }
 
 /// authorized_keys 的一行：`ssh-rsa <base64>[ comment]`。
-fn ssh_public_line(key: &RsaPublicKey, comment: &str) -> String {
+fn ssh_public_line(key: &PublicKey, comment: &str) -> String {
     // 公钥那一半与私钥无关，单独装一个 [`SshKey`] 就够
     SshKey::new("ssh-rsa", ssh_rsa_public_blob(key), Vec::new()).public_line(comment)
 }
@@ -314,12 +314,12 @@ fn ssh_public_line(key: &RsaPublicKey, comment: &str) -> String {
 ///
 /// sshpk 的公钥 `toString('openssh')` 就是这个形状；OpenSSH 自己不写这种文件，
 /// 但 sshpk 能读回去。
-fn openssh_public_pem(key: &RsaPublicKey) -> String {
+fn openssh_public_pem(key: &PublicKey) -> String {
     ssh_key::openssh_public_pem(&ssh_rsa_public_blob(key))
 }
 
 /// 把一把 RSA 密钥装进 [`SshKey`]：公钥 blob 与私钥段的算法字段。
-fn ssh_rsa_key(key: &RsaPrivateKey) -> SshKey {
+fn ssh_rsa_key(key: &PrivateKey) -> SshKey {
     // 私钥段（解密后）是
     // checkint1 ‖ checkint2 ‖ "ssh-rsa" ‖ n ‖ e ‖ d ‖ iqmp ‖ p ‖ q ‖ 注释
     let mut fields = SshBuf::new();
@@ -335,7 +335,7 @@ fn ssh_rsa_key(key: &RsaPrivateKey) -> SshKey {
 
 /// `openssh-key-v1` 私钥（`-----BEGIN OPENSSH PRIVATE KEY-----`）。
 fn openssh_private_pem(
-    key: &RsaPrivateKey,
+    key: &PrivateKey,
     passphrase: Option<&str>,
     comment: &str,
 ) -> Result<String, ToolError> {
@@ -344,9 +344,9 @@ fn openssh_private_pem(
 
 /// `iqmp` = q⁻¹ mod p，是 CRT 用的那个系数。
 ///
-/// `RsaPrivateKey::crt_coefficient()` 现算现给（`Option`，算不出来是 `None`）；
+/// `PrivateKey::crt_coefficient()` 现算现给（`Option`，算不出来是 `None`）；
 /// 拿不到就不写这个分量 —— 宁可少写一个字段，也不能写错。
-fn put_iqmp(b: &mut SshBuf, key: &RsaPrivateKey) {
+fn put_iqmp(b: &mut SshBuf, key: &PrivateKey) {
     match key.crt_coefficient() {
         Some(c) => b.put_mpint(&part_bytes(&c)),
         // 0 的 mpint 是空串（`put_mpint` 遇到空字节串就是这么写的）
@@ -365,12 +365,12 @@ mod tests {
 
     /// 单测只生成 1024 位：dev profile 未优化时 2048 位要 2.6 秒。
     ///
-    /// 1024 是下限 —— `rsa` 0.10 起的 `RsaPrivateKey::new` 不再接受更小的模数
+    /// 1024 是下限 —— `rsa` 0.10 起的 `PrivateKey::new` 不再接受更小的模数
     /// （`MIN_SIZE` = 1024），再小就报「modulus too small」。
     const TEST_BITS: usize = 1024;
 
-    fn key() -> RsaPrivateKey {
-        RsaPrivateKey::new(&mut rand::rng(), TEST_BITS).expect("密钥生成不该失败")
+    fn key() -> PrivateKey {
+        PrivateKey::new(&mut rand::rng(), TEST_BITS).expect("密钥生成不该失败")
     }
 
     /// 解开 SSH 线格式的 mpint 序列，返回去掉了前导 0x00 的大端字节串。
@@ -604,7 +604,7 @@ mod tests {
     fn the_private_key_in_pkcs1_pem_decodes_back_to_the_same_key() {
         let k = key();
         let out = encode(Format::Pem, &k, None, "").unwrap();
-        let parsed = RsaPrivateKey::from_pkcs1_pem(&out.private_key).expect("应能解回来");
+        let parsed = PrivateKey::from_pkcs1_pem(&out.private_key).expect("应能解回来");
         assert_eq!(parsed.n(), k.n());
         assert_eq!(parsed.d(), k.d());
     }
@@ -614,7 +614,7 @@ mod tests {
         let k = key();
         let out = encode(Format::Pkcs8, &k, None, "").unwrap();
         assert!(out.private_key.starts_with("-----BEGIN PRIVATE KEY-----"));
-        let parsed = RsaPrivateKey::from_pkcs8_pem(&out.private_key).expect("应能解回来");
+        let parsed = PrivateKey::from_pkcs8_pem(&out.private_key).expect("应能解回来");
         assert_eq!(parsed.n(), k.n());
     }
 
@@ -632,7 +632,7 @@ mod tests {
             // 公钥私钥必须是同一对：把公钥解回来，n / e 要与私钥一致
             match format {
                 Format::Pkcs1 => {
-                    let parsed = rsa::RsaPublicKey::from_pkcs1_pem(&out.public_key).unwrap();
+                    let parsed = rsa::PublicKey::from_pkcs1_pem(&out.public_key).unwrap();
                     assert_eq!(parsed.n(), k.n());
                     assert_eq!(parsed.e(), k.e());
                 }
@@ -653,7 +653,7 @@ mod tests {
                     assert_eq!(read_mpint(&parsed.public_blob, &mut pos), part_bytes(k.n()));
                 }
                 _ => {
-                    let parsed = rsa::RsaPublicKey::from_public_key_pem(&out.public_key).unwrap();
+                    let parsed = rsa::PublicKey::from_public_key_pem(&out.public_key).unwrap();
                     assert_eq!(parsed.n(), k.n());
                     assert_eq!(parsed.e(), k.e());
                 }

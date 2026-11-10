@@ -50,6 +50,7 @@ pub mod pki;
 pub mod rsa_encryption;
 pub mod rsa_formats;
 pub mod rsa_key_pair_generator;
+pub mod rsa_public_key;
 pub mod ssh_key;
 pub mod ssh_key_pair_generator;
 pub mod ssl_certificate_decoder;

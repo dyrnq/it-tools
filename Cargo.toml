@@ -77,7 +77,7 @@ actix-multipart = "0.8.5"
 base64 = "0.23.1"
 bcrypt = "0.19.3"
 argon2 = "0.6"
-rsa = "0.10.0-rc.19"
+rsa = { version = "0.10.0", features = ["pkcs1v15"] }
 pem = "4.0.0"
 # 随机数只有 rand 0.10 一套：它底下是 rand_core 0.10，而 rsa 0.10、ed25519-dalek 3
 # 要的 `CryptoRng` 也正是 rand_core 0.10 那一版 —— 同一个 trait，不需要桥接，

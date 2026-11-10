@@ -47,13 +47,14 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId, StringFormat};
 use rsa::traits::{PublicKeyParts, SignatureScheme};
-use rsa::{BoxedUint, Pkcs1v15Sign, Pss, RsaPublicKey};
+use rsa::{BoxedUint, Pkcs1v15Sign, Pss, PublicKey};
 use serde_json::{json, Map, Value};
 use sha1::Sha1;
 use sha2::{Digest, Sha224, Sha256, Sha384, Sha512};
 use std::collections::HashSet;
 use x509_parser::prelude::{ASN1Time, FromDer, X509Certificate, X509Name};
 
+use super::rsa_public_key;
 use super::util;
 use super::{ToolError, ToolResult};
 
@@ -1093,7 +1094,7 @@ fn parse_epoch(s: &str) -> Option<i64> {
 }
 
 /// 取出证书 SPKI 里的 RSA 公钥。非 RSA（ECDSA/Ed25519）返回 None。
-fn rsa_public_key(cert: &X509Certificate<'_>) -> Option<RsaPublicKey> {
+fn rsa_public_key(cert: &X509Certificate<'_>) -> Option<PublicKey> {
     // x509-parser 自己会核对 SPKI 的算法标识符是不是 rsaEncryption，是才把位串
     // 解成 RSA 公钥；ECDSA/Ed25519 落到别的分支，这里直接返回 None。
     let key = cert.public_key().parsed().ok()?;
@@ -1101,8 +1102,8 @@ fn rsa_public_key(cert: &X509Certificate<'_>) -> Option<RsaPublicKey> {
         return None;
     };
     // `new` 内部会检查模数位数与指数范围，畸形证书在这里就被挡掉，顺带也限制了
-    // 后面 RSA 运算的规模。
-    RsaPublicKey::new(be_uint(rsa.modulus)?, be_uint(rsa.exponent)?).ok()
+    // 后面 RSA 运算的规模。上限比 `rsa` 的默认值宽（见 `rsa_public_key::MAX_BITS`）。
+    rsa_public_key::public_key(be_uint(rsa.modulus)?, be_uint(rsa.exponent)?).ok()
 }
 
 /// 大端字节 → rsa 0.10 的密钥分量（`crypto_bigint::BoxedUint`）。
@@ -1126,7 +1127,7 @@ fn be_uint(bytes: &[u8]) -> Option<BoxedUint> {
 /// 声明的话，伪造者可以随便改那个 OID。
 fn try_verify_cert_by_issuer(
     child_der: &[u8],
-    issuer_key: &RsaPublicKey,
+    issuer_key: &PublicKey,
     lang: &str,
 ) -> Option<&'static str> {
     let tbs = der::tbs_bytes(child_der)?;
@@ -1235,7 +1236,7 @@ fn verify_signer_signature(
 }
 
 fn verify_pkcs1v15(
-    key: &RsaPublicKey,
+    key: &PublicKey,
     alg: DigestAlg,
     hashed: &[u8],
     sig: &[u8],
@@ -1264,7 +1265,7 @@ fn verify_pkcs1v15(
 }
 
 fn verify_pss(
-    key: &RsaPublicKey,
+    key: &PublicKey,
     alg: DigestAlg,
     salt_len: usize,
     hashed: &[u8],
@@ -1295,7 +1296,7 @@ fn verify_pss(
 /// 前导零去掉 —— 补回去，两种写法都能验。
 ///
 /// 比模数还长就是坏签名，返回 None。
-fn pad_signature(key: &RsaPublicKey, sig: &[u8]) -> Option<Vec<u8>> {
+fn pad_signature(key: &PublicKey, sig: &[u8]) -> Option<Vec<u8>> {
     let size = key.size();
     if sig.len() > size {
         return None;

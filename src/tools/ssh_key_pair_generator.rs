@@ -38,7 +38,7 @@ use p256::FieldBytes;
 use rand::Rng;
 use rsa::pkcs8::EncodePrivateKey;
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
-use rsa::RsaPrivateKey;
+use rsa::PrivateKey;
 use serde_json::{json, Map, Value};
 
 use super::rsa_formats::part_bytes;
@@ -318,7 +318,7 @@ fn gen_ecdsa_p256(alg: Algorithm) -> Result<Generated, ToolError> {
 /// OpenSSH 的 RSA 私钥段是 `n ‖ e ‖ d ‖ iqmp ‖ p ‖ q` 六个 `mpint`，
 /// 公钥 blob 是 `e ‖ n`（顺序是反的！）。
 fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
-    let mut key = RsaPrivateKey::new(&mut rand::rng(), bits)
+    let mut key = PrivateKey::new(&mut rand::rng(), bits)
         .map_err(|e| ToolError::Internal(format!("生成 {bits} 位 RSA 密钥失败: {e}")))?;
     // `crt_coefficient()`（iqmp）要 precompute 之后才有值
     key.precompute()
@@ -354,7 +354,7 @@ fn gen_rsa(alg: Algorithm, bits: usize) -> Result<Generated, ToolError> {
 ///
 /// rsa 0.10 的 `crt_coefficient()` 返回 `Option<BoxedUint>`（值，不是引用）；
 /// 算不出来时给空字节串 —— 0 的 mpint 就是空串。
-fn iqmp(key: &RsaPrivateKey) -> Vec<u8> {
+fn iqmp(key: &PrivateKey) -> Vec<u8> {
     match key.crt_coefficient() {
         Some(c) => part_bytes(&c),
         None => Vec::new(),
