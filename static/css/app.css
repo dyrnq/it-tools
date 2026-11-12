@@ -1843,3 +1843,50 @@ pre.mono {
   border-right: 1px solid var(--border-input);
   border-radius: 0 var(--radius) var(--radius) 0;
 }
+
+/* ---------- bead-pattern：逐格编辑用的色块 ----------
+   二十多个色块排成一行行，点一个就把它涂到选中的那一格。
+   色块上的色号字要看得出 —— 深色上写白字、浅色上写黑字，
+   这个黑白是 JS 按相对亮度算好写进来的（.bead-swatch-label 的 color），
+   CSS 只给个兜底。 */
+.bead-swatches {
+  display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px;
+}
+.bead-swatch {
+  position: relative;
+  width: 46px; height: 46px; padding: 0 0 3px;
+  border: 1px solid rgba(0, 0, 0, 0.28); border-radius: 6px;
+  display: inline-flex; align-items: flex-end; justify-content: center;
+  cursor: pointer; overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; line-height: 1;
+  color: #ffffff;
+}
+.bead-swatch:hover { box-shadow: 0 0 0 2px var(--primary); }
+.bead-swatch:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.bead-swatch-label { pointer-events: none; }
+
+/* 空格那一块：棋盘格（跟图纸上画的空格一个样子） */
+.bead-swatch.is-checker {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #e6e6e6 25%, transparent 25%),
+    linear-gradient(-45deg, #e6e6e6 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e6e6 75%),
+    linear-gradient(-45deg, transparent 75%, #e6e6e6 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  color: #222222;
+}
+/* 恢复自动那一块：虚线边框，跟别的色块一眼能分开 */
+.bead-swatch.is-auto {
+  background: var(--bg-card); color: var(--text-base);
+  border-style: dashed; border-color: var(--border-input);
+}
+
+/* 结果表里的那一小块颜色 */
+.bead-chip {
+  display: inline-block; width: 12px; height: 12px; margin-right: 6px;
+  border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.28);
+  vertical-align: -1px;
+}
