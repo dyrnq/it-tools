@@ -727,7 +727,7 @@ tools:
     description: 把图片变成拼豆图纸：切成格子，每格配一个色板里最接近的颜色，不满意可以逐格手改，最后导出 PNG 图纸和 CSV 采购清单。全程在浏览器里完成。
 
   image-collage:
-    title: 把几张图片拼成一张
+    title: 图片拼贴
     description: 把几张图片拼成一张图：网格排版、竖向长图、横向拼接，间距、边距、背景和圆角都能调，最后导出 PNG。全程在浏览器里完成。
 ui:
   categories: '分类'

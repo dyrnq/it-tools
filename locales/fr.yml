@@ -180,7 +180,7 @@ tools:
     title: 'Redimensionner une photo au format photo d''identité'
   image-collage:
     description: 'Réunir plusieurs images dans une seule image : une grille, une longue bande verticale ou une bande horizontale, avec un espacement, une marge, un fond et des coins arrondis réglables, puis le télécharger en PNG. Tout se passe dans votre navigateur.'
-    title: 'Réunir plusieurs images en une seule'
+    title: 'Collage d''images'
   image-compress-to-size:
     description: 'Compressez une image à la taille que vous choisissez — l''outil cherche la qualité la plus élevée qui tient encore sous votre limite, et réduit l''image si même la qualité la plus basse est trop grande. Tout se passe dans votre navigateur.'
     title: 'Compresser une image à une taille cible'

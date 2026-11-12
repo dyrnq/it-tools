@@ -731,7 +731,7 @@ tools:
     description: 'Turn a picture into a bead pattern: split it into cells, give every cell the closest colour from a palette, paint cells by hand if you want, then download the chart as a PNG and the shopping list as CSV. Everything happens in your browser.'
 
   image-collage:
-    title: Put several pictures into one
+    title: Picture collage
     description: 'Put several pictures into one picture: a grid, a long vertical strip or a horizontal strip, with adjustable gap, margin, background and rounded corners, then download it as a PNG. Everything happens in your browser.'
 ui:
   categories: 'Categories'

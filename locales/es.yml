@@ -180,7 +180,7 @@ tools:
     title: 'Redimensionar una foto al tamaño de foto de identidad'
   image-collage:
     description: 'Unir varias imágenes en una sola: una cuadrícula, una tira vertical larga o una tira horizontal, con separación, margen, fondo y esquinas redondeadas ajustables, y luego descargarla como PNG. Todo ocurre en tu navegador.'
-    title: 'Unir varias imágenes en una sola'
+    title: 'Collage de imágenes'
   image-compress-to-size:
     description: 'Comprime una imagen al tamaño que elijas — la herramienta busca la calidad más alta que todavía cabe por debajo de tu límite y reduce la imagen si incluso la calidad más baja es demasiado grande. Todo ocurre en tu navegador.'
     title: 'Comprimir una imagen a un tamaño objetivo'

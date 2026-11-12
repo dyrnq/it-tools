@@ -180,7 +180,7 @@ tools:
     title: 'Foto auf ein Passfotoformat zuschneiden'
   image-collage:
     description: 'Mehrere Bilder in einem Bild vereinen: als Raster, als langer vertikaler Streifen oder als horizontaler Streifen, mit einstellbarem Abstand, Randabstand, Hintergrund und runden Ecken, dann als PNG herunterladen. Alles passiert in deinem Browser.'
-    title: 'Mehrere Bilder zu einem zusammenfügen'
+    title: 'Bildcollage'
   image-compress-to-size:
     description: 'Komprimiere ein Bild auf eine von dir gewählte Größe — das Werkzeug sucht die höchste Qualität, die noch unter dein Limit passt, und skaliert das Bild herunter, wenn selbst die niedrigste Qualität zu groß ist. Alles passiert in deinem Browser.'
     title: 'Bild auf eine Zielgröße komprimieren'
