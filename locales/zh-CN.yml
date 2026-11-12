@@ -729,6 +729,10 @@ tools:
   image-collage:
     title: 图片拼贴
     description: 把几张图片拼成一张图：网格排版、竖向长图、横向拼接，间距、边距、背景和圆角都能调，最后导出 PNG。全程在浏览器里完成。
+
+  image-palette:
+    title: 图片调色板
+    description: 从图片里取色：找出主色并算出各占多少，可以点图片吸管取色，结果能导出成 CSS 变量、JSON 或色卡图（PNG）。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2683,6 +2687,41 @@ ui:
       warn_animation: '动图只保留第一帧 —— 这张图有 {n} 帧。'
       warn_fallback: '这个浏览器不能编码 {format}，图片存成了 {actual}。'
       warn_scaled: '浏览器开不出 {width} × {height} 的画布，图片存成了 {actualWidth} × {actualHeight}。'
+    image-palette:
+      btn_add_colour: '加入调色板'
+      btn_copy_css: '复制 CSS 变量'
+      btn_copy_json: '复制 JSON'
+      btn_download_card: '下载色卡图（PNG）'
+      choose_file: '选择图片文件'
+      drop_hint: '也可以把文件拖进这个框里。图片在你的浏览器里处理，不会上传到任何地方。'
+      err_decode: '这张图片解不开。'
+      err_no_picture: '还没有图片，先选一张。'
+      err_read: '这个文件读不出来。'
+      hint_count: '要找几种主色。如果这张图里真正分得开的颜色没有这么多，就只列出实际有的那些。'
+      hint_output: 'CSS 变量用的是英文颜色名。没有相近名字的颜色改用编号。'
+      hint_preview: '点图片可以取指针下面的颜色。预览是缩小的，但颜色是从原图上取的。'
+      label_count: '要找几种主色'
+      label_covered: '覆盖画面的比例'
+      label_found: '找到的颜色'
+      label_hex: '颜色值'
+      label_manual: '手动选取'
+      label_name: '名称'
+      label_no_name: '没有相近的名字'
+      label_picked: '取色'
+      label_sampled: '取样的像素数'
+      label_share: '占比'
+      label_size: '原图尺寸'
+      no_pick: '还没有取色'
+      output_title: '导出'
+      palette_title: '调色板'
+      params_title: '颜色'
+      picker_title: '取到的颜色'
+      preview_title: '图片'
+      result_title: '结果'
+      status_added: '颜色已经加进调色板了。'
+      title: '从图片里取色'
+      warn_few: '这张图里只有 {n} 种颜色分得开，就只列这些。'
+      warn_merged: '{n} 种颜色太接近了，并进了最接近的那一种。'
     image-resizer:
       choose_file: '选择图片文件'
       download: '下载改好尺寸的图片'

@@ -733,6 +733,10 @@ tools:
   image-collage:
     title: Picture collage
     description: 'Put several pictures into one picture: a grid, a long vertical strip or a horizontal strip, with adjustable gap, margin, background and rounded corners, then download it as a PNG. Everything happens in your browser.'
+
+  image-palette:
+    title: Picture palette
+    description: 'Pick the colours out of a picture: the dominant colours with their share of the picture, a colour you can pick with the pointer, and the result as CSS variables, as JSON or as a colour card (PNG). Everything happens in your browser.'
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -2687,6 +2691,41 @@ ui:
       warn_animation: 'Animated images are flattened to their first frame — this one has {n} frames.'
       warn_fallback: 'This browser cannot encode {format}, so the image was saved as {actual}.'
       warn_scaled: 'The browser could not allocate a canvas of {width} × {height}, so the image was saved at {actualWidth} × {actualHeight}.'
+    image-palette:
+      btn_add_colour: 'Add to the palette'
+      btn_copy_css: 'Copy the CSS variables'
+      btn_copy_json: 'Copy the JSON'
+      btn_download_card: 'Download the colour card (PNG)'
+      choose_file: 'Choose an image file'
+      drop_hint: 'You can also drop the file into this box. The picture is processed in your browser, nothing is uploaded.'
+      err_decode: 'This picture could not be decoded.'
+      err_no_picture: 'There is no picture yet. Choose one first.'
+      err_read: 'The file could not be read.'
+      hint_count: 'How many dominant colours to look for. If the picture has fewer colours than that, only the ones that are really there are listed.'
+      hint_output: 'The CSS variables use the English colour names. Colours without a close match get a number instead.'
+      hint_preview: 'Click on the picture to pick the colour under the pointer. The preview is scaled down, but the colour is taken from the original picture.'
+      label_count: 'Colours to find'
+      label_covered: 'Share of the picture covered'
+      label_found: 'Colours found'
+      label_hex: 'Colour value'
+      label_manual: 'picked by hand'
+      label_name: 'Name'
+      label_no_name: 'no close match'
+      label_picked: 'Picked'
+      label_sampled: 'Pixels sampled'
+      label_share: 'Share'
+      label_size: 'Original size'
+      no_pick: 'Nothing picked yet'
+      output_title: 'Output'
+      palette_title: 'Palette'
+      params_title: 'Colours'
+      picker_title: 'Picked colour'
+      preview_title: 'Picture'
+      result_title: 'Result'
+      status_added: 'The colour was added to the palette.'
+      title: 'Pick the colours out of a picture'
+      warn_few: 'Only {n} colours are far enough apart in this picture, so that is what is listed.'
+      warn_merged: '{n} colours were too close to each other and were merged into the closest one.'
     image-resizer:
       choose_file: 'Choose an image file'
       download: 'Download the resized image'

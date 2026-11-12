@@ -1934,3 +1934,52 @@ pre.mono {
   margin: 0 auto;
 }
 :root[data-theme='dark'] .collage-thumb { border-color: rgba(255, 255, 255, 0.28); }
+
+/* ---------- image-palette：色块 ----------
+   色块上的颜色是 JS 写进去的（style.background），CSS 只管形状。
+   色块边界用半透明白/黑 —— 深色模式下一律看不清轮廓，
+   所以深色模式单独换一圈亮边。 */
+.palette-list {
+  display: flex; flex-direction: column; gap: 6px; margin: 10px 0 16px;
+}
+/* 用 grid 而不是 flex —— 表头跟正文要按列对齐 */
+.palette-row {
+  display: grid;
+  grid-template-columns: 30px 78px minmax(0, 1fr) auto 32px;
+  align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-input); border-radius: 8px;
+  background: var(--bg-card);
+}
+.palette-row-head {
+  border: none; background: none; padding: 0 10px;
+  font-size: 12px; color: var(--text-muted);
+}
+.palette-cell-empty { width: 30px; }
+.palette-chip-colour {
+  display: inline-block; width: 30px; height: 30px; flex: none;
+  border-radius: 6px; border: 1px solid rgba(0, 0, 0, 0.28);
+}
+.palette-row-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; color: var(--text-base);
+}
+.palette-row-name {
+  font-size: 13px; color: var(--text-base);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.palette-row-share {
+  font-size: 12px; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: right;
+}
+.palette-picked { display: flex; flex-direction: column; gap: 8px; }
+.palette-picked-row { display: flex; align-items: center; gap: 10px; }
+.palette-picked-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere;
+}
+.palette-canvas {
+  display: block; max-width: 100%; height: auto !important;
+  margin: 0 auto; cursor: crosshair;
+}
+:root[data-theme='dark'] .palette-chip-colour { border-color: rgba(255, 255, 255, 0.28); }
