@@ -456,4 +456,8 @@
   <path d="M7.5 15a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0 -3" />
   <path d="M12 15a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0 -3" />
   <path d="M16.5 15a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0 -3" /></symbol>
+<symbol id="i-image-collage" viewBox="0 0 24 24"><path stroke="none" d="M0 0h24v24H0z" fill="none" />
+  <path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14" />
+  <path d="M9 3v18" />
+  <path d="M9 12h12" /></symbol>
 </svg>

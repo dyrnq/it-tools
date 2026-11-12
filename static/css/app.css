@@ -1890,3 +1890,47 @@ pre.mono {
   border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.28);
   vertical-align: -1px;
 }
+
+/* ---------- image-collage：图片列表 ----------
+   一张缩略图 + 文件名 + 尺寸 + 三个按钮。
+   名字那一栏必须能缩（min-width:0 + 省略号），不然窄屏上
+   长文件名会把右边的按钮顶出屏幕 —— 底部那条横向滚动条就是这么来的。 */
+.collage-list {
+  display: flex; flex-direction: column; gap: 8px; margin: 10px 0 16px;
+}
+.collage-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border: 1px solid var(--border-input); border-radius: 8px;
+  background: var(--bg-card);
+}
+.collage-thumb {
+  width: 72px; height: 54px; flex: none;
+  object-fit: cover; border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  background: var(--bg-card);
+}
+.collage-item-info {
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1 1 auto; min-width: 0;
+}
+.collage-item-name {
+  font-size: 13px; color: var(--text-base);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.collage-item-size {
+  font-size: 12px; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.collage-item-actions {
+  display: flex; align-items: center; gap: 6px; flex: none;
+}
+/* 窄屏上按钮换到下一行，不跟名字挤 */
+@media (max-width: 480px) {
+  .collage-item { flex-wrap: wrap; }
+  .collage-item-actions { margin-left: auto; }
+}
+.collage-canvas {
+  display: block; max-width: 100%; height: auto !important;
+  margin: 0 auto;
+}
+:root[data-theme='dark'] .collage-thumb { border-color: rgba(255, 255, 255, 0.28); }
