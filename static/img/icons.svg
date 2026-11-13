@@ -471,4 +471,7 @@
   <path d="M5 9h3M11 9h2M16 9h3" />
   <path d="M5 12h2M10 12h3M16 12h2" />
   <path d="M5 15h4M12 15h2M17 15h2" /></symbol>
+<symbol id="i-photo-sheet" viewBox="0 0 24 24"><path stroke="none" d="M0 0h24v24H0z" fill="none" />
+  <path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-16a1 1 0 0 1 1 -1z" />
+  <path d="M8 7h3v4h-3zM13 7h3v4h-3zM8 13h3v4h-3zM13 13h3v4h-3z" /></symbol>
 </svg>

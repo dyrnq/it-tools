@@ -2045,3 +2045,16 @@ pre.mono {
   white-space: pre-wrap; word-break: break-all;
   margin: 4px 0 14px;
 }
+
+/* ---------- id-photo-print：证件照排版 ----------
+   预览画的是一整张纸，所以底色写死白 —— 外面是深色主题时，
+   白纸才像纸；用主题色的话，深色模式下就是一张深灰的纸。 */
+.idprint-canvas {
+  display: block; max-width: 100%; height: auto !important;
+  margin: 0 auto; background: #fff;
+  border: 1px solid var(--border-input); border-radius: 4px;
+}
+/* 毫米输入是成对的（宽 / 高），窄屏上让标签短一点，
+   否则「宽」「高」两个字就占掉一半宽度。 */
+.idprint-paper-w, .idprint-paper-h,
+.idprint-photo-w, .idprint-photo-h { max-width: 120px; }
