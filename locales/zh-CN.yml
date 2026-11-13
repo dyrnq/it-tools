@@ -737,6 +737,10 @@ tools:
   image-redact:
     title: 图片打码
     description: 在图上框出不想露出来的地方，用马赛克、模糊或纯色盖住。打码区域按原图像素算，导出的图跟预览看到的完全一致。全程在浏览器里完成。
+
+  image-ascii:
+    title: ASCII 图片
+    description: 把图片变成字符画：定下宽度、选一套字符，得到一幅由文字组成的画。还能切成盲文点阵，给下载的文件上 ANSI 颜色。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2331,6 +2335,49 @@ ui:
       warn_animation: '动图只会保留第一帧 —— 这张图原来有 {n} 帧。'
       warn_fallback: '这个浏览器不能编码 {format}，图片存成了 {actual}。'
       warn_upscale: '原图比 {width} × {height} 小，放大之后可能会发糊。'
+    image-ascii:
+      btn_copy: '复制字符画'
+      btn_download: '把字符画下载成文本文件'
+      choose_file: '选择图片文件'
+      drop_hint: '也可以把文件拖进这个框里。图片在你的浏览器里处理，不会上传到任何地方。'
+      err_decode: '这张图片解不开。'
+      err_no_picture: '还没有图片，先选一张。'
+      err_ramp: '字符表至少要两个字符。'
+      err_ramp_wide: '字符表里有宽字符 {char}，它会把列撑歪，已经剔掉了。'
+      export_title: '导出'
+      hint_ansi: '预览始终是纯文本；下载下来的文件里带 ANSI 颜色代码。'
+      hint_aspect: '字符格高比宽大，画面按这个系数纵向拉伸。'
+      hint_braille: '每个字符变成 2 列 × 4 行的凸点。'
+      hint_cols: '画面的每一行有多少个字符。'
+      hint_custom_ramp: '至少两个字符，密的写在前面。不能有宽字符。'
+      hint_download: '开了颜色的话，文本文件里保留 ANSI 颜色代码。'
+      hint_invert: '图里亮的地方改拿密的字符。'
+      hint_ramp: '字符从密到疏排，图里暗的地方拿密的那些。'
+      hint_threshold: '留空的话，工具会自己从图里算出阈值。'
+      label_ansi: '下载时上色'
+      label_aspect: '宽高修正'
+      label_braille: '盲文点阵'
+      label_cols: '宽度（字符数）'
+      label_custom_ramp: '自己写的字符'
+      label_grid: '网格'
+      label_invert: '明暗互换'
+      label_levels: '用了几个字符'
+      label_ramp: '字符表'
+      label_source_size: '原图尺寸'
+      label_threshold: '点阵阈值'
+      label_threshold_used: '点阵阈值'
+      no_picture: '先选一张图片，就能看到字符画。'
+      params_title: '参数'
+      ramp_binary: '黑白'
+      ramp_blocks: '方块'
+      ramp_classic: '经典'
+      ramp_custom: '自定义'
+      ramp_dense: '70 级'
+      ramp_simple: '简单'
+      result_title: '字符画'
+      status_reading: '正在读取文件……'
+      summary_title: '摘要'
+      title: '把图片变成字符画'
     image-collage:
       btn_clear: '全部删除'
       btn_down: '下移'
