@@ -479,4 +479,9 @@
   <path d="M12 7v6" />
   <path d="M6 16v-3h12v3" />
   <path d="M4 16h4v4h-4zM16 16h4v4h-4z" /></symbol>
+<symbol id="i-flatten" viewBox="0 0 24 24"><path stroke="none" d="M0 0h24v24H0z" fill="none" />
+  <path d="M3 4h7v3h-7zM3 10.5h7v3h-7zM3 17h7v3h-7z" />
+  <path d="M11.5 12h2.5" />
+  <path d="M12.5 10l1.5 2-1.5 2" />
+  <path d="M16.5 10.5h4.5v3h-4.5z" /></symbol>
 </svg>

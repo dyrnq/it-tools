@@ -746,6 +746,10 @@ tools:
     title: 证件照排版
     description: 把一张照片排成多张证件照打在一张纸上：选相纸和照片尺寸，工具自动裁成尺寸、排好版并画上裁切线。排版图能下载成 PNG，也能直接打印。
 
+  json-flatten:
+    title: JSON 扁平化
+    description: 把 JSON 文档摊平成点号分隔的键，或者把一份扁平的键列表还原回嵌套结构。
+
   json-tree-view:
     title: JSON 树形视图
     description: 把 JSON 文档看成可折叠的树：展开与收起节点、搜索键名与值、把任意节点的路径复制成点号路径或 JSONPath。
@@ -3175,6 +3179,40 @@ ui:
       status_unchanged: '未变'
       status_updated: '已变更'
       summary: '+{added} 新增 · −{removed} 删除 · ~{updated} 变更 · {containers} 个容器'
+    json-flatten:
+      array_expand: '每个元素都摊开'
+      array_keep: '数组整体当一个值'
+      array_mode: '数组'
+      empty_drop: '丢掉'
+      empty_keep: '留着'
+      empty_mode: '空容器'
+      err_bad_line: '第 {line} 行：{reason}'
+      err_dup_path: '键 {path} 出现了多次，后一条覆盖前一条。'
+      err_dup_paths: '{count} 条路径出现了多次，后一条覆盖前一条。'
+      err_no_json5: '这一页缺少 JSON5 解析器。'
+      err_parse: 'JSON 解析失败：{message}'
+      err_unclosed_comment: '块注释没有闭合。'
+      hint_empty: '贴一段 JSON，就能摊平。'
+      hint_sep: '键名用这个字符连起来。键名里含有它时写成 ["键名"]。'
+      input_flat: '扁平的键列表'
+      input_json: 'JSON 文档'
+      mode: '模式'
+      mode_flatten: '摊平'
+      mode_rebuild: '还原'
+      output_shape: '输出'
+      ph_flat: '$.user.id = 1'
+      ph_json: '{ "user": { "id": 1 } }'
+      reason_bracket: '括号没有闭合'
+      reason_pair: '不是 [路径, 值] 这样的一对'
+      reason_path: '读不出这条键路径'
+      reason_value: '路径后面没有值'
+      result_title: '结果'
+      separator: '分隔符'
+      shape_array: '键值对数组'
+      shape_object: '对象'
+      shape_table: '文本列表'
+      summary: '{count} 条'
+      title: '把 JSON 文档摊平成点号分隔的键，或再还原回去'
     json-minify:
       download: '下载'
       error_invalid: '提供的 JSON 无效。'

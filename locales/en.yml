@@ -750,6 +750,10 @@ tools:
     title: ID photo sheet
     description: 'Lay one picture out as many ID photos on a printable sheet: pick a sheet of photo paper and a photo size, and the tool cuts the picture to size, arranges the copies and draws the cut lines. Download the sheet as a PNG or print it straight away.'
 
+  json-flatten:
+    title: JSON flattening
+    description: Flatten a JSON document into dot-separated keys, or rebuild the nested structure from a flat key list.
+
   json-tree-view:
     title: JSON tree view
     description: 'Browse a JSON document as a collapsible tree: expand and collapse nodes, search keys and values, and copy the path of any node as a dot path or a JSONPath.'
@@ -3179,6 +3183,40 @@ ui:
       status_unchanged: 'unchanged'
       status_updated: 'updated'
       summary: '+{added} added · −{removed} removed · ~{updated} changed · {containers} containers'
+    json-flatten:
+      array_expand: 'Expand every element'
+      array_keep: 'Keep the array as one value'
+      array_mode: 'Arrays'
+      empty_drop: 'Drop them'
+      empty_keep: 'Keep them'
+      empty_mode: 'Empty containers'
+      err_bad_line: 'Line {line}: {reason}'
+      err_dup_path: 'The key {path} appears more than once; the last one wins.'
+      err_dup_paths: '{count} paths appear more than once; the last one wins.'
+      err_no_json5: 'This page is missing the JSON5 parser.'
+      err_parse: 'Could not parse the JSON: {message}'
+      err_unclosed_comment: 'Unclosed block comment.'
+      hint_empty: 'Paste a JSON document to flatten it.'
+      hint_sep: 'Keys are joined with this character. A key that contains it is written as ["key"].'
+      input_flat: 'Flat key list'
+      input_json: 'JSON document'
+      mode: 'Mode'
+      mode_flatten: 'Flatten'
+      mode_rebuild: 'Rebuild'
+      output_shape: 'Output'
+      ph_flat: '$.user.id = 1'
+      ph_json: '{ "user": { "id": 1 } }'
+      reason_bracket: 'a bracket is not closed'
+      reason_pair: 'it is not a [path, value] pair'
+      reason_path: 'the key path cannot be read'
+      reason_value: 'there is no value after the path'
+      result_title: 'Result'
+      separator: 'Separator'
+      shape_array: 'Array of pairs'
+      shape_object: 'Object'
+      shape_table: 'Text list'
+      summary: '{count} entries'
+      title: 'Flatten a JSON document into dot-separated keys, or rebuild it'
     json-minify:
       download: 'Download'
       error_invalid: 'Provided JSON is not valid.'
