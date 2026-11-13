@@ -1983,3 +1983,48 @@ pre.mono {
   margin: 0 auto; cursor: crosshair;
 }
 :root[data-theme='dark'] .palette-chip-colour { border-color: rgba(255, 255, 255, 0.28); }
+
+/* ---------- image-redact：打码区域 ----------
+   区域列表每一行：序号 / 方式下拉 / 尺寸 / 删除按钮。
+   宽度用 grid 钉死 —— flex 里这三样宽度都随内容变，
+   方式下拉一改长度，整列的边框就跟着抖。 */
+.redact-list {
+  display: flex; flex-direction: column; gap: 6px; margin: 10px 0 16px;
+}
+.redact-item {
+  display: grid;
+  grid-template-columns: 26px 104px minmax(0, 1fr) 30px;
+  align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-input); border-radius: 8px;
+  background: var(--bg-card);
+}
+.redact-item.is-selected { border-color: var(--primary); }
+.redact-item-index {
+  font-size: 12px; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+/* 尺寸那一栏是给人看的坐标，窄的时候宁可截断也别把行撑开 */
+.redact-item-info {
+  font-size: 12px; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.redact-item-del {
+  width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--border-input); border-radius: 6px;
+  background: var(--bg-card); color: var(--text-muted);
+  cursor: pointer; font-size: 16px; line-height: 1;
+}
+.redact-item-del:hover { color: var(--text-base); border-color: var(--primary); }
+.redact-mode { width: 100%; }
+/* 拖框的那块画布 —— 十字线表示「可以在这儿拖出一块」 */
+.redact-canvas {
+  display: block; max-width: 100%; height: auto !important;
+  margin: 0 auto; cursor: crosshair;
+  touch-action: none; user-select: none;
+}
+/* 窄屏上四列挤不下，尺寸那一栏换到第二行 */
+@media (max-width: 480px) {
+  .redact-item { grid-template-columns: 26px minmax(0, 1fr) 30px; }
+  .redact-item-info { grid-column: 1 / -1; }
+}

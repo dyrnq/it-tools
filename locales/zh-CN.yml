@@ -733,6 +733,10 @@ tools:
   image-palette:
     title: 图片调色板
     description: 从图片里取色：找出主色并算出各占多少，可以点图片吸管取色，结果能导出成 CSS 变量、JSON 或色卡图（PNG）。全程在浏览器里完成。
+
+  image-redact:
+    title: 图片打码
+    description: 在图上框出不想露出来的地方，用马赛克、模糊或纯色盖住。打码区域按原图像素算，导出的图跟预览看到的完全一致。全程在浏览器里完成。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -2722,6 +2726,48 @@ ui:
       title: '从图片里取色'
       warn_few: '这张图里只有 {n} 种颜色分得开，就只列这些。'
       warn_merged: '{n} 种颜色太接近了，并进了最接近的那一种。'
+    image-redact:
+      btn_clear: '删掉全部区域'
+      btn_delete: '删除'
+      btn_download: '下载打码后的图片'
+      btn_export: '生成打码后的副本'
+      choose_file: '选择图片文件'
+      drop_hint: '也可以把文件拖进这个框里。图片在你的浏览器里处理，不会上传到任何地方。'
+      err_canvas_limit: '浏览器的画布装不下 {width} × {height} 像素（上限是每边 {max} 像素、总共 {area} 兆像素），所以没有编码。'
+      err_decode: '这张图片解不开。'
+      err_encode: '图片编不出来：{reason}'
+      err_no_picture: '还没有图片，先选一张。'
+      err_read: '这个文件读不出来。'
+      hint_block: '马赛克每一块有多大，单位是原图的像素。'
+      hint_colour: '纯色区域涂的颜色。'
+      hint_preview: '预览是缩小的，但打码区域是按原图像素算的。'
+      hint_quality: 'PNG 是无损的，画质对它没有影响。'
+      hint_radius: '模糊往外扩多远，单位是原图的像素。'
+      hint_regions: '在图片上拖一下就能框出一块。每块可以是马赛克、模糊或纯色。'
+      label_block: '块大小'
+      label_colour: '颜色'
+      label_count: '区域数'
+      label_file_size: '文件大小'
+      label_format: '输出格式'
+      label_frames: '显示选框'
+      label_mode: '方式'
+      label_output_format: '保存为'
+      label_output_size: '输出尺寸'
+      label_quality: '画质'
+      label_radius: '模糊半径'
+      label_source_size: '原图尺寸'
+      mode_blur: '模糊'
+      mode_fill: '纯色'
+      mode_mosaic: '马赛克'
+      no_regions: '还没有打码区域。在图片上拖一下框一块出来。'
+      no_result: '还没有导出。点下面的按钮做一份。'
+      preview_title: '图片'
+      regions_title: '打码区域'
+      result_title: '结果'
+      settings_title: '参数'
+      status_reading: '正在读取文件……'
+      title: '用马赛克、模糊或纯色盖住图片的一部分'
+      warn_animation: '动图只取第一帧 —— 这张图有 {n} 帧。'
     image-resizer:
       choose_file: '选择图片文件'
       download: '下载改好尺寸的图片'
