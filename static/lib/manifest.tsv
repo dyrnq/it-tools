@@ -33,6 +33,9 @@ json-to-xml	xml-js/dist/xml-js.min.js,json5/dist/index.min.js
 yaml-viewer	yaml/bundle.js
 json-viewer	json5/dist/index.min.js,jsonrepair/lib/umd/jsonrepair.min.js
 json-minify	json5/dist/index.min.js
+# json-tree-view 用 json5 兜底：标准 JSON 解不开时，
+# 裸键、单引号、尾逗号这些 JSON5 才认的写法还能读。
+json-tree-view	json5/dist/index.min.js
 xml-formatter	xml-formatter/bundle.js
 sql-prettify	sql-formatter/dist/sql-formatter.min.js
 markdown-to-html	markdown-it/dist/markdown-it.min.js

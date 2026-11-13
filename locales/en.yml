@@ -749,6 +749,10 @@ tools:
   id-photo-print:
     title: ID photo sheet
     description: 'Lay one picture out as many ID photos on a printable sheet: pick a sheet of photo paper and a photo size, and the tool cuts the picture to size, arranges the copies and draws the cut lines. Download the sheet as a PNG or print it straight away.'
+
+  json-tree-view:
+    title: JSON tree view
+    description: 'Browse a JSON document as a collapsible tree: expand and collapse nodes, search keys and values, and copy the path of any node as a dot path or a JSONPath.'
 ui:
   categories: 'Categories'
   tagline: 'Handy tools for developers'
@@ -3292,6 +3296,41 @@ ui:
       input: 'Your JSON'
       input_ph: 'Paste your JSON here...'
       output: 'YAML from your JSON'
+    json-tree-view:
+      btn_collapse: 'Collapse'
+      btn_collapse_all: 'Collapse all'
+      btn_copy_json: 'Copy JSON'
+      btn_expand: 'Expand'
+      btn_expand_all: 'Expand all'
+      case_camel: 'camelCase'
+      case_kebab: 'kebab-case'
+      case_keep: 'Keep as is'
+      case_pascal: 'PascalCase'
+      case_screaming: 'SCREAMING_SNAKE_CASE'
+      case_snake: 'snake_case'
+      err_no_json5: 'This page is missing the JSON5 parser.'
+      err_parse: 'Could not parse the JSON: {message}'
+      err_too_many_nodes: 'The document has more than {max} nodes; only the first {shown} are shown.'
+      err_unclosed_comment: 'Unclosed block comment.'
+      expand_depth: 'Expand to level'
+      hint_case: 'Only the display and the copied JSON change. Keys that collide after renaming end up as one.'
+      hint_depth: 'Level 1 shows the root node only.'
+      hint_empty: 'Paste a JSON document to see it as a tree.'
+      json_input: 'JSON document'
+      jsonpath_title: 'JSONPath'
+      key_case: 'Key name style'
+      no_selection: 'Click a node in the tree to see its path and value.'
+      path_title: 'Path'
+      ph_json: '{ "foo": "bar" }'
+      root_label: '(root)'
+      search_hits: '{count} matches'
+      search_none: 'No match'
+      search_ph: 'Search keys and values'
+      selected_title: 'Selected node'
+      status_nodes: '{count} nodes'
+      title: 'Browse a JSON document as a collapsible tree'
+      tree_title: 'Tree'
+      value_title: 'Value'
     json-viewer:
       auto_unescape: 'Auto-unescape'
       check_duplicate_keys: 'Detect duplicate keys'

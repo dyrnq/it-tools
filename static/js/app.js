@@ -2686,6 +2686,147 @@
     infer: jsonInferDocument
   };
 
+  /* ---------- JSON 解析共用内核 ----------
+
+     「JSON 树形视图」与「JSON 扁平化」两个工具共用这一份：
+     把一段文本尽量解成一个 JSON 值。
+
+     为什么放在这里而不是两个工具各写一份：两个工具要的**完全一样**
+     （剥注释 → 按标准 JSON 解 → 不行再按 JSON5 解），
+     各写一份的话改了解析规则就得记得改两处，而两处迟早会不一样。
+
+     这里**不比** json-viewer.js 里那份强：那份还要管「反转义」「坏 JSON 修复」
+     「重复键」「隐藏字符」，那是 json-viewer 自己的语义；
+     这里只做「尽量解出一个值」，定位不同，所以两份不合并、不互相重构。 */
+
+  /**
+   * 剥掉 // 行注释与 /* *\/ 块注释。
+   *
+   * 为什么要自己剥：json5@2.2.3 见到「逗号后面紧跟一个块注释」就报错
+   * （JSON5.parse('[1,/*x*\/,2]') → SyntaxError），
+   * 而且它不认数组里的 elision（'[1,,2]' 也报错）。
+   * 所以这里把注释去掉，顺手把因此多出来的逗号也去掉。
+   *
+   * 字符串里的 // 与 /* *\/ 不能动 —— 用 quoted 标志跟踪，
+   * 遇到转义的反斜杠要跳过下一个字符（否则 \" 会被当成字符串结束）。
+   *
+   * @param {string} src
+   * @returns {string} 块注释没闭合时抛错，message 是 'unclosed_comment'
+   */
+  function jsonStripComments(src) {
+    var s = src === null || src === undefined ? '' : String(src);
+    var out = '';
+    var n = s.length;
+    var i = 0;
+    var quote = '';        // '"' / '\''，空表示当前不在字符串里
+    var escaped = false;   // 刚吃过一个反斜杠，下一个字符是字符串内容
+    var inBlock = false;   // 在 /* *\/ 里
+
+    function lastNonSpace(str) {
+      for (var j = str.length - 1; j >= 0; j--) {
+        var c = str.charAt(j);
+        if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') return c;
+      }
+      return '';
+    }
+
+    function push(ch) {
+      // [1,/*c*/,2] 剥完是 [1,,2]，json5@2.2.3 不认 elision，丢掉第二个逗号
+      if (ch === ',' && lastNonSpace(out) === ',') return;
+      out += ch;
+    }
+
+    while (i < n) {
+      var ch = s.charAt(i);
+
+      if (inBlock) {
+        if (ch === '*' && s.charAt(i + 1) === '/') { inBlock = false; i += 2; continue; }
+        // 块注释里的换行要留着，不然 JSON5 报的行列号整体错位
+        if (ch === '\n' || ch === '\r') out += ch;
+        i++;
+        continue;
+      }
+
+      if (quote) {
+        out += ch;
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === quote) quote = '';
+        i++;
+        continue;
+      }
+
+      if (ch === '"' || ch === "'") { quote = ch; out += ch; i++; continue; }
+
+      if (ch === '/' && s.charAt(i + 1) === '/') {
+        i += 2;
+        while (i < n && s.charAt(i) !== '\n' && s.charAt(i) !== '\r') i++;
+        continue;
+      }
+      if (ch === '/' && s.charAt(i + 1) === '*') { inBlock = true; i += 2; continue; }
+
+      push(ch);
+      i++;
+    }
+
+    if (inBlock) throw new Error('unclosed_comment');
+    return out;
+  }
+
+  /**
+   * 容错解析一段 JSON 文本。
+   *
+   * 阶梯：标准 JSON → 剥掉注释后的标准 JSON → JSON5。
+   * 第三步才用 JSON5，是为了**别把 JSON5 的宽松语法带到标准 JSON 上**：
+   * 能按标准 JSON 解开的文本就按标准 JSON 解（裸键、单引号那些只在前两步都失败时才生效）。
+   *
+   * 大整数保护在解析之前：超过 2^53-1 的整数字面量一进 JSON.parse
+   * 就被舍成相邻的浮点值（9223372036854775807 → 9223372036854776000），
+   * 而且没有任何一步会报错 —— 看一个订单号等于悄悄把它改掉。
+   * 所以先换成哨兵字符串让解析器绕开数值路径，
+   * 输出时由 restoreBigIntegers 还原成裸数字字面量。
+   *
+   * @param {string} raw
+   * @returns {{ok: true, value: *}|{ok: false, error: string, message: string}}
+   *   error: 'empty' | 'unclosed_comment' | 'no_json5' | 'syntax'
+   */
+  function jsonParseTolerant(raw) {
+    var text = raw === null || raw === undefined ? '' : String(raw);
+    if (!text.trim()) return { ok: false, error: 'empty', message: '' };
+
+    var stripped;
+    try {
+      stripped = jsonStripComments(text);
+    } catch (e) {
+      return { ok: false, error: 'unclosed_comment', message: 'unclosed_comment' };
+    }
+
+    var guarded = Util.guardBigIntegers(stripped);
+
+    try {
+      return { ok: true, value: JSON.parse(guarded) };
+    } catch (e1) { /* 不是标准 JSON，往下走 */ }
+
+    // window.JSON5 只在带这个库的页面上有（见 static/lib/manifest.tsv），
+    // 所以只能在函数体里判，不能在加载期碰它。
+    if (typeof window.JSON5 === 'undefined' || !window.JSON5 ||
+        typeof window.JSON5.parse !== 'function') {
+      return { ok: false, error: 'no_json5', message: String(e1 && e1.message || e1) };
+    }
+
+    try {
+      return { ok: true, value: window.JSON5.parse(guarded) };
+    } catch (e2) {
+      return { ok: false, error: 'syntax', message: String(e2 && e2.message || e2) };
+    }
+  }
+
+  /** 对外暴露的 JSON 解析内核。 */
+  var JsonParse = {
+    stripComments: jsonStripComments,
+    parse: jsonParseTolerant
+  };
+
   /* ---------- 图片编解码共用内核 ----------
      「图片压缩」与「图片格式转换」两个工具共用这一份：
      认格式、算目标尺寸、算省了多少、画进 canvas 再编码成 Blob。
@@ -4787,6 +4928,8 @@
     ip: Ip,
     /** 几个「JSON 转某种语言」的工具共用的类型推断内核。 */
     jsonInfer: JsonInfer,
+    /** 「JSON 树形视图」与「JSON 扁平化」共用的解析内核（剥注释 + 容错解析）。 */
+    jsonParse: JsonParse,
     /** 「图片压缩」与「图片格式转换」两个工具共用的图片编解码内核。 */
     imageCodec: ImageCodec,
     /** 各工具把纯逻辑挂到这里，node 侧的 jsdom 测试直接调用（见 test/js/）。 */

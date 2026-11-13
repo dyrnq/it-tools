@@ -745,6 +745,10 @@ tools:
   id-photo-print:
     title: 证件照排版
     description: 把一张照片排成多张证件照打在一张纸上：选相纸和照片尺寸，工具自动裁成尺寸、排好版并画上裁切线。排版图能下载成 PNG，也能直接打印。
+
+  json-tree-view:
+    title: JSON 树形视图
+    description: 把 JSON 文档看成可折叠的树：展开与收起节点、搜索键名与值、把任意节点的路径复制成点号路径或 JSONPath。
 ui:
   categories: '分类'
   tagline: '开发者 handy 工具箱'
@@ -3288,6 +3292,41 @@ ui:
       input: '你的 JSON'
       input_ph: '把你的 JSON 粘贴到这里…'
       output: '由 JSON 生成的 YAML'
+    json-tree-view:
+      btn_collapse: '收起'
+      btn_collapse_all: '全部收起'
+      btn_copy_json: '复制 JSON'
+      btn_expand: '展开'
+      btn_expand_all: '全部展开'
+      case_camel: 'camelCase'
+      case_kebab: 'kebab-case'
+      case_keep: '保持原样'
+      case_pascal: 'PascalCase'
+      case_screaming: 'SCREAMING_SNAKE_CASE'
+      case_snake: 'snake_case'
+      err_no_json5: '这一页缺少 JSON5 解析器。'
+      err_parse: 'JSON 解析失败：{message}'
+      err_too_many_nodes: '这份文档的节点超过 {max} 个，只显示前 {shown} 个。'
+      err_unclosed_comment: '块注释没有闭合。'
+      expand_depth: '展开到第几层'
+      hint_case: '只改显示和复制出来的 JSON。改完撞名的键会合成一个。'
+      hint_depth: '第 1 层只显示根节点。'
+      hint_empty: '贴一段 JSON，就能看成树。'
+      json_input: 'JSON 文档'
+      jsonpath_title: 'JSONPath'
+      key_case: '键名写法'
+      no_selection: '点树里的一个节点，看它的路径和值。'
+      path_title: '路径'
+      ph_json: '{ "foo": "bar" }'
+      root_label: '（根）'
+      search_hits: '{count} 处命中'
+      search_none: '没有命中'
+      search_ph: '搜索键名和值'
+      selected_title: '选中的节点'
+      status_nodes: '{count} 个节点'
+      title: '把 JSON 文档看成可折叠的树'
+      tree_title: '树'
+      value_title: '值'
     json-viewer:
       auto_unescape: '自动反转义'
       check_duplicate_keys: '检测重复键'

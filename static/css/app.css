@@ -2058,3 +2058,88 @@ pre.mono {
    否则「宽」「高」两个字就占掉一半宽度。 */
 .idprint-paper-w, .idprint-paper-h,
 .idprint-photo-w, .idprint-photo-h { max-width: 120px; }
+
+/* ---------- json-tree-view：JSON 树形视图 ----------
+   树是一行一个节点：左边按层级缩进，中间是键名和类型，右边是值的预览。
+   键名用等宽字体 —— 键名里常有下划线、点号，比例字体下缩进对不齐。 */
+.tree-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--code-bg);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius);
+  padding: 8px 4px;
+  /* 文档大了以后树会长到几千行 —— 限高 + 卡内滚动，
+     横向滚动也在这里，窄屏上才不会把整页撑宽（页面底部那条能左右拖的滚动条）。 */
+  max-height: 60vh;
+  overflow: auto;
+}
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: pre;         /* 键名里有空格也不折行 */
+}
+.tree-row:hover { background: var(--bg-hover); }
+.tree-row.is-selected { background: var(--primary-faded); }
+/* 命中行高亮，命中节点的祖先淡化 —— 一眼能看出命中在树的哪一支上 */
+.tree-row.is-hit .tree-key { color: var(--primary); font-weight: 600; }
+.tree-row.is-ancestor { opacity: 0.55; }
+/* 展开三角：没有子节点时也占同样的位置，键名才对得齐 */
+.tree-toggle {
+  flex: none;
+  width: 16px; height: 16px;
+  padding: 0;
+  border: none; background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px; line-height: 1;
+  text-align: center;
+}
+.tree-toggle:hover { color: var(--text-base); }
+.tree-key { color: var(--text-base); }
+.tree-type { color: var(--text-muted); font-size: 12px; }
+/* 值的预览可能很长 —— 截掉，别把行撑开 */
+.tree-value {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+  color: var(--text-muted);
+}
+.tree-count { color: var(--text-muted); font-size: 12px; }
+.tree-warn { color: #b06a00; }
+:root[data-theme='dark'] .tree-warn { color: #e0a54a; }
+
+/* 选中的节点：两行路径（点号路径 / JSONPath）各带一个复制按钮 */
+.tree-path-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.tree-path {
+  flex: 1 1 auto; min-width: 0;
+  padding: 4px 8px;
+  background: var(--bg-group-label);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: pre;
+  overflow-x: auto;
+}
+.tree-value-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 12px 0 4px;
+}
+.tree-pre {
+  margin: 0;
+  padding: 10px;
+  background: var(--code-bg);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius);
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre;
+}
