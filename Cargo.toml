@@ -2,8 +2,8 @@
 name = "it-tools"
 version = "0.0.2"
 edition = "2021"
-# 依赖树里真正要求最高的是 1.89：actix-web 4.19 / actix-http 3.21 /
-# actix-multipart 0.8.8 / bytestring 1.6 / uuid 1.29 / aes 0.9 都卡在这条线上
+# 依赖树里真正要求最高的是 1.89：actix-web 4.20 / actix-http 3.22 /
+# actix-multipart 0.8.9 / bytestring 1.6 / uuid 1.29 / aes 0.9 都卡在这条线上
 # （rcgen 0.14 只要 1.88）。
 rust-version = "1.89"
 description = "IT Tools — 开发者工具箱的 Rust 实现（actix-web + tera + rust-embed）"
